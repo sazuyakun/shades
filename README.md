@@ -17,6 +17,7 @@ Swift · SwiftUI + AppKit · Metal · AVFoundation · Apple Silicon only.
 |---|---|
 | Understand the architecture, the systems and the milestones | [docs/PLAN.md](docs/PLAN.md) |
 | See the target look of the app | [docs/DESIGN.md](docs/DESIGN.md) |
+| Know how the app behaves (flows, keymap, Claude) | [docs/UX.md](docs/UX.md) |
 | Work on the repo (agents) | [CLAUDE.md](CLAUDE.md) |
 | Know what the editor needs next | [Issues](https://github.com/sazuyakun/shades/issues). Feature requests come from real editing work in [shades-playbook](https://github.com/sazuyakun/shades-playbook) (private) |
 

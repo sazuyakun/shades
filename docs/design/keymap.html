@@ -1,0 +1,114 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Shades keymap</title>
+<style>
+:root{--bg:#161616;--key:#2b2b2b;--edge:#111;--text:#e8e8e8;--dim:#8a8a8a;
+  --cut:#e0754a;--trim:#d9b44a;--sel:#0a84ff;--play:#3fae6a;--hist:#b58cff;--mark:#4fb3c8;--ai:#ff5fa2;
+  font:13px/1.25 -apple-system,"SF Pro Text",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);padding:36px 40px}
+h1{font-size:22px;font-weight:600;margin-bottom:4px}
+.sub{color:var(--dim);margin-bottom:26px}
+.kb{display:flex;flex-direction:column;gap:7px;width:1100px}
+.r{display:flex;gap:7px}
+.k{width:68px;height:68px;border-radius:9px;background:var(--key);box-shadow:inset 0 -3px 0 var(--edge),0 0 0 1px #000;
+  padding:7px 8px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.k b{font-size:15px;font-weight:600}
+.k span{font-size:10px;line-height:1.15;color:#fff;opacity:.95}
+.k.off{opacity:.35}.k.off span{display:none}
+.k.w15{width:104px}.k.w175{width:121px}.k.w2{width:142px}.k.w225{width:158px}.k.w275{width:194px}.k.sp{width:412px}
+.c-cut{background:color-mix(in srgb,var(--cut) 55%,#2b2b2b)}
+.c-trim{background:color-mix(in srgb,var(--trim) 50%,#2b2b2b)}
+.c-sel{background:color-mix(in srgb,var(--sel) 50%,#2b2b2b)}
+.c-play{background:color-mix(in srgb,var(--play) 50%,#2b2b2b)}
+.c-hist{background:color-mix(in srgb,var(--hist) 55%,#2b2b2b)}
+.c-mark{background:color-mix(in srgb,var(--mark) 50%,#2b2b2b)}
+.c-ai{background:color-mix(in srgb,var(--ai) 55%,#2b2b2b)}
+.yours::after{content:"★";position:absolute;top:5px;right:7px;font-size:11px;color:#fff}
+.legend{display:flex;gap:18px;margin:24px 0 18px;flex-wrap:wrap}
+.legend div{display:flex;align-items:center;gap:7px;color:var(--dim)}
+.legend i{width:14px;height:14px;border-radius:4px;display:block}
+.hand{position:absolute;left:40px;top:118px;width:520px;height:300px;border:2px dashed rgba(255,255,255,.18);border-radius:18px;pointer-events:none}
+.hand em{position:absolute;bottom:-24px;left:12px;font-style:normal;color:var(--dim);font-size:12px}
+table{border-collapse:collapse;margin-top:6px;width:100%}
+td{padding:5px 10px;border-bottom:1px solid #262626;vertical-align:top}
+td:first-child{white-space:nowrap;font-weight:600;width:150px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px;width:1100px}
+h3{font-size:13px;margin:6px 0;color:var(--dim);font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+</style></head><body>
+<h1>Shades keymap</h1>
+<div class="sub">Final Cut base + your DaVinci Resolve changes (★). Left hand edits, right hand stays on the mouse.</div>
+
+<div class="kb">
+ <div class="r">
+  <div class="k off"><b>`</b></div><div class="k off"><b>1</b></div><div class="k off"><b>2</b></div><div class="k off"><b>3</b></div><div class="k off"><b>4</b></div><div class="k off"><b>5</b></div><div class="k off"><b>6</b></div><div class="k off"><b>7</b></div><div class="k off"><b>8</b></div><div class="k off"><b>9</b></div><div class="k off"><b>0</b></div><div class="k off"><b>−</b></div><div class="k off"><b>=</b></div><div class="k w15 c-cut"><b>⌫</b><span>Delete (gap) · ⇧ ripple ★</span></div>
+ </div>
+ <div class="r">
+  <div class="k w15 c-ai"><b>⇥</b><span>Ask Claude</span></div>
+  <div class="k c-trim yours"><b>Q</b><span>Ripple in → head<br>⇧ trim</span></div>
+  <div class="k c-trim yours"><b>W</b><span>Ripple out → head<br>⇧ trim</span></div>
+  <div class="k c-hist yours"><b>E</b><span>Undo</span></div>
+  <div class="k c-hist yours"><b>R</b><span>⌃R Redo</span></div>
+  <div class="k c-trim"><b>T</b><span>Trim tool</span></div>
+  <div class="k c-sel"><b>Y</b><span>Select forward</span></div>
+  <div class="k off"><b>U</b></div>
+  <div class="k c-mark"><b>I</b><span>Mark in</span></div>
+  <div class="k c-mark"><b>O</b><span>Mark out</span></div>
+  <div class="k off"><b>P</b></div><div class="k off"><b>[</b></div><div class="k off"><b>]</b></div><div class="k off"><b>\</b></div>
+ </div>
+ <div class="r">
+  <div class="k w175 off"><b>⇪</b></div>
+  <div class="k c-sel"><b>A</b><span>Select tool</span></div>
+  <div class="k c-cut yours"><b>S</b><span>Split at playhead</span></div>
+  <div class="k c-cut yours"><b>D</b><span>Delete gaps</span></div>
+  <div class="k c-mark"><b>F</b><span>Match frame</span></div>
+  <div class="k c-mark"><b>G</b><span>Flag</span></div>
+  <div class="k off"><b>H</b></div>
+  <div class="k c-play"><b>J</b><span>Play reverse</span></div>
+  <div class="k c-play"><b>K</b><span>Stop</span></div>
+  <div class="k c-play"><b>L</b><span>Play forward</span></div>
+  <div class="k off"><b>;</b></div><div class="k off"><b>'</b></div><div class="k w2 off"><b>⏎</b></div>
+ </div>
+ <div class="r">
+  <div class="k w225 off"><b>⇧</b></div>
+  <div class="k off"><b>Z</b></div>
+  <div class="k c-mark"><b>X</b><span>Mark clip</span></div>
+  <div class="k off"><b>C</b></div>
+  <div class="k c-sel"><b>V</b><span>Select edit · ⇧ clip</span></div>
+  <div class="k c-cut"><b>B</b><span>Blade tool · ⌘B cut</span></div>
+  <div class="k c-sel"><b>N</b><span>Snapping</span></div>
+  <div class="k c-mark"><b>M</b><span>Marker</span></div>
+  <div class="k c-trim"><b>,</b><span>Nudge −1f · ⇧ −5f</span></div>
+  <div class="k c-trim"><b>.</b><span>Nudge +1f · ⇧ +5f</span></div>
+  <div class="k off"><b>/</b></div><div class="k w275 off"><b>⇧</b></div>
+ </div>
+ <div class="r">
+  <div class="k off"><b>fn</b></div><div class="k off"><b>⌃</b></div><div class="k off"><b>⌥</b></div><div class="k w15 off"><b>⌘</b></div>
+  <div class="k sp c-play"><b>Space</b><span>Play / pause</span></div>
+  <div class="k w15 off"><b>⌘</b></div><div class="k off"><b>⌥</b></div>
+  <div class="k c-play"><b>←</b><span>−1 frame</span></div>
+  <div class="k c-sel"><b>↑ ↓</b><span>Prev / next clip</span></div>
+  <div class="k c-play"><b>→</b><span>+1 frame</span></div>
+ </div>
+</div>
+
+<div class="legend">
+ <div><i style="background:var(--cut)"></i>Cut / delete</div><div><i style="background:var(--trim)"></i>Trim / nudge</div>
+ <div><i style="background:var(--sel)"></i>Select / tools</div><div><i style="background:var(--play)"></i>Playback</div>
+ <div><i style="background:var(--hist)"></i>Undo / redo</div><div><i style="background:var(--mark)"></i>Marks</div>
+ <div><i style="background:var(--ai)"></i>Claude</div><div>★ from your Resolve setup</div>
+</div>
+
+<div class="cols">
+ <div><h3>Also</h3><table>
+  <tr><td>⌘Z · ⇧⌘Z</td><td>Undo / redo too (standard Mac, kept alongside E / ⌃R)</td></tr>
+  <tr><td>⌥⌘J</td><td>Join clips ★</td></tr>
+  <tr><td>⌥↑ · ⌥↓</td><td>Move clip up / down a track</td></tr>
+  <tr><td>⌘= · ⌘− · ⇧Z</td><td>Zoom in / out / fit timeline</td></tr>
+ </table></div>
+ <div><h3>Claude</h3><table>
+  <tr><td>⇥ Tab</td><td>Ask Claude about the selection (left hand, one key)</td></tr>
+  <tr><td>⌘K</td><td>Same, for people used to command palettes</td></tr>
+  <tr><td>Esc</td><td>Close prompt · stop Claude while it works</td></tr>
+ </table></div>
+</div>
+</body></html>
