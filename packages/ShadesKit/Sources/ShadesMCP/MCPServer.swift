@@ -9,24 +9,31 @@ public final class MCPServer {
 
   // MARK: Lifecycle
 
-  public init(editor: Editor, player: Player) {
+  public init(editor: Editor, player: Player, port: UInt16 = defaultPort) {
     handler = ToolHandler(editor: editor, player: player)
+    self.port = port
   }
 
   // MARK: Public
 
-  /// The local port the relay connects to.
-  public static let port: UInt16 = 4747
+  /// The local port the relay connects to. Must match `Relay.port` in apps/mcp.
+  public static let defaultPort: UInt16 = 4747
 
-  /// Starts accepting connections from Claude.
+  public let port: UInt16
+
+  /// Starts accepting connections from Claude, on localhost only.
   public func start() throws(ToolError) {
-    let number = Self.port
-    let endpointPort = NWEndpoint.Port(integerLiteral: number)
+    let number = port
     let parameters = NWParameters.tcp
-    parameters.requiredLocalEndpoint = .hostPort(host: .ipv4(.loopback), port: endpointPort)
+    // why: binding through the required endpoint (not `NWListener(using:on:)`, which rejects a
+    // port given twice) keeps the server reachable from this Mac only.
+    parameters.requiredLocalEndpoint = .hostPort(
+      host: .ipv4(.loopback),
+      port: NWEndpoint.Port(integerLiteral: number),
+    )
     let listener: NWListener
     do {
-      listener = try NWListener(using: parameters, on: endpointPort)
+      listener = try NWListener(using: parameters)
     } catch {
       logger.error("server.listenFailed port=\(number, privacy: .public)")
       throw .listenFailed(port: number)

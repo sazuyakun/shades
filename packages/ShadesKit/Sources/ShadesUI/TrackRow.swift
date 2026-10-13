@@ -14,8 +14,8 @@ struct TrackRow: View {
     HStack(spacing: 0) {
       Text(track.name)
         .font(.caption.weight(.semibold))
-        .frame(width: TimelinePane.headerWidth, alignment: .leading)
         .padding(.leading, 8)
+        .frame(width: TimelinePane.headerWidth, alignment: .leading)
         .frame(maxHeight: .infinity)
         .background(Theme.trackHeader)
       ZStack(alignment: .leading) {

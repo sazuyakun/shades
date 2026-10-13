@@ -21,15 +21,16 @@ public struct EditorView: View {
           onImport: { urls in Task { await importMedia(urls) } },
           onAppend: appendClip,
         )
-        .frame(minWidth: 220, idealWidth: 300)
+        .frame(minWidth: 220, idealWidth: 300, maxWidth: 420)
         ViewerPane()
-          .frame(minWidth: 400)
+          .frame(minWidth: 400, maxWidth: .infinity)
+          .layoutPriority(1)
         InspectorPane(selection: selection)
-          .frame(minWidth: 220, idealWidth: 280)
+          .frame(minWidth: 220, idealWidth: 280, maxWidth: 360)
       }
-      .frame(minHeight: 320)
+      .frame(minHeight: 320, idealHeight: 560)
       TimelinePane()
-        .frame(minHeight: 200, idealHeight: 280)
+        .frame(minHeight: 200, idealHeight: 300)
     }
     .background(Theme.window)
     .preferredColorScheme(.dark)
