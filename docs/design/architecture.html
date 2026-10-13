@@ -1,0 +1,101 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Shades architecture</title>
+<style>
+:root{--bg:#161616;--card:#232323;--line:#3a3a3a;--text:#ececec;--dim:#8f8f8f;
+ --you:#0a84ff;--ai:#b58cff;--cmd:#e0a24a;--model:#4fb3c8;--feat:#3fae6a;--out:#e0754a;
+ font:14px/1.35 -apple-system,"SF Pro Text",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);padding:40px 48px;width:1200px}
+h1{font-size:24px;font-weight:600}
+.sub{color:var(--dim);margin:4px 0 28px}
+.row{display:flex;gap:16px;justify-content:center;align-items:stretch}
+.box{background:var(--card);border-radius:12px;padding:14px 16px;border:1px solid var(--line);position:relative}
+.box h3{font-size:15px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.box p{color:var(--dim);font-size:12.5px}
+.box code{font:12px "SF Mono",ui-monospace,monospace;color:#cfcfcf}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.arrow{height:38px;display:flex;justify-content:center;align-items:center;color:var(--dim);font-size:12px;gap:220px}
+.arrow span{display:flex;flex-direction:column;align-items:center}
+.arrow span::before{content:"";width:2px;height:18px;background:#555;margin-bottom:2px}
+.arrow span::after{content:"▼";font-size:10px;color:#777;line-height:1}
+.wide{width:100%}
+.mod{flex:1;padding:10px 10px;text-align:center}
+.mod h3{justify-content:center;font-size:13.5px}
+.edge-you{border-color:color-mix(in srgb,var(--you) 60%,#333)}
+.edge-ai{border-color:color-mix(in srgb,var(--ai) 60%,#333)}
+.edge-cmd{border-color:color-mix(in srgb,var(--cmd) 70%,#333);background:color-mix(in srgb,var(--cmd) 10%,var(--card))}
+.edge-model{border-color:color-mix(in srgb,var(--model) 60%,#333)}
+.edge-feat{border-color:color-mix(in srgb,var(--feat) 55%,#333)}
+.edge-out{border-color:color-mix(in srgb,var(--out) 60%,#333)}
+.group{border:1.5px dashed #444;border-radius:16px;padding:18px;position:relative;margin-top:4px}
+.group>.tag{position:absolute;top:-10px;left:18px;background:var(--bg);padding:0 8px;color:var(--dim);font-size:12px;letter-spacing:.5px;text-transform:uppercase}
+.repo{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:30px}
+.repo .box{padding:12px 14px}
+.note{color:var(--dim);font-size:12.5px;text-align:center;margin-top:10px}
+</style></head><body>
+<h1>Shades architecture</h1>
+<div class="sub">You and Claude drive the same editor through the same commands. If a command exists, Claude can use it.</div>
+
+<div class="row">
+  <div class="box edge-you" style="width:470px"><h3><span class="dot" style="background:var(--you)"></span>You</h3>
+    <p>Mouse, keyboard (the locked keymap), the Tab pop-up on a selection</p></div>
+  <div class="box edge-ai" style="width:470px"><h3><span class="dot" style="background:var(--ai)"></span>Claude</h3>
+    <p>Claude Code / Claude Desktop on your plan, or API-key mode inside Shades</p></div>
+</div>
+
+<div class="arrow"><span>clicks &amp; keys</span><span>MCP over localhost</span></div>
+
+<div class="row">
+  <div class="box edge-you" style="width:470px"><h3>ShadesUI</h3>
+    <p>Viewer, timeline, media browser, inspector. SwiftUI + Metal/AppKit views</p></div>
+  <div class="box edge-ai" style="width:470px"><h3>ShadesBridge</h3>
+    <p>MCP server: turns every command into a Claude tool, plus <code>get_selection</code>, <code>render_frame</code></p></div>
+</div>
+
+<div class="arrow" style="gap:0"><span>both send the same commands</span></div>
+
+<div class="box edge-cmd wide"><h3><span class="dot" style="background:var(--cmd)"></span>ShadesCommands: the single door to change anything</h3>
+  <p>Every edit is a typed command (cut, trim, grade, add title…). Registry · undo / redo (one step per Claude request) · JSON schemas for Claude</p></div>
+
+<div class="arrow" style="gap:0"><span>commands change the model</span></div>
+
+<div class="row">
+  <div class="box edge-model" style="flex:1"><h3><span class="dot" style="background:var(--model)"></span>ShadesCore</h3>
+    <p>The model as plain data: Project · Sequence · Track · Clip · time</p></div>
+  <div class="box edge-model" style="flex:1"><h3>ShadesDocument</h3>
+    <p><code>.shades</code> package (readable JSON) · autosave · snapshots</p></div>
+</div>
+
+<div class="arrow" style="gap:0"><span>feature systems read the model and do the work</span></div>
+
+<div class="group"><span class="tag">feature modules</span>
+  <div class="row">
+    <div class="box edge-feat mod"><h3>Media</h3><p>import · thumbnails · waveforms · proxies</p></div>
+    <div class="box edge-feat mod"><h3>Captions</h3><p>transcript · Hinglish · styles</p></div>
+    <div class="box edge-feat mod"><h3>Audio</h3><p>mixer · ducking · beats</p></div>
+    <div class="box edge-feat mod"><h3>Color</h3><p>grades · LUTs · scopes</p></div>
+    <div class="box edge-feat mod"><h3>Graphics</h3><p>titles · templates</p></div>
+  </div>
+  <div class="row" style="margin-top:14px">
+    <div class="box edge-out" style="flex:2"><h3><span class="dot" style="background:var(--out)"></span>ShadesEngine</h3>
+      <p>AVFoundation decode → <b>Metal compositor</b> (effects, color, shaders Claude can write) → frames</p></div>
+    <div class="box edge-out" style="flex:1"><h3>ShadesExport</h3><p>presets · hardware encode · queue</p></div>
+  </div>
+</div>
+
+<div class="arrow" style="gap:180px"><span>to the viewer</span><span>Claude "sees" frames</span><span>to files</span></div>
+
+<div class="row">
+  <div class="box" style="flex:1;text-align:center"><h3 style="justify-content:center">Viewer</h3><p>preview = export</p></div>
+  <div class="box edge-ai" style="flex:1;text-align:center"><h3 style="justify-content:center">render_frame</h3><p>back to Claude to check its work</p></div>
+  <div class="box" style="flex:1;text-align:center"><h3 style="justify-content:center">YouTube 4:3 · Reel 9:16</h3><p>exported videos</p></div>
+</div>
+
+<div class="repo">
+  <div class="box"><h3>apps/mac</h3><p>Shades.app: thin shell, windows, menus</p></div>
+  <div class="box"><h3>packages/ShadesKit</h3><p>every module above</p></div>
+  <div class="box"><h3>apps/web</h3><p>website + direct download</p></div>
+  <div class="box"><h3>tools/shades-mcp</h3><p>shim for Claude Desktop</p></div>
+</div>
+<div class="note">Monorepo layout · each app and package has its own CLAUDE.md</div>
+</body></html>

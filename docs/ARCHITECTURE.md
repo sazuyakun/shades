@@ -1,5 +1,7 @@
 # Shades: code structure
 
+![Shades architecture](design/architecture.png)
+
 ## Layout
 ```
 shades/
