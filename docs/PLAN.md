@@ -20,7 +20,7 @@ Shades.app  (Swift 6 · SwiftUI + AppKit · Metal · AVFoundation · Apple Silic
 ├── Audio        mixer, fades, ducking, loudness
 ├── Captions     on-device transcription, caption track, styles
 ├── Export       presets, hardware encode, queue
-└── Bridge       MCP server: every command is an AI tool
+└── MCP          MCP server: every command is an AI tool
         ▲  localhost
         │
 Claude Code / Claude Desktop  (your own Pro / Max plan)

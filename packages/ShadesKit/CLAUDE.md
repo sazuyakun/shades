@@ -15,11 +15,11 @@ All real Mac code lives here as a Swift package with one module per system. The 
 | ShadesAudio | Mixer, ducking, loudness, beats |
 | ShadesCaptions | Transcription, caption styles |
 | ShadesExport | Presets, encode queue |
-| ShadesBridge | MCP server: commands become Claude tools |
+| ShadesMCP | MCP server: commands become Claude tools |
 | ShadesUI | SwiftUI views (AppKit/Metal where SwiftUI is too slow) |
 
 ## Rules
-- **Dependencies point one way:** Core → Commands / Document → feature modules → Bridge and UI → the app. Core imports only Foundation, and nothing imports ShadesUI except the app.
+- **Dependencies point one way:** Core → Commands / Document → feature modules → MCP and UI → the app. Core imports only Foundation, and nothing imports ShadesUI except the app.
 - **Every edit is a command** (`Codable`: name, description, parameters). Registering it exposes it to menus, shortcuts, undo and Claude. Never add an AI-only shortcut, and never let the UI mutate the model directly.
 - The model is plain data. The engine reads it and builds what plays; ShadesUI never touches AVFoundation.
 - Shaders ship as `.metal` source and compile at runtime (so Claude can write effects).

@@ -26,14 +26,14 @@ shades/
 │       │   ├── ShadesAudio/      mixer, ducking, loudness, beats
 │       │   ├── ShadesCaptions/   transcription, caption styles
 │       │   ├── ShadesExport/     presets, encode queue
-│       │   ├── ShadesBridge/     MCP server: commands become Claude tools
+│       │   ├── ShadesMCP/     MCP server: commands become Claude tools
 │       │   └── ShadesUI/         SwiftUI views (AppKit where SwiftUI is too slow)
 │       └── Tests/
 └── docs/
 ```
 
 ## Rules
-1. **Dependencies point one way:** Core → Commands / Document → feature modules (Media, Engine, Color, Graphics, Audio, Captions, Export) → Bridge and UI → the app. Core imports only Foundation, and nothing imports UI except the app.
+1. **Dependencies point one way:** Core → Commands / Document → feature modules (Media, Engine, Color, Graphics, Audio, Captions, Export) → MCP and UI → the app. Core imports only Foundation, and nothing imports UI except the app.
 2. **Every edit is a command.** A command is a small `Codable` struct with a name, a description and parameters. The registry exposes each command to menus and shortcuts, undo, and Claude (as an MCP tool). A new feature means a new command, and Claude gets it automatically.
 3. **The model is plain data.** The engine reads the model and builds what plays. The UI never touches AVFoundation directly.
 4. **Shaders ship as `.metal` source and compile at runtime**, so Claude can write new effects while the app runs.
