@@ -203,6 +203,18 @@ Build order is chosen so Claude gets useful early: once the transcript exists (M
 
 **Honest timeline:** M0 is a day. Full v1 is several weeks of focused work.
 
+### Known issues
+Problems found but not fixed yet, each assigned to the milestone that fixes it. When one is fixed, delete its row in the same commit.
+
+| Issue | Found in | Fix in |
+|---|---|---|
+| The app still uses the v1 grey look; DESIGN.md v2 (warm near-black, hairlines, title pill, capsules) is locked | M0 | Start of M1 |
+| Portrait iPhone video would show sideways: the compositor ignores each track's `preferredTransform` | M0 | M1 |
+| Real iPhone footage (HEVC, HDR, rotation) is untested | M0 | M1 |
+| Render size comes from the first clip's media, not the project's format preset (YouTube 4:3, Reel 9:16) | M0 | M1, with presets on New Project |
+| If the Claude server can't start (e.g. port 4747 in use), the app shows no warning; it's only logged | M0 | M2, Claude setup sheet |
+| Every edit rebuilds the whole playback composition; fine for short projects, slow for long ones | M0 | M5, performance pass |
+
 ## 7. Constraints & setup notes
 - Dev machine: **M1, 8 GB RAM, macOS 26**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.
 - **Minimum macOS: 15 (Sequoia).** Apple Silicon only.

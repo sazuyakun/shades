@@ -10,6 +10,8 @@ Open-source, AI-native video editor for Mac. A monorepo with exactly two kinds o
 
 No slop: no dead code, no commented-out code, no unused parameters, no TODOs without an issue, no copy-paste duplication.
 
+**Every problem you find gets fixed or written down.** If you can't fix it now, add it to the Known issues table in `docs/PLAN.md` with the milestone that will fix it. Never leave an issue only in chat or in a code comment. When you fix one, remove its row in the same commit.
+
 ## Teaching the user Swift (always)
 The user is **new to Swift and Apple development** and knows JavaScript/TypeScript and React. Every session doubles as a lesson:
 - **Explain each Swift or Apple concept the first time it shows up** in code you write or change: what it is, why we use it here, and a one-line JS/TS/React comparison when one exists (e.g. "`struct` is a value type, like a frozen object that's copied on assignment", "`@Observable` is like a store that re-renders the views reading it", "`throws` is like a typed, compiler-checked `{ result, error }`").
