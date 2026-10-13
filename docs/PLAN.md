@@ -116,6 +116,7 @@ Claude Code / Claude Desktop  (your own Pro / Max plan)
 - Hardware HEVC / H.264 encode, background export queue.
 
 ### 3.10 App shell
+Look and layout are decided in [DESIGN.md](DESIGN.md).
 - Viewer, inspector, media browser, timeline, color page.
 - Keyboard shortcuts, preferences, dark UI.
 - Performance HUD (fps, dropped frames, memory) from day one.
