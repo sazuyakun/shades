@@ -13,9 +13,9 @@ struct FrameRendererTests {
 
   @Test
   func `a rendered frame shows the clip's color`() async throws {
-    let project = try await makeProject(red: 255, green: 0, blue: 0)
+    let project = try await makeProject(left: .red, right: .red)
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
-    let (red, green, blue) = try centerPixel(of: png)
+    let (red, green, blue) = try pixel(of: png, x: 0.5, y: 0.5)
     #expect(red > 200)
     #expect(green < 60)
     #expect(blue < 60)
@@ -23,17 +23,25 @@ struct FrameRendererTests {
 
   @Test
   func `a gap in the timeline renders black instead of failing`() async throws {
-    let project = try await makeProject(
-      red: 255,
-      green: 0,
-      blue: 0,
-      startingAt: MediaTime(seconds: 1),
-    )
+    let project = try await makeProject(left: .red, right: .red, startingAt: MediaTime(seconds: 1))
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
-    let (red, green, blue) = try centerPixel(of: png)
+    let (red, green, blue) = try pixel(of: png, x: 0.5, y: 0.5)
     #expect(red < 20)
     #expect(green < 20)
     #expect(blue < 20)
+  }
+
+  @Test
+  func `portrait video is drawn upright using its rotation`() async throws {
+    // Stored landscape, red left / blue right, tagged "rotate 90° clockwise" like an iPhone.
+    // Upright, red must be on top and blue at the bottom.
+    let quarterTurn = CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: 180, ty: 0)
+    let project = try await makeProject(left: .red, right: .blue, transform: quarterTurn)
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    let top = try pixel(of: png, x: 0.5, y: 0.25)
+    let bottom = try pixel(of: png, x: 0.5, y: 0.75)
+    #expect(top.0 > 200 && top.2 < 60)
+    #expect(bottom.2 > 200 && bottom.0 < 60)
   }
 
   @Test
@@ -45,19 +53,21 @@ struct FrameRendererTests {
 
   // MARK: Private
 
-  /// A project whose timeline is one 1-second clip of a solid color, placed at `start`.
+  /// A project whose timeline is one 1-second 320×180 test clip, placed at `start`. The media's
+  /// size is the upright (display) size, as `MediaLoader` reports it.
   private func makeProject(
-    red: UInt8,
-    green: UInt8,
-    blue: UInt8,
+    left: FixtureColor,
+    right: FixtureColor,
+    transform: CGAffineTransform = .identity,
     startingAt start: MediaTime = .zero,
   ) async throws -> Project {
-    let url = try await VideoFixture.make(red: red, green: green, blue: blue)
+    let url = try await VideoFixture.make(left: left, right: right, transform: transform)
+    let upright = CGSize(width: 320, height: 180).applying(transform)
     let media = Media(
       url: url,
       duration: MediaTime(seconds: 1),
-      width: 320,
-      height: 180,
+      width: Int(abs(upright.width)),
+      height: Int(abs(upright.height)),
       hasAudio: false,
     )
     let clip = Clip(
@@ -69,8 +79,9 @@ struct FrameRendererTests {
     return Project(media: [media], timeline: Timeline(tracks: [Track(name: "V1", clips: [clip])]))
   }
 
-  /// Decodes a PNG and returns the RGB of its middle pixel.
-  private func centerPixel(of png: Data) throws -> (UInt8, UInt8, UInt8) {
+  /// Decodes a PNG and returns the RGB at a point given as fractions of its width and height
+  /// (0, 0 is the top-left corner).
+  private func pixel(of png: Data, x: Double, y: Double) throws -> (UInt8, UInt8, UInt8) {
     let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
     let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
     var pixel = [UInt8](repeating: 0, count: 4)
@@ -83,11 +94,12 @@ struct FrameRendererTests {
       space: CGColorSpaceCreateDeviceRGB(),
       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
     ))
-    let x = -Double(image.width / 2)
-    let y = -Double(image.height / 2)
+    let width = Double(image.width)
+    let height = Double(image.height)
+    // why: CoreGraphics' origin is bottom-left, so the row is counted up from the bottom.
     context.draw(
       image,
-      in: CGRect(x: x, y: y, width: Double(image.width), height: Double(image.height)),
+      in: CGRect(x: -x * width, y: -(1 - y) * height, width: width, height: height),
     )
     return (pixel[0], pixel[1], pixel[2])
   }

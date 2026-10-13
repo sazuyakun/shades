@@ -36,7 +36,11 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     }
     do {
       // why: there's no source frame in a gap between clips; that's normal and draws black.
-      try renderer.draw(request.sourceFrame(byTrackID: instruction.trackID), into: output)
+      try renderer.draw(
+        request.sourceFrame(byTrackID: instruction.trackID),
+        transform: instruction.transform,
+        into: output,
+      )
     } catch {
       request.finish(with: error)
       return

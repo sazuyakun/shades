@@ -15,6 +15,15 @@ struct MediaLoaderTests {
   }
 
   @Test
+  func `a rotated video reports its upright size`() async throws {
+    let quarterTurn = CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: 180, ty: 0)
+    let url = try await VideoFixture.make(left: .red, right: .blue, transform: quarterTurn)
+    let media = try await MediaLoader.load(url)
+    #expect(media.width == 180)
+    #expect(media.height == 320)
+  }
+
+  @Test
   func `loading a missing file throws fileMissing`() async {
     let url = URL(fileURLWithPath: "/nonexistent/clip.mov")
     await #expect(throws: MediaError.fileMissing(url)) {

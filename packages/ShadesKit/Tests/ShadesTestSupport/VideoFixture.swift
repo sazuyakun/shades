@@ -1,11 +1,11 @@
 import AVFoundation
 
-/// Writes small solid-color test videos, so tests never depend on real footage.
+/// Writes small test videos, so tests never depend on real footage.
 public enum VideoFixture {
 
   // MARK: Public
 
-  /// Writes a silent H.264 `.mov` of one solid color to a temporary file and returns its URL.
+  /// Writes a silent H.264 `.mov` of one solid color and returns its URL.
   public static func make(
     red: UInt8,
     green: UInt8,
@@ -13,6 +13,20 @@ public enum VideoFixture {
     seconds: Int = 1,
     width: Int = 320,
     height: Int = 180,
+  ) async throws(FixtureError) -> URL {
+    let color = FixtureColor(red: red, green: green, blue: blue)
+    return try await make(left: color, right: color, seconds: seconds, width: width, height: height)
+  }
+
+  /// Writes a silent H.264 `.mov` whose stored frames are `left` on the left half and `right` on
+  /// the right half, tagged with `transform` the way an iPhone tags portrait video.
+  public static func make(
+    left: FixtureColor,
+    right: FixtureColor,
+    seconds: Int = 1,
+    width: Int = 320,
+    height: Int = 180,
+    transform: CGAffineTransform = .identity,
   ) async throws(FixtureError) -> URL {
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString)
@@ -31,6 +45,7 @@ public enum VideoFixture {
         AVVideoHeightKey: height,
       ],
     )
+    input.transform = transform
     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
       assetWriterInput: input,
       sourcePixelBufferAttributes: nil,
@@ -40,7 +55,7 @@ public enum VideoFixture {
       throw .writerFailed
     }
     writer.startSession(atSourceTime: .zero)
-    let frame = try solidFrame(red: red, green: green, blue: blue, width: width, height: height)
+    let frame = try splitFrame(left: left, right: right, width: width, height: height)
     for index in 0 ..< seconds * 30 {
       while !input.isReadyForMoreMediaData {
         try? await Task.sleep(for: .milliseconds(5)) // why: a cancelled sleep just polls again.
@@ -62,10 +77,9 @@ public enum VideoFixture {
 
   // MARK: Private
 
-  private static func solidFrame(
-    red: UInt8,
-    green: UInt8,
-    blue: UInt8,
+  private static func splitFrame(
+    left: FixtureColor,
+    right: FixtureColor,
     width: Int,
     height: Int,
   ) throws(FixtureError) -> CVPixelBuffer {
@@ -83,10 +97,11 @@ public enum VideoFixture {
     let pixels = base.assumingMemoryBound(to: UInt8.self)
     for row in 0 ..< height {
       for column in 0 ..< width {
+        let color = column < width / 2 ? left : right
         let offset = row * bytesPerRow + column * 4
-        pixels[offset] = blue
-        pixels[offset + 1] = green
-        pixels[offset + 2] = red
+        pixels[offset] = color.blue
+        pixels[offset + 1] = color.green
+        pixels[offset + 2] = color.red
         pixels[offset + 3] = 255
       }
     }

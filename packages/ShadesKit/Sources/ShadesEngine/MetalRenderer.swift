@@ -19,9 +19,14 @@ final class MetalRenderer: Sendable {
 
   // MARK: Internal
 
-  /// Draws `source` scaled to fit inside `output`, with black bars where they differ in shape.
-  /// With no source (a gap in the timeline), the output is just black.
-  func draw(_ source: CVPixelBuffer?, into output: CVPixelBuffer) throws(EngineError) {
+  /// Draws `source` upright (applying `transform`, its rotation) and scaled to fit inside
+  /// `output`, with black bars where they differ in shape. With no source (a gap in the
+  /// timeline), the output is just black.
+  func draw(
+    _ source: CVPixelBuffer?,
+    transform: CGAffineTransform,
+    into output: CVPixelBuffer,
+  ) throws(EngineError) {
     let outputTexture = try texture(for: output)
     let pass = MTLRenderPassDescriptor()
     pass.colorAttachments[0].texture = outputTexture
@@ -37,9 +42,13 @@ final class MetalRenderer: Sendable {
     }
     if let source {
       let sourceTexture = try texture(for: source)
-      var scale = fitScale(source: sourceTexture, output: outputTexture)
+      var uniforms = FrameUniforms(
+        stored: CGSize(width: sourceTexture.width, height: sourceTexture.height),
+        transform: transform,
+        output: CGSize(width: outputTexture.width, height: outputTexture.height),
+      )
       encoder.setRenderPipelineState(pipeline)
-      encoder.setVertexBytes(&scale, length: MemoryLayout<SIMD2<Float>>.size, index: 0)
+      encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.size, index: 0)
       encoder.setFragmentTexture(sourceTexture, index: 0)
       encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
     }
@@ -100,14 +109,6 @@ final class MetalRenderer: Sendable {
       throw .renderFailed
     }
     return texture
-  }
-
-  private func fitScale(source: any MTLTexture, output: any MTLTexture) -> SIMD2<Float> {
-    let sourceAspect = Float(source.width) / Float(source.height)
-    let outputAspect = Float(output.width) / Float(output.height)
-    return sourceAspect > outputAspect
-      ? SIMD2(1, outputAspect / sourceAspect)
-      : SIMD2(sourceAspect / outputAspect, 1)
   }
 
 }
