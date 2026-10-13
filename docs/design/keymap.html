@@ -47,7 +47,7 @@ h3{font-size:13px;margin:6px 0;color:var(--dim);font-weight:600;text-transform:u
   <div class="k c-trim yours"><b>Q</b><span>Ripple in → head<br>⇧ trim</span></div>
   <div class="k c-trim yours"><b>W</b><span>Ripple out → head<br>⇧ trim</span></div>
   <div class="k c-hist yours"><b>E</b><span>Undo</span></div>
-  <div class="k c-hist yours"><b>R</b><span>⌃R Redo</span></div>
+  <div class="k c-cut"><b>R</b><span>Append<br>⌃R redo ★</span></div>
   <div class="k c-trim"><b>T</b><span>Trim tool</span></div>
   <div class="k c-sel"><b>Y</b><span>Select forward</span></div>
   <div class="k off"><b>U</b></div>
@@ -70,9 +70,9 @@ h3{font-size:13px;margin:6px 0;color:var(--dim);font-weight:600;text-transform:u
  </div>
  <div class="r">
   <div class="k w225 off"><b>⇧</b></div>
-  <div class="k off"><b>Z</b></div>
+  <div class="k c-cut"><b>Z</b><span>Insert<br>⌥ overwrite</span></div>
   <div class="k c-mark"><b>X</b><span>Mark clip</span></div>
-  <div class="k off"><b>C</b></div>
+  <div class="k c-cut"><b>C</b><span>Place on top</span></div>
   <div class="k c-sel"><b>V</b><span>Select edit · ⇧ clip</span></div>
   <div class="k c-cut"><b>B</b><span>Blade tool · ⌘B cut</span></div>
   <div class="k c-sel"><b>N</b><span>Snapping</span></div>
@@ -92,7 +92,7 @@ h3{font-size:13px;margin:6px 0;color:var(--dim);font-weight:600;text-transform:u
 </div>
 
 <div class="legend">
- <div><i style="background:var(--cut)"></i>Cut / delete</div><div><i style="background:var(--trim)"></i>Trim / nudge</div>
+ <div><i style="background:var(--cut)"></i>Cut / add / delete</div><div><i style="background:var(--trim)"></i>Trim / nudge</div>
  <div><i style="background:var(--sel)"></i>Select / tools</div><div><i style="background:var(--play)"></i>Playback</div>
  <div><i style="background:var(--hist)"></i>Undo / redo</div><div><i style="background:var(--mark)"></i>Marks</div>
  <div><i style="background:var(--ai)"></i>Claude</div><div>★ from your Resolve setup</div>
@@ -104,6 +104,7 @@ h3{font-size:13px;margin:6px 0;color:var(--dim);font-weight:600;text-transform:u
   <tr><td>⌥⌘J</td><td>Join clips ★</td></tr>
   <tr><td>⌥↑ · ⌥↓</td><td>Move clip up / down a track</td></tr>
   <tr><td>⌘= · ⌘− · ⇧Z</td><td>Zoom in / out / fit timeline</td></tr>
+  <tr><td>⌘S · ⌘E</td><td>Named checkpoint · Export</td></tr>
  </table></div>
  <div><h3>Claude</h3><table>
   <tr><td>⇥ Tab</td><td>Ask Claude about the selection (left hand, one key)</td></tr>
