@@ -53,7 +53,7 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 - **Split big views into separate `View` structs**, never into `some View` computed properties or functions.
 - Dependencies come in through the initializer or SwiftUI `@Environment` (declared with `@Entry`). No singletons.
 
-**Concurrency:** ShadesUI and the apps use main-actor default isolation. All other modules are nonisolated by default; heavy work is marked `@concurrent` or lives in an `actor`. Never do video, audio or file work on the main actor.
+**Concurrency:** ShadesUI and the apps use main-actor default isolation. All other modules are nonisolated by default; heavy work is marked `@concurrent` or lives in an `actor`. Never do video, audio or file work on the main actor. Every target enables Swift 6.2 "approachable concurrency" (`NonisolatedNonsendingByDefault`, `InferIsolatedConformances`), so async functions run on their caller's actor unless marked `@concurrent`. When an Apple async API would have to take a non-`Sendable` object to another thread, use its callback form inside `withCheckedContinuation` instead (see `FrameRenderer`).
 
 **Files and declarations:**
 - One main type per file; the file is named after the type. Small private helpers used only by that type may share the file.
@@ -69,13 +69,14 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 **Errors:**
 - Fallible functions use **typed throws**: `func importClip(at url: URL) throws(MediaError) -> Clip`. This is the "result or error" contract: a value or an error, never both, and the compiler forces every caller to handle it with `try`.
 - `Result` is only used where an outcome is **stored** (e.g. a finished export job), never as a return type.
-- Each module has one error enum named after it (`MediaError`, `EngineError`, `CommandError`…) with specific cases carrying context.
+- Each module has one error enum named after it (`MediaError`, `EngineError`, `CommandError`…) with specific cases carrying context. Exception: ShadesMCP's is `ToolError`, because the MCP library owns `MCPError`.
+- Every error enum conforms to `LocalizedError` in an extension in the same file, and its `errorDescription` is the plain-words message for the user and Claude (what went wrong and what to do). Wrapping cases return the wrapped error's description.
 - **Bubble by wrapping:** when an error crosses into another module, wrap it in that module's error with context: `CommandError.importFailed(MediaError)`. Never pass a foreign error through unchanged.
 - Never swallow errors: no empty `catch`, and `try?` only where `nil` is a genuinely valid outcome (with a `// why:` comment).
 - Errors surface in exactly two places: **ShadesUI** turns them into a toast or alert in plain words with what to do next, and **ShadesMCP** turns them into an MCP tool error so Claude can read it and retry. Lower layers never show UI.
 
 **Logging:**
-- `print()` is banned. Each module has exactly one `Logger(subsystem: "com.sazuyakun.shades", category: "<Module>")` (category is the module name without the prefix, e.g. `Media`). This immutable logger constant is the only allowed module-level global.
+- `print()` is banned. Each module has exactly one `let logger = Logger(subsystem: "com.sazuyakun.shades", category: "<Module>")` in a file named `Log.swift` (category is the module name without the prefix, e.g. `Media`). This immutable logger constant is the only allowed module-level global.
 - **Log once, where it happens.** The function where a failure originates logs it, then throws. Code that bubbles or wraps an error never logs it again.
 - **Only two levels:**
   - `error`: a failure, logged once at its origin.
@@ -94,12 +95,18 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 - Use `#expect` for checks and `try #require` for preconditions and unwrapping. No `guard`, `try!` or force unwraps in tests.
 - **Every Command and all Core, Document and feature-module logic** gets tests in the same commit. Views aren't unit-tested; rendering is covered by frame snapshot tests.
 - A bug fix starts with a failing test that reproduces it.
+- Tests never use real footage. Shared helpers (e.g. `VideoFixture`, which writes solid-color test videos) live in the `ShadesTestSupport` target.
+- Run all tests: `swift test --package-path packages/ShadesKit`.
+
+**Naming:**
+- The user-facing "sequence" is the `Timeline` type, because `Sequence` is a Swift standard-library protocol.
+- Caseless `enum`s are namespaces for static functions (e.g. `MediaLoader`, `FrameRenderer`).
 
 ## CLAUDE.md files
 - This root file covers the whole repo. **Every app and package has its own `CLAUDE.md`** with what's specific to it:
   - `apps/mac/CLAUDE.md`: the Shades Mac app
   - `apps/web/CLAUDE.md`: the website
-  - `apps/mcp/CLAUDE.md`: the helper Claude Desktop launches
+  - `apps/mcp/CLAUDE.md`: the relay Claude Code and Claude Desktop launch
   - `packages/ShadesKit/CLAUDE.md`: the Swift modules
 - When you add a new app or package, create its `CLAUDE.md` in the same commit.
 - When you change how an app or package works (build commands, structure, rules), update its `CLAUDE.md` too.
@@ -114,3 +121,4 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 ## Building
 - Builds use `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` (global xcode-select points at CommandLineTools).
 - The Xcode project is generated by XcodeGen from `apps/mac/project.yml`; never commit the `.xcodeproj`.
+- App: `xcodegen generate --spec apps/mac/project.yml --project apps/mac`, then `xcodebuild -project apps/mac/Shades.xcodeproj -scheme Shades -derivedDataPath apps/mac/.build build`.

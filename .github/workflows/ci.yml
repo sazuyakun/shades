@@ -13,8 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install SwiftFormat and SwiftLint
-        run: brew install swiftformat swiftlint
+      - name: Install tools
+        run: brew install swiftformat swiftlint xcodegen
 
       - name: Format check
         run: swiftformat --lint .
@@ -22,7 +22,13 @@ jobs:
       - name: Lint
         run: swiftlint lint --strict
 
-      - name: Build and test ShadesKit
-        if: hashFiles('packages/ShadesKit/Package.swift') != ''
-        working-directory: packages/ShadesKit
-        run: swift test
+      - name: Test ShadesKit
+        run: swift test --package-path packages/ShadesKit
+
+      - name: Build the relay
+        run: swift build -c release --package-path apps/mcp
+
+      - name: Build Shades.app
+        run: |
+          xcodegen generate --spec apps/mac/project.yml --project apps/mac
+          xcodebuild -project apps/mac/Shades.xcodeproj -scheme Shades -derivedDataPath apps/mac/.build build

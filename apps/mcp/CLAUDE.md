@@ -1,12 +1,18 @@
-# apps/mcp: the Claude Desktop relay
+# apps/mcp: the Claude relay (`shades-mcp`)
 
-A tiny command-line program. **Claude Desktop launches it** (Claude Desktop talks to local MCP servers over stdio), and it relays every message to the MCP server running **inside Shades.app** over localhost. Root rules (git workflow etc.) in `/CLAUDE.md` still apply.
+A tiny command-line program that connects Claude to Shades. **Claude Code and Claude Desktop both launch it** (they talk to local MCP servers over stdin/stdout), and it passes every byte to and from the MCP server running **inside Shades.app** on `127.0.0.1:4747`. Root rules (git workflow, Swift conventions) in `/CLAUDE.md` still apply.
 
 ## Why it's an app, not part of a package
 It's a separate program that runs on its own, so it lives in `apps/`. The real MCP server (`ShadesMCP`) is a package module, because it has to run inside Shades.app to see the open project, the selection and rendered frames.
 
 ## Rules
-- Keep it dumb: forward messages both ways, with no editing logic. All tools live in `ShadesMCP`.
-- If Shades.app isn't running, answer with a clear "Open Shades first" error.
-- Claude Code doesn't need this helper; it connects to Shades.app's localhost server directly.
-- Swift, built as a small executable alongside the app (ships inside Shades.app so setup can point Claude Desktop at it).
+- Keep it dumb: forward bytes both ways, with no editing logic and no MCP library. All tools live in `ShadesMCP`.
+- The wire format is newline-delimited JSON-RPC, the same on both sides, so no translation is needed.
+- If Shades.app isn't running, print "Shades isn't running. Open Shades, then try again." to stderr and exit 1.
+- `Relay.port` must match `MCPServer.port` in ShadesMCP.
+- Main-actor default isolation, like every app.
+
+## Build and connect
+- Build: `swift build -c release --package-path apps/mcp` → `apps/mcp/.build/release/shades-mcp`
+- Claude Code: `claude mcp add shades -- <absolute path to shades-mcp>`
+- Later it ships inside Shades.app, and the Claude setup sheet (M2) registers it automatically.

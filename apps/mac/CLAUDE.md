@@ -19,6 +19,12 @@ Anything else (model, engine, UI views, MCP server) goes in a ShadesKit module, 
 - Bundle ID `com.sazuyakun.shades`. The app icon is a **placeholder** until launch (see `docs/LAUNCH.md`).
 - Look and behaviour must match `docs/DESIGN.md` and `docs/UX.md`: classic pro dark, FCP layout, the locked keymap.
 
+## Building and running
+- `xcodegen generate --spec apps/mac/project.yml --project apps/mac`
+- `xcodebuild -project apps/mac/Shades.xcodeproj -scheme Shades -derivedDataPath apps/mac/.build build`
+- Run: `open apps/mac/.build/Build/Products/Debug/Shades.app`. It listens for Claude on `127.0.0.1:4747`.
+- `ShadesApp.swift` only creates the `Editor`, `Player` and `MCPServer`, starts the server and opens `EditorView`.
+
 ## Verifying
 - The user often works via Remote Control: after a build, take screenshots of the running app and send them when asked.
 - Check the performance targets in `docs/PLAN.md` §8 on the M1 8 GB machine.

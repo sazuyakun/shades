@@ -22,8 +22,8 @@ only_rules:
 allow_zero_lintable_files: true
 
 excluded:
-  - .build
-  - DerivedData
+  - "**/.build"
+  - "**/DerivedData"
 
 line_length:
   warning: 100
