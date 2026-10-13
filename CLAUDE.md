@@ -11,7 +11,7 @@ Open-source, AI-native video editor for Mac. A monorepo with exactly two kinds o
 - This root file covers the whole repo. **Every app and package has its own `CLAUDE.md`** with what's specific to it:
   - `apps/mac/CLAUDE.md`: the Shades Mac app
   - `apps/web/CLAUDE.md`: the website
-  - `apps/mcp-relay/CLAUDE.md`: the helper Claude Desktop launches
+  - `apps/mcp/CLAUDE.md`: the helper Claude Desktop launches
   - `packages/ShadesKit/CLAUDE.md`: the Swift modules
 - When you add a new app or package, create its `CLAUDE.md` in the same commit.
 - When you change how an app or package works (build commands, structure, rules), update its `CLAUDE.md` too.
