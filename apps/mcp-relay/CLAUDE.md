@@ -1,4 +1,4 @@
-# apps/mcp-bridge: the Claude Desktop helper
+# apps/mcp-relay: the Claude Desktop relay
 
 A tiny command-line program. **Claude Desktop launches it** (Claude Desktop talks to local MCP servers over stdio), and it relays every message to the MCP server running **inside Shades.app** over localhost. Root rules (git workflow etc.) in `/CLAUDE.md` still apply.
 
