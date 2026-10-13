@@ -15,6 +15,7 @@ Anything else (model, engine, UI views, MCP server) goes in a ShadesKit module, 
 - Build with `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer`.
 - Swift 6 strict concurrency, macOS 15+, Apple Silicon only.
 - **Not sandboxed** (direct download, not the App Store): Shades links media in place and runs a localhost MCP server.
+- **No paid Apple signing:** builds are ad-hoc signed and not notarized. Don't add Developer ID / notarization steps.
 - Bundle ID `com.sazuyakun.shades`. The app icon is a **placeholder** until launch (see `docs/LAUNCH.md`).
 - Look and behaviour must match `docs/DESIGN.md` and `docs/UX.md`: classic pro dark, FCP layout, the locked keymap.
 

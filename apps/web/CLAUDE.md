@@ -7,6 +7,6 @@ Reserved. The stack hasn't been picked yet. Decide it with the user when work on
 
 ## What it needs (when built)
 - Product pages showing what Shades does, including Claude driving the editor
-- A download page for the signed, notarized app (see `docs/LAUNCH.md`)
+- A download page for the free, ad-hoc signed app, with a clear "how to open Shades" guide (macOS blocks it on first open; System Settings › Privacy & Security › Open Anyway). See `docs/LAUNCH.md`
 - Docs for connecting Claude Code / Claude Desktop
 - The same look as the app: dark, calm, native-Mac feel (`docs/DESIGN.md`)

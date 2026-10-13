@@ -206,7 +206,7 @@ Build order is chosen so Claude gets useful early: once the transcript exists (M
 ## 7. Constraints & setup notes
 - Dev machine: **M1, 8 GB RAM, macOS 26**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.
 - **Minimum macOS: 15 (Sequoia).** Apple Silicon only.
-- **Distribution: direct download** from the Shades website (in this monorepo, `apps/web`). Not on the Mac App Store, so no sandbox: Shades can link media where it sits, run its local MCP server, and talk to Claude Code freely. Signed and notarized before public launch.
+- **Distribution: direct download** from the Shades website (in this monorepo, `apps/web`). Not on the Mac App Store, so no sandbox: Shades can link media where it sits, run its local MCP server, and talk to Claude Code freely. Distributed free: ad-hoc signed, not notarized (no paid Apple Developer Program). Users click "Open Anyway" once in System Settings.
 - **Monorepo:** `apps/` holds the products (the Mac app and the website) and `packages/` holds shared code. Details in the code-structure decision.
 - Xcode 26.6 is installed. The global command-line tools point at CommandLineTools, so builds set `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` (no sudo needed).
 - The `claude` CLI is installed (`~/.local/bin/claude`).
