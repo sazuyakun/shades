@@ -135,7 +135,7 @@ Claude Code / Claude Desktop  (your own Pro / Max plan)
 ### 4.2 What Claude can do (MCP tools)
 | Group | Tools |
 |---|---|
-| Read | `get_project`, `get_timeline` (JSON), `list_media`, `get_playbook` (your style.md / taste.md / video plans as resources) |
+| Read | `get_project`, `get_timeline` (JSON), `get_selection`, `list_media`, `get_playbook` (your style.md / taste.md / video plans as resources) |
 | See | `render_frame(t)`, `render_filmstrip`, `get_scopes`, `analyze_media` (cuts, transcript, people, beats) |
 | Edit | add / move / trim / blade / delete clips, tracks, markers, speed, keyframes, transitions |
 | Color | set grade parameters, apply LUT, copy grade, match shots |
@@ -150,6 +150,18 @@ Claude Code / Claude Desktop  (your own Pro / Max plan)
 **Claude reads the project → plans → runs commands → renders frames and checks scopes to *see* the result → fixes → shows you.**
 - Every AI change shows up live in the timeline with an "AI" highlight.
 - Each request is one undo step.
+
+### 4.4 Selection-aware AI ("edit this part")
+Like Claude Code's VS Code integration, but for clips: select something in the timeline and ask Claude to change *that*.
+
+What travels with a selection: the clips, the time range, the transcript of that range, and a frame or two.
+
+Built in stages:
+1. **Selection via MCP (first).** `get_selection` tells Claude what's selected. Select clips in Shades, then tell Claude "make this punchier". Claude asks Shades what "this" is and edits only that. Everything after builds on this.
+2. **Selection chat box.** Select clips and a small prompt box appears next to them. By default it hands the request plus the selection to your connected Claude Code, so it runs on your own plan. How seamless that handoff can be needs testing.
+3. **Optional API-key mode.** The same box, answered fully inside Shades with your own Anthropic API key (billed per use).
+
+Stretch: show a "selected clips" badge in Claude Code's prompt the way VS Code does. That would mean using the IDE integration channel, which isn't documented for third-party apps, so it's an experiment, not a promise.
 
 ---
 
