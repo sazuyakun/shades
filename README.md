@@ -22,7 +22,9 @@ Swift · SwiftUI + AppKit · Metal · AVFoundation · Apple Silicon only.
 | Know what the editor needs next | [Issues](https://github.com/sazuyakun/shades/issues). Feature requests come from real editing work in [shades-playbook](https://github.com/sazuyakun/shades-playbook) (private) |
 
 ## Repo layout
-This will become a monorepo: the Mac app first, the website later.
+A monorepo with two parts:
+- `apps/`: the products, meaning the Mac app and the Shades website (where people explore Shades and download it).
+- `packages/`: shared code used by the apps.
 
 ## License
 [MIT](LICENSE)

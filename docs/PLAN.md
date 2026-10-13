@@ -204,8 +204,24 @@ Build order is chosen so Claude gets useful early: once the transcript exists (M
 **Honest timeline:** M0 is a day. Full v1 is several weeks of focused work.
 
 ## 7. Constraints & setup notes
-- Dev machine: **M1, 8 GB RAM**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.
-- Xcode is installed, but the command-line tools point at CommandLineTools. Run once:
-  `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
-- The `claude` CLI isn't installed on this Mac yet (only the desktop app). It's needed to connect Claude Code from the terminal.
-- License: MIT (proposed).
+- Dev machine: **M1, 8 GB RAM, macOS 26**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.
+- **Minimum macOS: 15 (Sequoia).** Apple Silicon only.
+- **Distribution: direct download** from the Shades website (in this monorepo, `apps/web`). Not on the Mac App Store, so no sandbox: Shades can link media where it sits, run its local MCP server, and talk to Claude Code freely. Signed and notarized before public launch.
+- **Monorepo:** `apps/` holds the products (the Mac app and the website) and `packages/` holds shared code. Details in the code-structure decision.
+- Xcode 26.6 is installed. The global command-line tools point at CommandLineTools, so builds set `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` (no sudo needed).
+- The `claude` CLI is installed (`~/.local/bin/claude`).
+- License: MIT.
+- Launch blockers are tracked in [LAUNCH.md](LAUNCH.md).
+
+## 8. Performance targets
+Measured on the M1 8 GB dev machine. The performance HUD shows these live, and each milestone must still meet them.
+
+| What | Target |
+|---|---|
+| Playback | 4K30 HEVC iPhone footage, 3 video layers + a grade, plays in real time with **0 dropped frames** (preview may drop to half resolution automatically) |
+| Scrubbing / skimming | A new frame on screen in **under 50 ms** |
+| Edits | Any edit (by hand or by Claude) updates the timeline within **1 frame (16 ms)** |
+| Launch | Welcome window in **under 1 s**; a 10-minute project opens in **under 2 s** |
+| Memory | Under **1.5 GB** for a 10-minute 4K project while editing |
+| Idle | ~0% CPU when nothing is playing or rendering |
+| Export | 1080p HEVC exports **faster than real time** (hardware encoder) |
