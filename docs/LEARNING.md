@@ -173,3 +173,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Apple's test framework. `#expect` checks and keeps going; `try #require` stops the test if a precondition fails.
 **JS/TS analogy:** Jest/Vitest: `test(...)` and `expect(...)`.
 **In Shades:** Every `Tests/` folder; test names are plain sentences in backticks.
+
+## `CGAffineTransform` and `preferredTransform`
+**What it is:** A 2D transform (rotate, scale, move) stored as six numbers. A phone records portrait video as landscape pixels plus a `preferredTransform` that says "rotate 90° to show it upright".
+**JS/TS analogy:** CSS `transform: matrix(a, b, c, d, tx, ty)`, the same six numbers.
+**In Shades:** `Composition` reads each clip's `preferredTransform`; `FrameUniforms` turns it into the mapping the shader uses to draw every frame upright.
