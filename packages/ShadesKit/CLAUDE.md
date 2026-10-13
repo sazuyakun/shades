@@ -1,6 +1,6 @@
 # packages/ShadesKit: the Swift modules
 
-All real Mac code lives here as a Swift package with one module per system. The app in `apps/mac` just wires them together. Root rules (git workflow etc.) in `/CLAUDE.md` still apply.
+All real Mac code lives here as a Swift package with one module per system. The app in `apps/mac` just wires them together. Root rules in `/CLAUDE.md` still apply, **including all Swift conventions** (style, errors, logging, tests).
 
 ## Modules
 | Module | Owns |
@@ -23,9 +23,10 @@ All real Mac code lives here as a Swift package with one module per system. The 
 - **Every edit is a command** (`Codable`: name, description, parameters). Registering it exposes it to menus, shortcuts, undo and Claude. Never add an AI-only shortcut, and never let the UI mutate the model directly.
 - The model is plain data. The engine reads it and builds what plays; ShadesUI never touches AVFoundation.
 - Shaders ship as `.metal` source and compile at runtime (so Claude can write effects).
-- Swift 6 strict concurrency: actors for caches and analysis, and keep render paths off the main thread.
+- Swift 6 strict concurrency. **ShadesUI** uses main-actor default isolation; every other module is nonisolated by default, with actors for caches and analysis and `@concurrent` for heavy work. Render paths never touch the main thread.
+- Each module has one error enum (`<Module>Error`, e.g. `MediaError`) and one `Logger` with category `<Module>` (e.g. `Media`).
 - Respect the 8 GB RAM budget: bounded caches, texture pools, no CPU copies of frames.
 
 ## Testing
-- Swift Testing for logic, with one test target per module.
+- Swift Testing, with one test target per module (`ShadesCoreTests`, …). Rules are in the root CLAUDE.md.
 - Rendered-frame snapshot tests to keep preview and export identical.
