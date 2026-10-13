@@ -160,7 +160,7 @@ What travels with a selection: the clips, the time range, the transcript of that
 Built in stages:
 1. **Selection via MCP (first).** `get_selection` tells Claude what's selected. Select clips in Shades, then tell Claude "make this punchier". Claude asks Shades what "this" is and edits only that. Everything after builds on this.
 2. **Selection chat box.** Select clips and a small prompt box appears next to them. By default it hands the request plus the selection to your connected Claude Code, so it runs on your own plan. How seamless that handoff can be needs testing.
-3. **Optional API-key mode.** The same box, answered fully inside Shades with your own Anthropic API key (billed per use).
+3. **API-key mode (in v1).** The same box, answered fully inside Shades with your own Anthropic API key (billed per use).
 
 Stretch: show a "selected clips" badge in Claude Code's prompt the way VS Code does. That would mean using the IDE integration channel, which isn't documented for third-party apps, so it's an experiment, not a promise.
 
@@ -181,15 +181,25 @@ Stretch: show a "selected clips" badge in Claude Code's prompt the way VS Code d
 | Music, SFX, ducking under VO, stem-style endings | Audio |
 | 4:3 master + 9:16 shorts | Sequences + export presets |
 
+**v1 also includes:** advanced color (hue-vs curves, qualifier, power windows, adjustment layers), and every Claude feature: `get_selection`, the selection pop-up, API-key mode, Claude-written effects and Claude-made templates.
+
+**Pushed to v1.5** (not needed for "I Said Yes"):
+- Library extras: smart collections, duplicate detection, relink, ratings. v1 has import, bins and favourites.
+- Pro trims: roll, slip, slide. v1 has blade, ripple, trim start / end and nudge.
+- Extra outputs: ProRes master preset, SRT export, opening `shades` CLI folders. v1 has the YouTube 4:3 and Reel 9:16 presets with burned-in captions.
+- Tracking for power windows (already planned for v1.5).
+
 ## 6. Milestones
 | Milestone | Goal |
 |---|---|
-| **M0 (today)** | Repo, Xcode project, app shell. Import a clip, play it through the Metal compositor. MCP server with ~6 tools. Claude connects, adds a clip and looks at a rendered frame. |
-| M1 | Timeline core: tracks, edit / trim / blade, undo, save / load, thumbnails and waveforms |
-| M2 | Color: management, primaries, curves, LUT, scopes, Shades Film |
-| M3 | Graphics templates, transitions, person mask, shader effects |
-| M4 | Audio mixer and ducking, captions |
-| M5 | Export presets, proxies, render cache, performance pass. **Cut "I Said Yes" in Shades** |
+| **M0** | Repo, Xcode project, app shell. Import a clip, play it through the Metal compositor. MCP server with ~6 tools. Claude connects, adds a clip and looks at a rendered frame. |
+| M1 | Timeline core: tracks, edit / trim / blade, undo, autosave / snapshots, thumbnails and waveforms, the keymap, `get_selection`. **Start editing real footage in Shades from here.** |
+| M2 | Audio and captions: clip gain, fades, mixer, ducking, loudness, beat markers; on-device transcription (WhisperKit for Hinglish), caption track and styles. The selection pop-up (Tab) and API-key mode. Claude can now cut by words. |
+| M3 | Color: management, primaries, curves (RGB + hue-vs), qualifier, power windows, adjustment layers, LUTs, scopes, Shades Film |
+| M4 | Graphics and VFX: templates, transitions, person mask, shader effects, Claude-written effects (`write_effect`) and templates |
+| M5 | Export presets and queue, proxies, render cache, performance pass. **Cut "I Said Yes" in Shades** |
+
+Build order is chosen so Claude gets useful early: once the transcript exists (M2), Claude can edit by what was said.
 
 **Honest timeline:** M0 is a day. Full v1 is several weeks of focused work.
 
