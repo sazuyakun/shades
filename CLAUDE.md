@@ -1,13 +1,23 @@
 # shades
 
+Open-source, AI-native video editor for Mac. A monorepo: `apps/` holds the products, `packages/` holds shared code.
+
 ## Git workflow (always)
 - Keep the repo up to date both locally and on the remote (GitHub: `origin`).
 - After **every** change: `git add -A`, commit with a clear message, and `git push`. Don't batch up changes or leave work uncommitted.
 - Before starting work, `git pull --rebase` so the local copy matches the remote.
 
+## CLAUDE.md files
+- This root file covers the whole repo. **Every app and package has its own `CLAUDE.md`** with what's specific to it:
+  - `apps/mac/CLAUDE.md`: the Shades Mac app
+  - `apps/web/CLAUDE.md`: the website
+  - `packages/ShadesKit/CLAUDE.md`: the Swift modules
+- When you add a new app or package, create its `CLAUDE.md` in the same commit.
+- When you change how an app or package works (build commands, structure, rules), update its `CLAUDE.md` too.
+
 ## Project docs
 - `docs/PLAN.md`: architecture, systems, v1 scope, milestones, performance targets
-- `docs/ARCHITECTURE.md`: code layout and rules (monorepo: `apps/` + `packages/`)
+- `docs/ARCHITECTURE.md`: code layout and rules
 - `docs/DESIGN.md` / `docs/UX.md`: locked look, flows and keymap
 - `docs/LAUNCH.md`: launch blockers (placeholder icon etc.). Flag these when launch gets close.
 
