@@ -1,0 +1,17 @@
+#!/bin/bash
+# Blocks commits whose staged Swift files fail formatting or lint.
+export PATH="/opt/homebrew/bin:$PATH"
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+
+files=()
+while IFS= read -r f; do files+=("$f"); done < <(git diff --cached --name-only --diff-filter=ACMR -- '*.swift')
+[ ${#files[@]} -eq 0 ] && exit 0
+
+if ! swiftformat --lint --quiet "${files[@]}"; then
+  echo "pre-commit: formatting issues. Run: swiftformat <files>" >&2
+  exit 1
+fi
+if ! swiftlint lint --strict --quiet "${files[@]}"; then
+  echo "pre-commit: lint violations (see /CLAUDE.md)." >&2
+  exit 1
+fi

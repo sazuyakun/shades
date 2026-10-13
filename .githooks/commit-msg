@@ -1,0 +1,10 @@
+#!/bin/bash
+# Enforces Conventional Commits on the subject line (see /CLAUDE.md, Git workflow).
+subject=$(head -n1 "$1")
+pattern='^(feat|fix|refactor|perf|test|docs|build|ci|chore)(\([a-z]+\))?: [a-z0-9].*[^.]$'
+if [[ ! "$subject" =~ $pattern ]]; then
+  echo "commit-msg: subject must be 'type(scope): summary' (lowercase, no period)." >&2
+  echo "  types: feat fix refactor perf test docs build ci chore" >&2
+  echo "  got:   $subject" >&2
+  exit 1
+fi

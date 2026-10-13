@@ -21,9 +21,14 @@ No slop: no dead code, no commented-out code, no unused parameters, no TODOs wit
 
 ## Enforcement
 Style is enforced by tools, never by memory:
-- A Claude Code hook formats (SwiftFormat) and lints (SwiftLint) every Swift file right after it's edited.
-- A git pre-commit hook blocks commits that fail formatting, lint or the commit-message format.
-- GitHub Actions (free macOS runner) builds, lints and runs all tests on every push. A red CI is fixed before anything else.
+- **Claude Code hook** (`.claude/settings.json` → `.claude/hooks/format-swift.sh`): after every edit to a Swift file, SwiftFormat formats it and SwiftLint lints it. Remaining violations are sent back to Claude, which must fix them before moving on.
+- **Git hooks** (`.githooks/`): `pre-commit` blocks staged Swift files that fail formatting or lint; `commit-msg` blocks subjects that aren't Conventional Commits.
+- **CI** (`.github/workflows/ci.yml`, free `macos-26` runner): format check, strict lint, and `swift test` for ShadesKit on every push. A red CI is fixed before anything else.
+- **Configs:** `.swiftformat` (Airbnb's config, Swift 6 mode, 100 columns) and `.swiftlint.yml` (Airbnb's rules plus our bans as `error`s). Change these only with the user's approval, and record why here.
+- **Fresh clone setup:** `brew install swiftformat swiftlint` and `git config core.hooksPath .githooks`.
+- Tool versions in use: SwiftFormat 0.63.1, SwiftLint 0.65.1. Airbnb's `preferStructSwiftTestingSuites` rule is commented out in `.swiftformat` until SwiftFormat ships it.
+
+Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftformat`, `.swiftlint.yml`, `.gitignore`) are the only exception to the apps/packages/docs top-level rule.
 
 ## Dependencies
 - No third-party package is added without the user's explicit approval. Approved packages are listed here with the reason.

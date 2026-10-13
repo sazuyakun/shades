@@ -1,0 +1,77 @@
+# Shades SwiftLint config: Airbnb's lint rules (github.com/airbnb/swift)
+# plus the bans in /CLAUDE.md. Formatting itself is SwiftFormat's job.
+only_rules:
+  # Airbnb
+  - fatal_error_message
+  - implicitly_unwrapped_optional
+  - legacy_cggeometry_functions
+  - legacy_constant
+  - legacy_constructor
+  - legacy_nsgeometry_functions
+  - unused_optional_binding
+  - unowned_variable_capture
+  - superfluous_disable_command
+  - invalid_swiftlint_command
+  # Shades bans
+  - force_unwrapping
+  - force_try
+  - force_cast
+  - line_length
+  - custom_rules
+
+excluded:
+  - .build
+  - DerivedData
+
+line_length:
+  warning: 100
+  error: 100
+  ignores_urls: true
+
+custom_rules:
+  no_direct_standard_out_logs:
+    name: "No print()"
+    regex: "(\\bprint|\\bdebugPrint|\\bdump|Swift\\.print|Swift\\.debugPrint|Swift\\.dump|_printChanges)\\s*\\("
+    match_kinds:
+      - identifier
+    message: "print() is banned. Use the module's Logger (see /CLAUDE.md, Logging)."
+    severity: error
+  no_singletons:
+    name: "No singletons"
+    regex: "\\bstatic\\s+(let|var)\\s+shared\\b"
+    message: "Singletons are banned. Pass dependencies in via init or @Environment."
+    severity: error
+  no_unsafe_globals:
+    name: "No unsafe mutable state"
+    regex: "nonisolated\\(unsafe\\)|@unchecked\\s+Sendable"
+    message: "Unsafe mutable/shared state is banned. Use an actor or a value type."
+    severity: error
+  logger_levels:
+    name: "Only error and fault logs"
+    regex: "\\blogger\\.(debug|info|notice|warning|trace|critical|log)\\s*\\("
+    message: "Only logger.error (failure at origin) and logger.fault (bug) are allowed."
+    severity: error
+  swift_testing_only:
+    name: "Swift Testing only"
+    regex: "^\\s*(@testable\\s+)?import\\s+XCTest\\b"
+    message: "Use Swift Testing (import Testing), not XCTest."
+    severity: error
+  no_untracked_todos:
+    name: "TODOs need an issue"
+    regex: "//\\s*(TODO|FIXME)(?!\\(#\\d+\\))"
+    match_kinds:
+      - comment
+    message: "Write TODO(#123): ... with a GitHub issue number, or don't leave a TODO."
+    severity: error
+  no_file_literal:
+    name: "#file is disallowed"
+    regex: "(#file\\b)"
+    match_kinds:
+      - keyword
+    message: "Use #fileID by default, or #filePath if you need the exact path."
+    severity: error
+  no_objcMembers:
+    name: "@objcMembers"
+    regex: "@objcMembers"
+    message: "Use @objc on each member you want to expose to Objective-C."
+    severity: error
