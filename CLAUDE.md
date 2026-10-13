@@ -39,7 +39,8 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 
 ## Dependencies
 - No third-party package is added without the user's explicit approval. Approved packages are listed here with the reason.
-- Approved: _(none yet)_
+- Approved:
+  - **MCP Swift SDK** (`modelcontextprotocol/swift-sdk`, product `MCP`, from 0.12.1; Apache-2.0/MIT). Only `ShadesMCP` (and `apps/mcp`) may import it. Why: the official MCP implementation, kept current with the protocol spec. Its own dependencies come with it: `swift-nio`, `swift-log`, `swift-system`, `swift-docc-plugin` (Apple) and `eventsource` (mattt). They are not approved for direct use by our code.
 
 ## Swift conventions (all Swift code: apps and packages)
 **Base:** the [Airbnb Swift Style Guide](https://swift.airbnb.tech/) on top of Apple's [API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/). Where this file is more specific, this file wins.
