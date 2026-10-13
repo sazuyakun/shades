@@ -10,6 +10,13 @@ Open-source, AI-native video editor for Mac. A monorepo with exactly two kinds o
 
 No slop: no dead code, no commented-out code, no unused parameters, no TODOs without an issue, no copy-paste duplication.
 
+## Teaching the user Swift (always)
+The user is **new to Swift and Apple development** and knows JavaScript/TypeScript and React. Every session doubles as a lesson:
+- **Explain each Swift or Apple concept the first time it shows up** in code you write or change: what it is, why we use it here, and a one-line JS/TS/React comparison when one exists (e.g. "`struct` is a value type, like a frozen object that's copied on assignment", "`@Observable` is like a store that re-renders the views reading it", "`throws` is like a typed, compiler-checked `{ result, error }`").
+- Keep explanations short and concrete, tied to the code just written: a few sentences, not a tutorial. Explain in chat, never in code comments (code comments still follow the "why only" rule).
+- **Record each new concept in `docs/LEARNING.md`** (one entry per concept: name, plain explanation, JS/TS analogy, where it's used in Shades) and check that file first so concepts aren't re-explained at length. A concept already there gets a one-line reminder at most, unless the user asks.
+- If the user asks "why" or "what's that", answer fully before continuing.
+
 ## Git workflow (always)
 - Keep the repo up to date both locally and on the remote (GitHub: `origin`).
 - Work **straight on `main`** in small, complete commits. After **every** change: `git add -A`, commit, and `git push`. Don't batch up changes or leave work uncommitted.
@@ -101,6 +108,7 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 - `docs/ARCHITECTURE.md`: code layout and rules
 - `docs/DESIGN.md` / `docs/UX.md`: locked look, flows and keymap
 - `docs/LAUNCH.md`: launch blockers (placeholder icon etc.). Flag these when launch gets close.
+- `docs/LEARNING.md`: the Swift concepts glossary built up as the user learns
 
 ## Building
 - Builds use `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` (global xcode-select points at CommandLineTools).
