@@ -3,6 +3,8 @@
 ![Shades architecture](design/architecture.png)
 
 ## Layout
+![Shades code structure](design/code-structure.png)
+
 ```
 shades/
 ├── apps/

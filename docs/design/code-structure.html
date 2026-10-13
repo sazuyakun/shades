@@ -1,0 +1,92 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Shades code structure</title>
+<style>
+:root{--bg:#161616;--card:#1f1f1f;--line:#333;--text:#ececec;--dim:#8a8a8a;--faint:#5e5e5e;
+ --app:#0a84ff;--pkg:#3fae6a;--web:#4fb3c8;--tool:#b58cff;--doc:#e0a24a;
+ font:14px/1.4 -apple-system,"SF Pro Text",system-ui,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);padding:40px 48px;width:1240px}
+h1{font-size:24px;font-weight:600}.sub{color:var(--dim);margin:4px 0 26px}
+.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:28px}
+.tree{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;font:13px/1.75 "SF Mono",ui-monospace,monospace}
+.l{white-space:pre;display:flex;gap:10px}
+.l .n{color:var(--text)}.l .c{color:var(--faint);font-family:-apple-system,system-ui;font-size:12.5px}
+.app .n{color:#6fb4ff}.pkg .n{color:#6fd19a}.web .n{color:#7fd0e0}.tool .n{color:#cdb0ff}.doc .n{color:#f0c27a}
+.f .n{color:#bdbdbd}
+.side h3{font-size:13px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin:2px 0 10px;font-weight:600}
+.stack{display:flex;flex-direction:column;align-items:center;gap:0}
+.layer{width:100%;display:flex;gap:8px;justify-content:center}
+.m{border-radius:9px;padding:8px 10px;font-size:12.5px;text-align:center;background:#262626;border:1px solid #3a3a3a;flex:1}
+.m b{display:block;font-size:13px}
+.m span{color:var(--dim);font-size:11px}
+.down{color:#666;font-size:12px;height:22px;display:flex;align-items:center}
+.k-app{border-color:color-mix(in srgb,var(--app) 60%,#333)}
+.k-top{border-color:color-mix(in srgb,var(--tool) 60%,#333)}
+.k-feat{border-color:color-mix(in srgb,var(--pkg) 55%,#333)}
+.k-mid{border-color:color-mix(in srgb,var(--doc) 60%,#333)}
+.k-core{border-color:color-mix(in srgb,#4fb3c8 60%,#333)}
+.rules{margin-top:22px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 18px}
+.rules li{margin:6px 0 6px 18px;color:#cfcfcf;font-size:13px}
+.rules b{color:var(--text)}
+</style></head><body>
+<h1>Shades code structure</h1>
+<div class="sub">Monorepo: <b>apps</b> are the products, <b>packages</b> hold the shared code. Every app and package has its own CLAUDE.md.</div>
+<div class="grid">
+<div class="tree">
+<div class="l"><span class="n">shades/</span></div>
+<div class="l f"><span class="n">├── CLAUDE.md</span><span class="c">rules for the whole repo</span></div>
+<div class="l app"><span class="n">├── apps/</span></div>
+<div class="l app"><span class="n">│   ├── mac/</span><span class="c">Shades.app: the thin shell</span></div>
+<div class="l f"><span class="n">│   │   ├── CLAUDE.md</span></div>
+<div class="l f"><span class="n">│   │   ├── project.yml</span><span class="c">XcodeGen makes the Xcode project</span></div>
+<div class="l f"><span class="n">│   │   ├── ShadesApp.swift</span><span class="c">app start, windows, menus</span></div>
+<div class="l f"><span class="n">│   │   └── Assets.xcassets</span><span class="c">icon (placeholder for now)</span></div>
+<div class="l web"><span class="n">│   └── web/</span><span class="c">website + download (stack later)</span></div>
+<div class="l f"><span class="n">│       └── CLAUDE.md</span></div>
+<div class="l pkg"><span class="n">├── packages/</span></div>
+<div class="l pkg"><span class="n">│   └── ShadesKit/</span><span class="c">all the real code</span></div>
+<div class="l f"><span class="n">│       ├── CLAUDE.md</span></div>
+<div class="l f"><span class="n">│       ├── Package.swift</span><span class="c">lists the modules + who uses whom</span></div>
+<div class="l pkg"><span class="n">│       ├── Sources/</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesCore/</span><span class="c">the edit in memory</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesCommands/</span><span class="c">every edit = a command</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesDocument/</span><span class="c">save / load .shades</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesMedia/</span><span class="c">import, thumbnails</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesEngine/</span><span class="c">playback + Metal</span></div>
+<div class="l f"><span class="n">│       │   │   └── Shaders/*.metal</span><span class="c">effects (Claude can add)</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesColor/</span><span class="c">grading, scopes</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesGraphics/</span><span class="c">titles, templates</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesAudio/</span><span class="c">mixer, ducking</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesCaptions/</span><span class="c">transcripts</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesExport/</span><span class="c">rendering files</span></div>
+<div class="l pkg"><span class="n">│       │   ├── ShadesBridge/</span><span class="c">MCP server for Claude</span></div>
+<div class="l pkg"><span class="n">│       │   └── ShadesUI/</span><span class="c">all the screens</span></div>
+<div class="l pkg"><span class="n">│       └── Tests/</span><span class="c">one test folder per module</span></div>
+<div class="l tool"><span class="n">├── tools/</span></div>
+<div class="l tool"><span class="n">│   └── shades-mcp/</span><span class="c">helper for Claude Desktop</span></div>
+<div class="l doc"><span class="n">└── docs/</span><span class="c">PLAN · DESIGN · UX · ARCHITECTURE · LAUNCH</span></div>
+</div>
+
+<div class="side">
+<h3>Who can use whom (arrows point down)</h3>
+<div class="stack">
+  <div class="layer"><div class="m k-app"><b>apps/mac</b><span>wires everything together</span></div></div>
+  <div class="down">▼</div>
+  <div class="layer"><div class="m k-top"><b>ShadesUI</b><span>screens</span></div><div class="m k-top"><b>ShadesBridge</b><span>Claude's door</span></div></div>
+  <div class="down">▼</div>
+  <div class="layer"><div class="m k-feat"><b>Media</b></div><div class="m k-feat"><b>Engine</b></div><div class="m k-feat"><b>Color</b></div></div>
+  <div class="layer" style="margin-top:8px"><div class="m k-feat"><b>Graphics</b></div><div class="m k-feat"><b>Audio</b></div><div class="m k-feat"><b>Captions</b></div><div class="m k-feat"><b>Export</b></div></div>
+  <div class="down">▼</div>
+  <div class="layer"><div class="m k-mid"><b>ShadesCommands</b><span>edits</span></div><div class="m k-mid"><b>ShadesDocument</b><span>saving</span></div></div>
+  <div class="down">▼</div>
+  <div class="layer"><div class="m k-core"><b>ShadesCore</b><span>the edit itself · depends on nothing</span></div></div>
+</div>
+<div class="rules"><ul>
+  <li><b>Arrows only go down.</b> Core knows nothing about screens or Claude, so it stays simple and testable.</li>
+  <li><b>Screens and Claude sit side by side</b> at the top. Both change things only through Commands.</li>
+  <li><b>The app is thin.</b> If code isn't about windows or menus, it goes in a module.</li>
+  <li><b>The compiler enforces it:</b> a module can't use one above it, or the build fails.</li>
+</ul></div>
+</div>
+</div>
+</body></html>
