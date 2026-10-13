@@ -20,7 +20,7 @@ jobs:
         run: swiftformat --lint .
 
       - name: Lint
-        run: swiftlint lint --strict --allow-zero-lintable-files
+        run: swiftlint lint --strict
 
       - name: Build and test ShadesKit
         if: hashFiles('packages/ShadesKit/Package.swift') != ''

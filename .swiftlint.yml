@@ -19,6 +19,8 @@ only_rules:
   - line_length
   - custom_rules
 
+allow_zero_lintable_files: true
+
 excluded:
   - .build
   - DerivedData
