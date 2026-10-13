@@ -17,7 +17,7 @@ Anything else (model, engine, UI views, MCP server) goes in a ShadesKit module, 
 - **Not sandboxed** (direct download, not the App Store): Shades links media in place and runs a localhost MCP server.
 - **No paid Apple signing:** builds are ad-hoc signed and not notarized. Don't add Developer ID / notarization steps.
 - Bundle ID `com.sazuyakun.shades`. The app icon is a **placeholder** until launch (see `docs/LAUNCH.md`).
-- Look and behaviour must match `docs/DESIGN.md` and `docs/UX.md`: classic pro dark, FCP layout, the locked keymap.
+- Look and behaviour must match `docs/DESIGN.md` and `docs/UX.md`: v2 look (warm near-black, hairlines, title pill, capsules), FCP layout, the locked keymap.
 
 ## Building and running
 - `xcodegen generate --spec apps/mac/project.yml --project apps/mac`

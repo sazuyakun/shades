@@ -46,6 +46,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | ⇧⌘L | Link / unlink audio and video |
 | ⌘S · ⌘E | Named checkpoint · Export |
 | **Tab** · ⌘K | **Ask Claude** about the selection |
+| ⌘L | Show or hide the Claude pane |
 | Esc | Close the prompt · stop Claude |
 
 All shortcuts are remappable.
@@ -56,6 +57,8 @@ All shortcuts are remappable.
 3. **Type and press Return.** The prompt shrinks to a status pill ("Cutting pauses… 12/47") with **Stop**.
 4. **Edits happen live** on the timeline. Changed clips glow soft purple, then fade.
 5. **When done**, a toast summarises it ("Claude · removed 47 pauses") with **Undo**. The whole request is one undo step.
+
+**The Claude pane (⌘L):** swaps the inspector for a list of every request: its steps as they run, the result ("+2 clips", "−47 cuts"), and **Undo** / **Show** per request. Its box at the bottom asks about the whole project rather than a selection.
 
 **First-time setup:** the first Tab press opens a guided sheet. It detects Claude Code or Claude Desktop, then either shows the one command to run (with a Copy button) or adds the config itself, and finishes with "Connected ✓".
 
