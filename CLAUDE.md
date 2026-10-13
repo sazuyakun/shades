@@ -1,6 +1,6 @@
 # shades
 
-Open-source, AI-native video editor for Mac. A monorepo: `apps/` holds the products, `packages/` holds shared code.
+Open-source, AI-native video editor for Mac. A monorepo with exactly two kinds of folders: `apps/` for anything that runs on its own (a program, a website, a server) and `packages/` for code that apps use. Nothing else at the top level besides `docs/`.
 
 ## Git workflow (always)
 - Keep the repo up to date both locally and on the remote (GitHub: `origin`).
@@ -11,6 +11,7 @@ Open-source, AI-native video editor for Mac. A monorepo: `apps/` holds the produ
 - This root file covers the whole repo. **Every app and package has its own `CLAUDE.md`** with what's specific to it:
   - `apps/mac/CLAUDE.md`: the Shades Mac app
   - `apps/web/CLAUDE.md`: the website
+  - `apps/mcp-bridge/CLAUDE.md`: the helper Claude Desktop launches
   - `packages/ShadesKit/CLAUDE.md`: the Swift modules
 - When you add a new app or package, create its `CLAUDE.md` in the same commit.
 - When you change how an app or package works (build commands, structure, rules), update its `CLAUDE.md` too.

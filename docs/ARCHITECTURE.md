@@ -10,7 +10,8 @@ shades/
 ├── apps/
 │   ├── mac/                  Shades.app: a thin app target (entry point, windows, menus, assets)
 │   │   └── project.yml       XcodeGen spec; the .xcodeproj is generated, not committed
-│   └── web/                  the Shades website + download page (stack decided later)
+│   ├── web/                  the Shades website + download page (stack decided later)
+│   └── mcp-bridge/           small helper Claude Desktop launches; relays to Shades.app
 ├── packages/
 │   └── ShadesKit/            all real Mac code, as Swift Package modules
 │       ├── Package.swift
@@ -28,8 +29,6 @@ shades/
 │       │   ├── ShadesBridge/     MCP server: commands become Claude tools
 │       │   └── ShadesUI/         SwiftUI views (AppKit where SwiftUI is too slow)
 │       └── Tests/
-├── tools/
-│   └── shades-mcp/           small stdio shim so Claude Desktop can connect
 └── docs/
 ```
 
