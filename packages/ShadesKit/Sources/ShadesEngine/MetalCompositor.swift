@@ -28,7 +28,6 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     guard
       let renderer,
       let instruction = request.videoCompositionInstruction as? CompositionInstruction,
-      let source = request.sourceFrame(byTrackID: instruction.trackID),
       let output = request.renderContext.newPixelBuffer()
     else {
       logger.error("frame.renderFailed reason=missingInput")
@@ -36,7 +35,8 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       return
     }
     do {
-      try renderer.draw(source, into: output)
+      // why: there's no source frame in a gap between clips; that's normal and draws black.
+      try renderer.draw(request.sourceFrame(byTrackID: instruction.trackID), into: output)
     } catch {
       request.finish(with: error)
       return

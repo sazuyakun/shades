@@ -22,6 +22,21 @@ struct FrameRendererTests {
   }
 
   @Test
+  func `a gap in the timeline renders black instead of failing`() async throws {
+    let project = try await makeProject(
+      red: 255,
+      green: 0,
+      blue: 0,
+      startingAt: MediaTime(seconds: 1),
+    )
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    let (red, green, blue) = try centerPixel(of: png)
+    #expect(red < 20)
+    #expect(green < 20)
+    #expect(blue < 20)
+  }
+
+  @Test
   func `rendering an empty timeline throws timelineEmpty`() async {
     await #expect(throws: EngineError.timelineEmpty) {
       try await FrameRenderer.png(of: Project(), atSeconds: 0, maxSide: 320)
@@ -30,8 +45,13 @@ struct FrameRendererTests {
 
   // MARK: Private
 
-  /// A project whose timeline is one 1-second clip of a solid color.
-  private func makeProject(red: UInt8, green: UInt8, blue: UInt8) async throws -> Project {
+  /// A project whose timeline is one 1-second clip of a solid color, placed at `start`.
+  private func makeProject(
+    red: UInt8,
+    green: UInt8,
+    blue: UInt8,
+    startingAt start: MediaTime = .zero,
+  ) async throws -> Project {
     let url = try await VideoFixture.make(red: red, green: green, blue: blue)
     let media = Media(
       url: url,
@@ -44,7 +64,7 @@ struct FrameRendererTests {
       mediaID: media.id,
       sourceStart: .zero,
       duration: media.duration,
-      timelineStart: .zero,
+      timelineStart: start,
     )
     return Project(media: [media], timeline: Timeline(tracks: [Track(name: "V1", clips: [clip])]))
   }

@@ -32,6 +32,7 @@ Style is enforced by tools, never by memory:
 - **Git hooks** (`.githooks/`): `pre-commit` blocks staged Swift files that fail formatting or lint; `commit-msg` blocks subjects that aren't Conventional Commits.
 - **CI** (`.github/workflows/ci.yml`, free `macos-26` runner): format check, strict lint, and `swift test` for ShadesKit on every push. A red CI is fixed before anything else.
 - **Configs:** `.swiftformat` (Airbnb's config, Swift 6 mode, 100 columns) and `.swiftlint.yml` (Airbnb's rules plus our bans as `error`s). Change these only with the user's approval, and record why here.
+- **Edit atomically:** the hook formats after every edit, and SwiftFormat renames unused parameters to `_`. When you add a parameter, change the signature and its uses in the same edit.
 - **Fresh clone setup:** `brew install swiftformat swiftlint` and `git config core.hooksPath .githooks`.
 - Tool versions in use: SwiftFormat 0.63.1, SwiftLint 0.65.1. Airbnb's `preferStructSwiftTestingSuites` rule is commented out in `.swiftformat` until SwiftFormat ships it.
 

@@ -20,8 +20,8 @@ final class MetalRenderer: Sendable {
   // MARK: Internal
 
   /// Draws `source` scaled to fit inside `output`, with black bars where they differ in shape.
-  func draw(_ source: CVPixelBuffer, into output: CVPixelBuffer) throws(EngineError) {
-    let sourceTexture = try texture(for: source)
+  /// With no source (a gap in the timeline), the output is just black.
+  func draw(_ source: CVPixelBuffer?, into output: CVPixelBuffer) throws(EngineError) {
     let outputTexture = try texture(for: output)
     let pass = MTLRenderPassDescriptor()
     pass.colorAttachments[0].texture = outputTexture
@@ -35,11 +35,14 @@ final class MetalRenderer: Sendable {
       logger.error("frame.renderFailed reason=commandBuffer")
       throw .renderFailed
     }
-    var scale = fitScale(source: sourceTexture, output: outputTexture)
-    encoder.setRenderPipelineState(pipeline)
-    encoder.setVertexBytes(&scale, length: MemoryLayout<SIMD2<Float>>.size, index: 0)
-    encoder.setFragmentTexture(sourceTexture, index: 0)
-    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+    if let source {
+      let sourceTexture = try texture(for: source)
+      var scale = fitScale(source: sourceTexture, output: outputTexture)
+      encoder.setRenderPipelineState(pipeline)
+      encoder.setVertexBytes(&scale, length: MemoryLayout<SIMD2<Float>>.size, index: 0)
+      encoder.setFragmentTexture(sourceTexture, index: 0)
+      encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+    }
     encoder.endEncoding()
     commands.commit()
     commands.waitUntilCompleted()
