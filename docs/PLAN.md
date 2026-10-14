@@ -208,7 +208,6 @@ Problems found but not fixed yet. **All of them are fixed before M1 starts**, on
 
 | # | Issue | Found in |
 |---|---|---|
-| 3 | If the Claude server can't start (e.g. port 4747 in use), the app shows no warning; it's only logged | M0 |
 | 4 | Real iPhone footage (HEVC, HDR, rotation) is untested | M0 |
 | 5 | Every edit rebuilds the whole playback composition; fine for short projects, slow for long ones | M0 |
 | 6 | The app still uses the v1 grey look; DESIGN.md v2 (warm near-black, hairlines, title pill, capsules) is locked | M0 |

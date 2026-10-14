@@ -40,6 +40,9 @@ public struct EditorView: View {
           .keyboardShortcut("i")
           .help("Import media (⌘I)")
       }
+      ToolbarItem(placement: .primaryAction) {
+        ClaudeStatusPill()
+      }
     }
     .fileImporter(
       isPresented: $isImporting,

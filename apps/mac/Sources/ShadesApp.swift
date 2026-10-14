@@ -14,12 +14,7 @@ struct ShadesApp: App {
     let editor = Editor()
     let player = Player()
     let server = MCPServer(editor: editor, player: player)
-    do {
-      try server.start()
-    } catch {
-      // why: the failure is logged where it happens; Shades still works without Claude. The
-      // Claude setup sheet (M2) will show the connection state to the user.
-    }
+    server.start()
     _editor = State(initialValue: editor)
     _player = State(initialValue: player)
     _server = State(initialValue: server)
@@ -32,6 +27,7 @@ struct ShadesApp: App {
       EditorView()
         .environment(editor)
         .environment(player)
+        .environment(server)
     }
     .defaultSize(width: 1440, height: 900)
   }

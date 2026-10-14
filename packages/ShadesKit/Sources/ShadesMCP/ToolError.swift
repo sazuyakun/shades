@@ -34,7 +34,8 @@ extension ToolError: LocalizedError {
     case .engineFailed(let error):
       error.errorDescription
     case .listenFailed(let port):
-      "Shades couldn't listen for Claude on port \(port). Is another copy of Shades open?"
+      "Claude can't connect: port \(port) is already in use, usually by another copy of "
+        + "Shades. Quit it, then reopen Shades."
     }
   }
 }

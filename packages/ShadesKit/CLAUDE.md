@@ -21,7 +21,7 @@ All real Mac code lives here as a Swift package with one module per system. The 
 Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesCommands, ShadesMedia, ShadesEngine, ShadesMCP, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
 
 ## Rules
-- **Dependencies point one way:** Core → Commands / Document → feature modules → MCP and UI → the app. Core imports only Foundation, and nothing imports ShadesUI except the app.
+- **Dependencies point one way:** Core → Commands / Document → feature modules → MCP → UI → the app. Core imports only Foundation, nothing imports ShadesUI except the app, and ShadesMCP never imports ShadesUI (UI reads `MCPServer.status` to show Claude's connection).
 - **Every edit is a command** (`Codable`: name, description, parameters). Registering it exposes it to menus, shortcuts, undo and Claude. Never add an AI-only shortcut, and never let the UI mutate the model directly.
 - The model is plain data. The engine reads it and builds what plays; ShadesUI never touches AVFoundation.
 - Shaders ship as `.metal` source and compile at runtime (so Claude can write effects).

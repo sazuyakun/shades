@@ -1,10 +1,13 @@
 import MCP
 import Network
+import Observation
 import ShadesCommands
 import ShadesEngine
 
 /// Listens on localhost for Claude (through the `apps/mcp` relay) and serves Shades' tools.
+/// Its `status` tells the UI whether Claude can connect.
 @MainActor
+@Observable
 public final class MCPServer {
 
   // MARK: Lifecycle
@@ -20,9 +23,10 @@ public final class MCPServer {
   public static let defaultPort: UInt16 = 4747
 
   public let port: UInt16
+  public private(set) var status = ServerStatus.starting
 
-  /// Starts accepting connections from Claude, on localhost only.
-  public func start() throws(ToolError) {
+  /// Starts accepting connections from Claude, on localhost only. The outcome shows in `status`.
+  public func start() {
     let number = port
     let parameters = NWParameters.tcp
     // why: binding through the required endpoint (not `NWListener(using:on:)`, which rejects a
@@ -35,15 +39,26 @@ public final class MCPServer {
     do {
       listener = try NWListener(using: parameters)
     } catch {
-      logger.error("server.listenFailed port=\(number, privacy: .public)")
-      throw .listenFailed(port: number)
+      logger.error("listen.failed port=\(number, privacy: .public)")
+      status = .failed(.listenFailed(port: number))
+      return
     }
-    listener.stateUpdateHandler = { state in
-      if case .failed(let error) = state {
-        logger
-          .error(
-            "server.listenFailed port=\(number, privacy: .public) error=\(error, privacy: .public)"
-          )
+    listener.stateUpdateHandler = { [weak self] state in
+      MainActor.assumeIsolated {
+        switch state {
+        case .ready:
+          self?.status = .ready
+
+        case .failed(let reason):
+          logger
+            .error(
+              "listen.failed port=\(number, privacy: .public) error=\(reason, privacy: .public)"
+            )
+          self?.status = .failed(.listenFailed(port: number))
+
+        default:
+          break
+        }
       }
     }
     listener.newConnectionHandler = { [weak self] connection in
@@ -57,8 +72,8 @@ public final class MCPServer {
 
   // MARK: Private
 
-  private let handler: ToolHandler
-  private var listener: NWListener?
+  @ObservationIgnored private let handler: ToolHandler
+  @ObservationIgnored private var listener: NWListener?
 
   /// Runs one MCP session for one connected client until it disconnects.
   private func serve(_ connection: NWConnection) async {

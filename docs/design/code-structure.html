@@ -72,7 +72,9 @@ h1{font-size:24px;font-weight:600}.sub{color:var(--dim);margin:4px 0 26px}
 <div class="stack">
   <div class="layer"><div class="m k-app"><b>apps/mac</b><span>wires everything together</span></div></div>
   <div class="down">▼</div>
-  <div class="layer"><div class="m k-top"><b>ShadesUI</b><span>screens</span></div><div class="m k-top"><b>ShadesMCP</b><span>Claude's door</span></div></div>
+  <div class="layer"><div class="m k-top"><b>ShadesUI</b><span>screens · shows Claude status</span></div></div>
+  <div class="down">▼</div>
+  <div class="layer"><div class="m k-top"><b>ShadesMCP</b><span>Claude's door</span></div></div>
   <div class="down">▼</div>
   <div class="layer"><div class="m k-feat"><b>Media</b></div><div class="m k-feat"><b>Engine</b></div><div class="m k-feat"><b>Color</b></div></div>
   <div class="layer" style="margin-top:8px"><div class="m k-feat"><b>Graphics</b></div><div class="m k-feat"><b>Audio</b></div><div class="m k-feat"><b>Captions</b></div><div class="m k-feat"><b>Export</b></div></div>
@@ -83,7 +85,7 @@ h1{font-size:24px;font-weight:600}.sub{color:var(--dim);margin:4px 0 26px}
 </div>
 <div class="rules"><ul>
   <li><b>Arrows only go down.</b> Core knows nothing about screens or Claude, so it stays simple and testable.</li>
-  <li><b>Screens and Claude sit side by side</b> at the top. Both change things only through Commands.</li>
+  <li><b>Screens sit just above Claude's door</b>, only to show whether Claude can connect. Both change things only through Commands.</li>
   <li><b>The app is thin.</b> If code isn't about windows or menus, it goes in a module.</li>
   <li><b>The compiler enforces it:</b> a module can't use one above it, or the build fails.</li>
 </ul></div>

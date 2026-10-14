@@ -61,6 +61,8 @@ All shortcuts are remappable.
 
 **The Claude pane (⌘L):** swaps the inspector for a list of every request: its steps as they run, the result ("+2 clips", "−47 cuts"), and **Undo** / **Show** per request. Its box at the bottom asks about the whole project rather than a selection.
 
+**Connection status:** a pill in the toolbar shows **● Claude ready** (green) or **● Claude offline** (red). Clicking it explains why and what to do, e.g. "port 4747 is already in use, usually by another copy of Shades. Quit it, then reopen Shades." In the v2 restyle it becomes the dot on the ✦ Claude capsule.
+
 **First-time setup:** the first Tab press opens a guided sheet. It detects Claude Code or Claude Desktop, then either shows the one command to run (with a Copy button) or adds the config itself, and finishes with "Connected ✓".
 
 ## Playback

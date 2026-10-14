@@ -38,10 +38,11 @@ let package = Package(
         .product(name: "MCP", package: "swift-sdk"),
       ],
     ),
-    // ShadesUI runs on the main actor by default; every other module is nonisolated.
+    // ShadesUI sits above ShadesMCP (to show Claude's status) and runs on the main actor by
+    // default; every other module is nonisolated.
     .target(
       name: "ShadesUI",
-      dependencies: ["ShadesCommands", "ShadesEngine", "ShadesMedia"],
+      dependencies: ["ShadesCommands", "ShadesEngine", "ShadesMCP", "ShadesMedia"],
       swiftSettings: [.defaultIsolation(MainActor.self)],
     ),
     .target(name: "ShadesTestSupport", path: "Tests/ShadesTestSupport"),

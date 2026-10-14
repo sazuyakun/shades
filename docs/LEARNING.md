@@ -183,3 +183,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A value that belongs to the type itself, not to each instance. `VideoFormat.youTube4x3` is one shared, ready-made format.
 **JS/TS analogy:** A `static` field on a class, or an exported constant like `export const youTube4x3 = {...}`.
 **In Shades:** The format presets in `VideoFormat` (`.youTube4x3`, `.reel9x16`).
+
+## `@ObservationIgnored`
+**What it is:** Inside an `@Observable` class, marks a property that views should *not* react to (internal plumbing that never changes what's on screen).
+**JS/TS analogy:** Keeping a value in a `useRef` instead of `useState`, so changing it doesn't re-render.
+**In Shades:** `MCPServer` hides its listener and tool handler this way; only `status` drives the toolbar pill.
