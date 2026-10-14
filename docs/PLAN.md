@@ -208,7 +208,6 @@ Problems found but not fixed yet. **All of them are fixed before M1 starts**, on
 
 | # | Issue | Found in |
 |---|---|---|
-| 2 | Render size comes from the first clip's media, not the project's format (YouTube 4:3, Reel 9:16) | M0 |
 | 3 | If the Claude server can't start (e.g. port 4747 in use), the app shows no warning; it's only logged | M0 |
 | 4 | Real iPhone footage (HEVC, HDR, rotation) is untested | M0 |
 | 5 | Every edit rebuilds the whole playback composition; fine for short projects, slow for long ones | M0 |

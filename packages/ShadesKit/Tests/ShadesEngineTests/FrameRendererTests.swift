@@ -45,6 +45,20 @@ struct FrameRendererTests {
   }
 
   @Test
+  func `frames are rendered in the timeline's format, not the clip's`() async throws {
+    // A landscape clip in a vertical Reel: tall output, black bars above and below.
+    let project = try await makeProject(left: .red, right: .red, format: .reel9x16)
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    let (width, height) = try size(of: png)
+    let top = try pixel(of: png, x: 0.5, y: 0.1)
+    let center = try pixel(of: png, x: 0.5, y: 0.5)
+    #expect(width == 180)
+    #expect(height == 320)
+    #expect(top.0 < 20)
+    #expect(center.0 > 200)
+  }
+
+  @Test
   func `rendering an empty timeline throws timelineEmpty`() async {
     await #expect(throws: EngineError.timelineEmpty) {
       try await FrameRenderer.png(of: Project(), atSeconds: 0, maxSide: 320)
@@ -60,6 +74,7 @@ struct FrameRendererTests {
     right: FixtureColor,
     transform: CGAffineTransform = .identity,
     startingAt start: MediaTime = .zero,
+    format: VideoFormat = .youTube4x3,
   ) async throws -> Project {
     let url = try await VideoFixture.make(left: left, right: right, transform: transform)
     let upright = CGSize(width: 320, height: 180).applying(transform)
@@ -76,7 +91,17 @@ struct FrameRendererTests {
       duration: media.duration,
       timelineStart: start,
     )
-    return Project(media: [media], timeline: Timeline(tracks: [Track(name: "V1", clips: [clip])]))
+    return Project(
+      media: [media],
+      timeline: Timeline(format: format, tracks: [Track(name: "V1", clips: [clip])]),
+    )
+  }
+
+  /// Decodes a PNG and returns its size in pixels.
+  private func size(of png: Data) throws -> (width: Int, height: Int) {
+    let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
+    let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+    return (image.width, image.height)
   }
 
   /// Decodes a PNG and returns the RGB at a point given as fractions of its width and height

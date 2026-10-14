@@ -8,7 +8,8 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | Moment | Behaviour |
 |---|---|
 | Opening Shades | A small native welcome window: **New Project**, recent projects with thumbnails, and "drop footage here" |
-| New project | Name it and pick a preset: **YouTube 4:3**, **Reel 9:16**, **ProRes master** or **Custom** (resolution, fps) |
+| New project | Name it and pick a preset: **YouTube 4:3** (1440×1080) or **Reel 9:16** (1080×1920), plus a frame rate (24, 30 or 60; default 30). Custom sizes and a ProRes master come later. Until the New Project window exists (M1), projects start as YouTube 4:3 at 30 fps |
+| Sequence format | Each sequence (4:3 Master, Reel 1…) has its own format. Clips of any shape are fitted inside it upright, with black bars where the shapes differ |
 | Importing | Media stays where it is on disk; Shades links to it and copies nothing. "Collect media" copies into the project later if wanted |
 | Background work | Thumbnails, waveforms, transcripts and proxies run quietly. A progress ring sits in the toolbar; click it for details. Nothing blocks editing |
 | Sequences | Tabs above the timeline ("4:3 Master · Reel 1 · Reel 2"). Switching tabs reshapes the viewer to match |

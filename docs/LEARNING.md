@@ -178,3 +178,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A 2D transform (rotate, scale, move) stored as six numbers. A phone records portrait video as landscape pixels plus a `preferredTransform` that says "rotate 90° to show it upright".
 **JS/TS analogy:** CSS `transform: matrix(a, b, c, d, tx, ty)`, the same six numbers.
 **In Shades:** `Composition` reads each clip's `preferredTransform`; `FrameUniforms` turns it into the mapping the shader uses to draw every frame upright.
+
+## `static` properties
+**What it is:** A value that belongs to the type itself, not to each instance. `VideoFormat.youTube4x3` is one shared, ready-made format.
+**JS/TS analogy:** A `static` field on a class, or an exported constant like `export const youTube4x3 = {...}`.
+**In Shades:** The format presets in `VideoFormat` (`.youTube4x3`, `.reel9x16`).

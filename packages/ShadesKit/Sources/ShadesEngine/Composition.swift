@@ -22,7 +22,7 @@ extension Composition {
     frameCounter: FrameCounter,
   ) async throws(EngineError) -> Composition {
     let clips = project.timeline.tracks.first?.clips ?? []
-    guard let firstClip = clips.first else {
+    guard !clips.isEmpty else {
       logger.error("composition.failed reason=timelineEmpty")
       throw .timelineEmpty
     }
@@ -47,8 +47,12 @@ extension Composition {
     }
     let videoComposition = AVMutableVideoComposition()
     videoComposition.customVideoCompositorClass = MetalCompositor.self
-    videoComposition.renderSize = try renderSize(for: firstClip, in: project)
-    videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+    let format = project.timeline.format
+    videoComposition.renderSize = CGSize(width: format.width, height: format.height)
+    videoComposition.frameDuration = CMTime(
+      value: 1,
+      timescale: CMTimeScale(format.framesPerSecond),
+    )
     videoComposition.instructions = instructions(
       for: Array(zip(clips, transforms)),
       duration: project.timeline.duration,
@@ -125,18 +129,6 @@ extension Composition {
       add(from: cursor, to: duration, transform: .identity)
     }
     return instructions
-  }
-
-  /// M0 renders at the size of the first clip's media. Project formats arrive with presets.
-  private static func renderSize(
-    for clip: Clip,
-    in project: Project,
-  ) throws(EngineError) -> CGSize {
-    guard let media = project.media(withID: clip.mediaID) else {
-      logger.error("composition.failed reason=mediaMissing id=\(clip.mediaID, privacy: .public)")
-      throw .mediaMissing(clip.mediaID)
-    }
-    return CGSize(width: media.width, height: media.height)
   }
 
 }
