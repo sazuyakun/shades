@@ -24,7 +24,7 @@ struct InspectorPane: View {
       Hairline()
       Group {
         if tab == .info, let media {
-          MediaInfo(media: media)
+          MediaInfo(media: media, framesPerSecond: editor.project.timeline.format.framesPerSecond)
         } else {
           Text(tab == .info ? "Select a clip to see its details." : "Nothing to adjust yet.")
             .foregroundStyle(Theme.faintText)

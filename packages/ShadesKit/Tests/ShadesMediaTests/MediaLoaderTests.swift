@@ -24,6 +24,15 @@ struct MediaLoaderTests {
   }
 
   @Test
+  func `a sound-only file loads as audio with no picture`() async throws {
+    let url = try AudioFixture.makeTone(seconds: 2)
+    let media = try await MediaLoader.load(url)
+    #expect(!media.hasVideo)
+    #expect(media.hasAudio)
+    #expect(abs(media.duration.seconds - 2) < 0.01)
+  }
+
+  @Test
   func `loading a missing file throws fileMissing`() async {
     let url = URL(fileURLWithPath: "/nonexistent/clip.mov")
     await #expect(throws: MediaError.fileMissing(url)) {

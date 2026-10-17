@@ -24,6 +24,8 @@ Modules are created only when a milestone first needs them. They exist today: Sh
 ## Rules
 - **Dependencies point one way:** Core → Commands / Document → feature modules → MCP → UI → the app. Core imports only Foundation, nothing imports ShadesUI except the app, and ShadesMCP never imports ShadesUI (UI reads `MCPServer.status` to show Claude's connection).
 - **Every edit is a command** (`Codable`: name, description, parameters). Registering it exposes it to menus, shortcuts, undo and Claude. Never add an AI-only shortcut, and never let the UI mutate the model directly.
+- **Every user action is an `EditorAction` case** (title, `Shortcut`, `perform(in:)`). The editor window's one `onKeyPress` handler and the ⌘K palette both read that list, so never attach `.keyboardShortcut` to a button for an editor action. Only standard menu items (undo/redo, checkpoint, new/open, Settings) live in menus (`FileMenu`).
+- **One open project.** `Workspace` (ShadesUI) owns the editor, player and MCP server and opens one project at a time; Claude's project tools reach it through the `ProjectHost` protocol, since ShadesMCP never imports ShadesUI.
 - The model is plain data. The engine reads it and builds what plays; ShadesUI never touches AVFoundation.
 - Shaders ship as `.metal` source and compile at runtime (so Claude can write effects).
 - Swift 6 strict concurrency. **ShadesUI** uses main-actor default isolation; every other module is nonisolated by default, with actors for caches and analysis and `@concurrent` for heavy work. Render paths never touch the main thread.

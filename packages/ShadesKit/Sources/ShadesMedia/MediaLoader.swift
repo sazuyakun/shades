@@ -3,7 +3,7 @@ import ShadesCore
 
 /// Reads what Shades needs to know about a media file on disk.
 public enum MediaLoader {
-  /// Reads a video file's duration, size and whether it has sound.
+  /// Reads a video or audio file's duration, size and whether it has picture and sound.
   public static func load(_ url: URL) async throws(MediaError) -> Media {
     guard FileManager.default.fileExists(atPath: url.path) else {
       logger.error("load.failed reason=fileMissing path=\(url.path, privacy: .private)")
@@ -22,8 +22,18 @@ public enum MediaLoader {
       throw .unreadable(url)
     }
     guard let videoTrack = videoTracks.first else {
-      logger.error("load.failed reason=noVideo path=\(url.path, privacy: .private)")
-      throw .noVideo(url)
+      guard !audioTracks.isEmpty else {
+        logger.error("load.failed reason=noPictureOrSound path=\(url.path, privacy: .private)")
+        throw .noPictureOrSound(url)
+      }
+      return Media(
+        url: url,
+        duration: MediaTime(value: duration.value, timescale: duration.timescale),
+        width: 0,
+        height: 0,
+        hasVideo: false,
+        hasAudio: true,
+      )
     }
     let size: CGSize
     do {

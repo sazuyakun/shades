@@ -256,6 +256,8 @@ extension Workspace: ProjectHost {
   public func openProject(at url: URL) async throws(DocumentError) {
     let (project, session) = try await ProjectFile.read(at: url)
     await close()
+    // why: the editor view loads playback when the project changes; it starts at the cue.
+    player.cue(toSeconds: session.playhead)
     editor.load(project)
     editor.selection = Set(session.selection)
     server.activity.clear()
@@ -264,8 +266,6 @@ extension Workspace: ProjectHost {
     snapshotBase = project
     defaults.set(url.path, forKey: Keys.lastProject)
     defaults.set(true, forKey: Keys.isOpen)
-    try? await player.load(project) // why: the editor reloads playback and shows any error.
-    await player.seek(toSeconds: session.playhead)
     startSnapshotTimer()
   }
 

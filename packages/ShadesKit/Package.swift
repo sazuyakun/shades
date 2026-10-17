@@ -69,6 +69,7 @@ let package = Package(
       exclude: ["Golden"],
     ),
     .testTarget(name: "ShadesPluginsTests", dependencies: ["ShadesPlugins"]),
+    .testTarget(name: "ShadesUITests", dependencies: ["ShadesUI", "ShadesTestSupport"]),
   ],
 )
 

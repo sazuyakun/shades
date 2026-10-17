@@ -3,6 +3,7 @@ import SwiftUI
 /// A large monospaced timecode whose leading zeros are dimmed, so the live digits stand out.
 struct TimecodeText: View {
   let seconds: Double
+  let framesPerSecond: Int
 
   var body: some View {
     Text(styled)
@@ -10,7 +11,7 @@ struct TimecodeText: View {
   }
 
   private var styled: AttributedString {
-    let timecode = Timecode.full(seconds)
+    let timecode = Timecode.full(seconds, framesPerSecond: framesPerSecond)
     let liveStart = timecode.firstIndex { $0 != "0" && $0 != ":" } ?? timecode
       .index(before: timecode.endIndex)
     var dimmed = AttributedString(timecode[..<liveStart])

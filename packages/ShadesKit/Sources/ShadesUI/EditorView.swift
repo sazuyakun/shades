@@ -38,17 +38,31 @@ public struct EditorView: View {
           .frame(minWidth: 240, idealWidth: 300, maxWidth: 380)
         }
         .frame(minHeight: 320, idealHeight: 560)
-        TimelinePane()
+        TimelinePane(settings: $timelineSettings, onError: { errorMessage = $0 })
           .frame(minHeight: 200, idealHeight: 300)
       }
     }
     .ignoresSafeArea(.container, edges: .top)
+    .focusable()
+    .focusEffectDisabled()
+    .focused($isFocused)
+    .onAppear { isFocused = true }
+    .onKeyPress(phases: .down) { press in
+      guard let action = EditorAction.allCases.first(where: { $0.shortcut.matches(press) }) else {
+        return .ignored
+      }
+      run(action)
+      return .handled
+    }
+    .sheet(isPresented: $isShowingPalette, onDismiss: { isFocused = true }) {
+      CommandPalette(onRun: run)
+    }
     .background(Theme.background)
     .foregroundStyle(Theme.text)
     .preferredColorScheme(.dark)
     .fileImporter(
       isPresented: $isImporting,
-      allowedContentTypes: [.movie],
+      allowedContentTypes: [.movie, .audio],
       allowsMultipleSelection: true,
     ) { result in
       if case .success(let urls) = result {
@@ -102,6 +116,30 @@ public struct EditorView: View {
   @State private var sidePane = SidePane.inspector
   @State private var isImporting = false
   @State private var errorMessage: String?
+  @State private var timelineSettings = TimelineSettings()
+  @State private var isShowingPalette = false
+  @FocusState private var isFocused: Bool
+
+  private var actionContext: ActionContext {
+    ActionContext(
+      editor: editor,
+      player: player,
+      settings: $timelineSettings,
+      mediaSelection: $selection,
+      sidePane: $sidePane,
+      isShowingPalette: $isShowingPalette,
+      isImporting: $isImporting,
+    )
+  }
+
+  /// Runs an action from a key or the palette, showing any problem in plain words.
+  private func run(_ action: EditorAction) {
+    do {
+      try action.perform(in: actionContext)
+    } catch {
+      errorMessage = error.errorDescription
+    }
+  }
 
   private func importMedia(_ urls: [URL]) async {
     for url in urls {

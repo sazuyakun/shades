@@ -1,17 +1,20 @@
 import ShadesCore
 import SwiftUI
 
-/// One clip on a track: rounded, labeled, with a thumbnail like Final Cut's filmstrip. Glows
-/// purple for a moment after Claude changes it.
+/// How a clip looks: rounded, labeled, with a thumbnail like Final Cut's filmstrip (video) or a
+/// sound color (audio). Outlined in the accent color when selected, glowing purple for a moment
+/// after Claude changes it.
 struct TimelineClipView: View {
   let media: Media?
+  let isAudio: Bool
+  let isSelected: Bool
   let isRecentlyChanged: Bool
 
   var body: some View {
     RoundedRectangle(cornerRadius: 7)
-      .fill(Theme.videoClip)
+      .fill(isAudio ? Theme.audioClip : Theme.videoClip)
       .overlay(alignment: .leading) {
-        if let media {
+        if let media, !isAudio, media.hasVideo {
           ThumbnailImage(url: media.url)
             .frame(width: 90)
             .padding(.top, 17)
@@ -28,7 +31,13 @@ struct TimelineClipView: View {
       }
       .clipShape(.rect(cornerRadius: 7))
       .overlay {
-        RoundedRectangle(cornerRadius: 7).strokeBorder(.white.opacity(0.08))
+        RoundedRectangle(cornerRadius: 7)
+          .strokeBorder(
+            isSelected ? Color.accentColor : .white.opacity(0.08),
+            lineWidth: isSelected
+              ? 2
+              : 1,
+          )
       }
       .overlay {
         RoundedRectangle(cornerRadius: 7)

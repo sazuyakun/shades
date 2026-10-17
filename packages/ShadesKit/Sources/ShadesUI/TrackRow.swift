@@ -1,43 +1,59 @@
 import ShadesCommands
 import ShadesCore
-import ShadesMCP
+import ShadesEngine
 import SwiftUI
 
-/// A track's slim header ("V1") and its lane of clips, with a hairline below.
+/// One track: its header (kept in view while scrolling sideways) and its lane of clips. Clicking
+/// empty lane deselects and moves the playhead.
 struct TrackRow: View {
 
   // MARK: Internal
 
+  static let videoHeight = 72.0
+  static let audioHeight = 48.0
+
   let track: Track
+  /// Every row top to bottom, for moving clips between tracks.
+  let rows: [Track]
   let scale: TimelineScale
+  let settings: TimelineSettings
+  /// How far the timeline is scrolled sideways, to keep the header in view.
+  let headerOffset: Double
+  let onError: (String) -> Void
 
   var body: some View {
     HStack(spacing: 0) {
-      Text(editor.project.timeline.label(of: track))
-        .font(.caption.weight(.semibold))
-        .padding(.leading, 10)
-        .frame(width: TimelinePane.headerWidth, alignment: .leading)
-        .frame(maxHeight: .infinity)
-      Hairline(vertical: true)
-      ZStack(alignment: .leading) {
+      Color.clear.frame(width: TimelinePane.headerWidth)
+      ZStack(alignment: .topLeading) {
+        Color.clear
+          .contentShape(.rect)
+          .onTapGesture { location in
+            editor.selection = []
+            Task { await player.seek(toSeconds: scale.seconds(atX: location.x)) }
+          }
         ForEach(track.clips) { clip in
-          TimelineClipView(
-            media: editor.project.media(withID: clip.mediaID),
-            isRecentlyChanged: server.activity.recentlyChangedClipIDs.contains(clip.id),
+          TimelineClip(
+            clip: clip,
+            track: track,
+            rows: rows,
+            scale: scale,
+            settings: settings,
+            onError: onError,
           )
-          .frame(width: scale.x(atSeconds: clip.duration.seconds), height: 64)
-          .offset(x: scale.x(atSeconds: clip.timelineStart.seconds))
         }
       }
-      .frame(maxWidth: .infinity, alignment: .leading)
     }
-    .frame(height: 72)
+    .frame(height: track.kind == .video ? Self.videoHeight : Self.audioHeight)
+    .overlay(alignment: .leading) {
+      TrackHeader(track: track, onError: onError)
+        .offset(x: headerOffset)
+    }
     .overlay(alignment: .bottom) { Hairline() }
   }
 
   // MARK: Private
 
   @Environment(Editor.self) private var editor
-  @Environment(MCPServer.self) private var server
+  @Environment(Player.self) private var player
 
 }

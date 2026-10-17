@@ -1,3 +1,4 @@
+import ShadesCommands
 import ShadesEngine
 import SwiftUI
 
@@ -18,9 +19,11 @@ struct TransportBar: View {
           .background(Theme.text, in: .circle)
       }
       .buttonStyle(.plain)
-      .keyboardShortcut(.space, modifiers: [])
       .help("Play or pause (Space)")
-      TimecodeText(seconds: player.currentTime)
+      TimecodeText(
+        seconds: player.currentTime,
+        framesPerSecond: editor.project.timeline.format.framesPerSecond,
+      )
     }
     .frame(maxWidth: .infinity)
     .frame(height: 46)
@@ -29,5 +32,6 @@ struct TransportBar: View {
   // MARK: Private
 
   @Environment(Player.self) private var player
+  @Environment(Editor.self) private var editor
 
 }

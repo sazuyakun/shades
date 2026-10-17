@@ -12,7 +12,6 @@ struct TitleBar: View {
       HStack(spacing: 8) {
         CapsuleGroup {
           Button("Import", systemImage: "square.and.arrow.down", action: onImport)
-            .keyboardShortcut("i")
             .help("Import media (⌘I)")
         }
         Spacer()
@@ -21,7 +20,6 @@ struct TitleBar: View {
             .buttonStyle(CapsuleButtonStyle(isOn: sidePane == .inspector))
           Button("History") { sidePane = sidePane == .history ? .inspector : .history }
             .buttonStyle(CapsuleButtonStyle(isOn: sidePane == .history))
-            .keyboardShortcut("l")
             .help("Show or hide Claude's changes (⌘L)")
         }
         CapsuleGroup {

@@ -16,7 +16,6 @@ struct MediaBrowserHeader: View {
         }
       }
       .buttonStyle(CapsuleButtonStyle())
-      .keyboardShortcut("r", modifiers: [])
       .disabled(selection == nil)
       .help("Append the selected clip to the end of the timeline (R)")
       .padding(.trailing, 8)

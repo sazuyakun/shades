@@ -38,6 +38,9 @@ public final class Player {
   public private(set) var duration: Double = 0
   public private(set) var isPlaying = false
 
+  /// How fast playback runs: 1 is normal, 2 double speed, −1 backwards.
+  public private(set) var rate: Float = 1
+
   /// Brings playback up to date with the project, keeping the playhead where it was. Only
   /// changes to clip timing or media rebuild playback; a clip's look, volume or a track's
   /// visibility update live.
@@ -57,7 +60,9 @@ public final class Player {
       item.videoComposition = composition.videoComposition.mutableCopy() as? AVVideoComposition
       return
     }
-    let playhead = avPlayer.currentTime()
+    let playhead = cuedTime.map { CMTime(seconds: $0, preferredTimescale: 600) } ?? avPlayer
+      .currentTime()
+    cuedTime = nil
     let built = try await Composition.build(
       project,
       library: library,
@@ -75,10 +80,26 @@ public final class Player {
     composition = built
     self.structure = structure
     await avPlayer.seek(to: playhead, toleranceBefore: .zero, toleranceAfter: .zero)
+    currentTime = playhead.seconds
+  }
+
+  /// Sets where the playhead goes when the next project loads, e.g. where the user left off.
+  public func cue(toSeconds seconds: Double) {
+    cuedTime = seconds
+    currentTime = seconds
   }
 
   public func play() {
-    avPlayer.play()
+    play(atRate: 1)
+  }
+
+  /// Plays at `rate`; backwards only if the footage allows it.
+  public func play(atRate rate: Float) {
+    guard rate > 0 || avPlayer.currentItem?.canPlayReverse == true else {
+      return
+    }
+    self.rate = rate
+    avPlayer.rate = rate
     isPlaying = true
   }
 
@@ -105,5 +126,6 @@ public final class Player {
   @ObservationIgnored private let renderState = RenderState()
   @ObservationIgnored private var composition: Composition?
   @ObservationIgnored private var structure: Composition.Structure?
+  @ObservationIgnored private var cuedTime: Double?
 
 }
