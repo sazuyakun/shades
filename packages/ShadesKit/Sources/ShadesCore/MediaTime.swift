@@ -58,6 +58,13 @@ public struct MediaTime: Sendable {
     return MediaTime(value: Int64(frames) * unitsPerFrame, timescale: Self.timelineTimescale)
   }
 
+  /// The last frame boundary at or before this time, so a clip never runs past its media.
+  public func flooredToFrame(at framesPerSecond: Int) -> MediaTime {
+    let unitsPerFrame = Int64(Self.timelineTimescale) / Int64(framesPerSecond)
+    let frames = Int64(Int128(value) * Int128(framesPerSecond) / Int128(timescale))
+    return MediaTime(value: frames * unitsPerFrame, timescale: Self.timelineTimescale)
+  }
+
   // MARK: Private
 
   private static func leastCommonMultiple(_ a: Int32, _ b: Int32) -> Int32 {

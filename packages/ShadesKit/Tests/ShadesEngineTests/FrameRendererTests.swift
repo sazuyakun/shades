@@ -95,7 +95,7 @@ struct FrameRendererTests {
     left: FixtureColor,
     right: FixtureColor,
     transform: CGAffineTransform = .identity,
-    codec: AVVideoCodecType = .h264,
+    codec: AVVideoCodecType = .proRes4444,
     startingAt start: MediaTime = .zero,
   ) async throws -> Project {
     let url = try await VideoFixture.make(

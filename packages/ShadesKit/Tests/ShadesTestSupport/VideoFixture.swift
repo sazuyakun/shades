@@ -5,7 +5,7 @@ public enum VideoFixture {
 
   // MARK: Public
 
-  /// Writes a silent H.264 `.mov` of one solid color and returns its URL.
+  /// Writes a silent `.mov` of one solid color and returns its URL.
   public static func make(
     red: UInt8,
     green: UInt8,
@@ -19,7 +19,8 @@ public enum VideoFixture {
   }
 
   /// Writes a silent `.mov` whose stored frames are `left` on the left half and `right` on the
-  /// right half, tagged with `transform` the way an iPhone tags portrait video.
+  /// right half, tagged with `transform` the way an iPhone tags portrait video. ProRes 4444 by
+  /// default: unlike H.264 it decodes the same on every machine, so golden frames stay stable.
   public static func make(
     left: FixtureColor,
     right: FixtureColor,
@@ -27,7 +28,7 @@ public enum VideoFixture {
     width: Int = 320,
     height: Int = 180,
     transform: CGAffineTransform = .identity,
-    codec: AVVideoCodecType = .h264,
+    codec: AVVideoCodecType = .proRes4444,
   ) async throws(FixtureError) -> URL {
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString)

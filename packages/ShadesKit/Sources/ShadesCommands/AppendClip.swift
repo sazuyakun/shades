@@ -1,36 +1,55 @@
 import ShadesCore
 
-/// Places a whole media file at the end of a track.
-public struct AppendClip: Command {
+/// Places media (or part of it) at the end of a track.
+public struct AppendClip: ToolCommand {
 
   // MARK: Lifecycle
 
-  public init(mediaID: Media.ID, trackIndex: Int = 0) {
+  public init(
+    mediaID: Media.ID,
+    track: String? = nil,
+    sourceStart: MediaTime? = nil,
+    sourceEnd: MediaTime? = nil,
+  ) {
     self.mediaID = mediaID
-    self.trackIndex = trackIndex
+    self.track = track
+    self.sourceStart = sourceStart
+    self.sourceEnd = sourceEnd
   }
 
   // MARK: Public
 
+  public static let title = "Append Clip"
+  public static let name = "append_clip"
+  public static let summary = "Place media, or the part between source_start and source_end, "
+    + "at the end of a track (V1, or A1 for sound-only media, by default)."
+  public static let parameters = JSONSchema.object(
+    [
+      "media_id": Fields.mediaID,
+      "track": Fields.track,
+      "source_start": Fields.sourceStart,
+      "source_end": Fields.sourceEnd,
+    ],
+    required: ["media_id"],
+  )
+
   public let mediaID: Media.ID
-  public let trackIndex: Int
+  public let track: String?
+  public let sourceStart: MediaTime?
+  public let sourceEnd: MediaTime?
 
   public func apply(to project: inout Project) throws(CommandError) {
-    guard let media = project.media(withID: mediaID) else {
-      logger.error("clip.appendFailed reason=mediaNotFound id=\(mediaID, privacy: .public)")
-      throw .mediaNotFound(mediaID)
-    }
-    guard project.timeline.tracks.indices.contains(trackIndex) else {
-      logger.error("clip.appendFailed reason=trackNotFound index=\(trackIndex, privacy: .public)")
-      throw .trackNotFound(index: trackIndex)
-    }
-    let clip = Clip(
+    let media = try project.requireMedia(mediaID)
+    let range = try project.sourceRange(of: media, from: sourceStart, to: sourceEnd)
+    let index = try project.track(for: media, labeled: track)
+    let start = project.timeline.tracks[index].end
+    project.timeline.tracks[index].add(Clip(
       mediaID: media.id,
-      sourceStart: .zero,
-      duration: media.duration,
-      timelineStart: project.timeline.tracks[trackIndex].end,
-    )
-    project.timeline.tracks[trackIndex].clips.append(clip)
+      sourceStart: range.start,
+      duration: range.duration,
+      timelineStart: start,
+      isAudioEnabled: media.hasAudio,
+    ))
   }
 
 }

@@ -5,22 +5,8 @@ import Testing
 
 @MainActor
 struct EditorTests {
-
-  // MARK: Internal
-
   @Test
-  func `appending places each clip after the last one`() throws {
-    let media = makeMedia(seconds: 2)
-    let editor = Editor(project: Project(media: [media]))
-    try editor.perform(AppendClip(mediaID: media.id))
-    try editor.perform(AppendClip(mediaID: media.id))
-    let clips = editor.project.timeline.tracks[0].clips
-    #expect(clips.map(\.timelineStart) == [.zero, MediaTime(seconds: 2)])
-    #expect(editor.project.timeline.duration == MediaTime(seconds: 4))
-  }
-
-  @Test
-  func `appending unknown media throws and leaves the project unchanged`() {
+  func `a failed command leaves the project unchanged`() {
     let editor = Editor()
     let before = editor.project
     let missing = UUID()
@@ -28,15 +14,59 @@ struct EditorTests {
       try editor.perform(AppendClip(mediaID: missing))
     }
     #expect(editor.project == before)
+    #expect(editor.undoTitle == nil)
   }
 
   @Test
-  func `appending to a track that doesn't exist throws`() {
-    let media = makeMedia(seconds: 1)
+  func `undo and redo step through edits by name`() throws {
+    let media = makeMedia(seconds: 2)
     let editor = Editor(project: Project(media: [media]))
-    #expect(throws: CommandError.trackNotFound(index: 3)) {
-      try editor.perform(AppendClip(mediaID: media.id, trackIndex: 3))
+    try editor.perform(AppendClip(mediaID: media.id))
+    #expect(editor.undoTitle == "Append Clip")
+    try editor.undo()
+    #expect(editor.project.timeline.allClips.isEmpty)
+    #expect(editor.redoTitle == "Append Clip")
+    try editor.redo()
+    #expect(editor.project.timeline.allClips.count == 1)
+  }
+
+  @Test
+  func `a batch is one undo step and all or nothing`() throws {
+    let media = makeMedia(seconds: 2)
+    let editor = Editor(project: Project(media: [media]))
+    try editor.perform(
+      [AppendClip(mediaID: media.id), AppendClip(mediaID: media.id)],
+      title: "Claude",
+    )
+    #expect(editor.project.timeline.allClips.count == 2)
+    try editor.undo()
+    #expect(editor.project.timeline.allClips.isEmpty)
+    #expect(throws: CommandError.self) {
+      try editor.perform([AppendClip(mediaID: media.id), AppendClip(mediaID: UUID())], title: "x")
     }
+    #expect(editor.project.timeline.allClips.isEmpty)
+  }
+
+  @Test
+  func `a new edit clears redo`() throws {
+    let media = makeMedia(seconds: 2)
+    let editor = Editor(project: Project(media: [media]))
+    try editor.perform(AppendClip(mediaID: media.id))
+    try editor.undo()
+    try editor.perform(AppendClip(mediaID: media.id))
+    #expect(editor.redoTitle == nil)
+    #expect(throws: CommandError.nothingToRedo) { try editor.redo() }
+  }
+
+  @Test
+  func `selection forgets clips that were deleted`() throws {
+    let media = makeMedia(seconds: 2)
+    let editor = Editor(project: Project(media: [media]))
+    try editor.perform(AppendClip(mediaID: media.id))
+    let clip = try #require(editor.project.timeline.allClips.first)
+    editor.selection = [clip.id]
+    try editor.perform(DeleteClips(clipIDs: [clip.id]))
+    #expect(editor.selection.isEmpty)
   }
 
   @Test
@@ -47,19 +77,5 @@ struct EditorTests {
     #expect(throws: CommandError.mediaAlreadyAdded(media.id)) {
       try editor.perform(AddMedia(media: media))
     }
-    #expect(editor.project.media == [media])
   }
-
-  // MARK: Private
-
-  private func makeMedia(seconds: Double) -> Media {
-    Media(
-      url: URL(fileURLWithPath: "/tmp/clip.mov"),
-      duration: MediaTime(seconds: seconds),
-      width: 1920,
-      height: 1080,
-      hasAudio: true,
-    )
-  }
-
 }

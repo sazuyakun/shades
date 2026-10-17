@@ -6,12 +6,13 @@ public struct AddMedia: Command {
     self.media = media
   }
 
+  public static let title = "Import Media"
+
   public let media: Media
 
   public func apply(to project: inout Project) throws(CommandError) {
     guard project.media(withID: media.id) == nil else {
-      logger.error("media.addFailed reason=alreadyAdded id=\(media.id, privacy: .public)")
-      throw .mediaAlreadyAdded(media.id)
+      throw rejected(.mediaAlreadyAdded(media.id))
     }
     project.media.append(media)
   }
