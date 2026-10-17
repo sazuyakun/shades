@@ -13,6 +13,8 @@ struct ActionContext {
   let sidePane: Binding<SidePane>
   let isShowingPalette: Binding<Bool>
   let isImporting: Binding<Bool>
+  let marks: Binding<[Media.ID: SourceMarks]>
+  let hover: Binding<MediaHover?>
 
   var timeline: Timeline {
     editor.project.timeline
@@ -59,6 +61,11 @@ struct ActionContext {
       throw .invalidArguments("pick a clip in the media browser first")
     }
     return id
+  }
+
+  /// The I / O marks on `media`, if any.
+  func marks(of media: Media.ID) -> SourceMarks {
+    marks.wrappedValue[media] ?? SourceMarks()
   }
 
   /// The label of the track `offset` places above (+) or below (−) `clip`'s track, among tracks

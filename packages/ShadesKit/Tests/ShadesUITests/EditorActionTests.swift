@@ -62,6 +62,20 @@ struct EditorActionTests {
     #expect(throws: CommandError.self) { try EditorAction.append.perform(in: context) }
   }
 
+  @Test
+  func `I and O mark the hovered media and appending places just that part`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 0)
+    let media = try #require(editor.project.media.first)
+    context.hover.wrappedValue = MediaHover(mediaID: media.id, time: MediaTime(seconds: 0.5))
+    try EditorAction.markIn.perform(in: context)
+    context.hover.wrappedValue = MediaHover(mediaID: media.id, time: MediaTime(seconds: 1.5))
+    try EditorAction.markOut.perform(in: context)
+    try EditorAction.append.perform(in: context)
+    let placed = try #require(editor.project.timeline.tracks[0].clips.last)
+    #expect(placed.sourceStart == MediaTime(seconds: 0.5))
+    #expect(placed.duration == MediaTime(seconds: 1))
+  }
+
   // MARK: Private
 
   /// An editor with a test clip placed twice on V1, playing at `playhead` seconds.
@@ -88,6 +102,8 @@ struct EditorActionTests {
     var settings = TimelineSettings()
     var sidePane = SidePane.inspector
     var flag = false
+    var marks = [Media.ID: SourceMarks]()
+    var hover: MediaHover?
     let context = ActionContext(
       editor: editor,
       player: player,
@@ -96,6 +112,8 @@ struct EditorActionTests {
       sidePane: Binding(get: { sidePane }, set: { sidePane = $0 }),
       isShowingPalette: Binding(get: { flag }, set: { flag = $0 }),
       isImporting: Binding(get: { flag }, set: { flag = $0 }),
+      marks: Binding(get: { marks }, set: { marks = $0 }),
+      hover: Binding(get: { hover }, set: { hover = $0 }),
     )
     return (editor, context)
   }

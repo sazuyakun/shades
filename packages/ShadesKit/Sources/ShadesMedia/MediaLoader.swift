@@ -64,4 +64,33 @@ public enum MediaLoader {
       throw .thumbnailFailed(url)
     }
   }
+
+  /// `count` stills spread evenly through the file, no larger than `maxSize`, for hover-scrub.
+  public static func filmstrip(
+    for url: URL,
+    count: Int,
+    maxSize: CGSize,
+  ) async throws(MediaError) -> [CGImage] {
+    let asset = AVURLAsset(url: url)
+    let generator = AVAssetImageGenerator(asset: asset)
+    generator.appliesPreferredTrackTransform = true
+    generator.maximumSize = maxSize
+    generator.requestedTimeToleranceBefore = .positiveInfinity
+    generator.requestedTimeToleranceAfter = .positiveInfinity
+    do {
+      let duration = try await asset.load(.duration).seconds
+      var frames = [CGImage]()
+      for index in 0 ..< count {
+        let seconds = duration * (Double(index) + 0.5) / Double(count)
+        frames.append(try await generator.image(at: CMTime(
+          seconds: seconds,
+          preferredTimescale: 600,
+        )).image)
+      }
+      return frames
+    } catch {
+      logger.error("filmstrip.failed path=\(url.path, privacy: .private)")
+      throw .thumbnailFailed(url)
+    }
+  }
 }

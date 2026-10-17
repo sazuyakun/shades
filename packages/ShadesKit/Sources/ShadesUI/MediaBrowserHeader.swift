@@ -5,20 +5,16 @@ import SwiftUI
 struct MediaBrowserHeader: View {
   let count: Int
   let selection: Media.ID?
-  let onAppend: (Media.ID) -> Void
+  let onAppend: () -> Void
 
   var body: some View {
     HStack(alignment: .firstTextBaseline) {
       SectionLabel(title: "Media", detail: count == 1 ? "1 clip" : "\(count) clips")
-      Button("Append") {
-        if let selection {
-          onAppend(selection)
-        }
-      }
-      .buttonStyle(CapsuleButtonStyle())
-      .disabled(selection == nil)
-      .help("Append the selected clip to the end of the timeline (R)")
-      .padding(.trailing, 8)
+      Button("Append", action: onAppend)
+        .buttonStyle(CapsuleButtonStyle())
+        .disabled(selection == nil)
+        .help("Append the selected clip (or its I / O part) to the end of the timeline (R)")
+        .padding(.trailing, 8)
     }
   }
 }

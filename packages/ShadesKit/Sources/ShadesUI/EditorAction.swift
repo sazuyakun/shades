@@ -42,6 +42,9 @@ enum EditorAction: CaseIterable, Identifiable {
   case deselect
   case matchFrame
   case addMarker
+  case markIn
+  case markOut
+  case clearMarks
   case undo
   case redo
   case zoomIn
@@ -96,6 +99,9 @@ enum EditorAction: CaseIterable, Identifiable {
     case .deselect: "Deselect All"
     case .matchFrame: "Match Frame"
     case .addMarker: "Add Marker"
+    case .markIn: "Mark In (hovering a media clip)"
+    case .markOut: "Mark Out (hovering a media clip)"
+    case .clearMarks: "Clear Marks"
     case .undo: "Undo"
     case .redo: "Redo"
     case .zoomIn: "Zoom In"
@@ -146,6 +152,9 @@ enum EditorAction: CaseIterable, Identifiable {
     case .deselect: Shortcut(.escape)
     case .matchFrame: Shortcut("f")
     case .addMarker: Shortcut("m")
+    case .markIn: Shortcut("i")
+    case .markOut: Shortcut("o")
+    case .clearMarks: Shortcut("x", .option)
     case .undo: Shortcut("e")
     case .redo: Shortcut("r", .control)
     case .zoomIn: Shortcut("=", .command)
@@ -185,6 +194,10 @@ enum EditorAction: CaseIterable, Identifiable {
          .deselect,
          .matchFrame:
       select(in: context)
+    case .markIn,
+         .markOut,
+         .clearMarks:
+      mark(in: context)
     case .undo:
       try context.editor.undo()
     case .redo:
@@ -289,6 +302,71 @@ enum EditorAction: CaseIterable, Identifiable {
     }
   }
 
+  /// R, Z, ⌥Z and C: places the chosen media, just its I / O part when marked.
+  private func place(in context: ActionContext, at time: MediaTime) throws(CommandError) {
+    let media = try context.requireMedia()
+    let marks = context.marks(of: media)
+    switch self {
+    case .append:
+      try context.editor.perform(AppendClip(
+        mediaID: media,
+        sourceStart: marks.start,
+        sourceEnd: marks.end,
+      ))
+
+    case .insert:
+      try context.editor.perform(InsertClip(
+        mediaID: media,
+        at: time,
+        sourceStart: marks.start,
+        sourceEnd: marks.end,
+      ))
+
+    case .overwrite:
+      try context.editor.perform(OverwriteClip(
+        mediaID: media,
+        at: time,
+        sourceStart: marks.start,
+        sourceEnd: marks.end,
+      ))
+
+    default:
+      try context.editor.perform(PlaceOnTop(
+        mediaID: media,
+        at: time,
+        sourceStart: marks.start,
+        sourceEnd: marks.end,
+      ))
+    }
+  }
+
+  /// I and O mark the hovered media (and choose it); ⌥X clears the chosen media's marks.
+  private func mark(in context: ActionContext) {
+    if self == .clearMarks {
+      if let media = context.mediaSelection.wrappedValue {
+        context.marks.wrappedValue[media] = nil
+      }
+      return
+    }
+    guard let hover = context.hover.wrappedValue else {
+      return
+    }
+    context.mediaSelection.wrappedValue = hover.mediaID
+    var marks = context.marks(of: hover.mediaID)
+    if self == .markIn {
+      marks.start = hover.time
+      if let end = marks.end, end <= hover.time {
+        marks.end = nil
+      }
+    } else {
+      marks.end = hover.time
+      if let start = marks.start, start >= hover.time {
+        marks.start = nil
+      }
+    }
+    context.marks.wrappedValue[hover.mediaID] = marks
+  }
+
   private func edit(in context: ActionContext) throws(CommandError) {
     let time = context.playhead
     let selected = context.selectedClips
@@ -315,17 +393,11 @@ enum EditorAction: CaseIterable, Identifiable {
         title: "Trim End",
       )
 
-    case .append:
-      try context.editor.perform(AppendClip(mediaID: context.requireMedia()))
-
-    case .insert:
-      try context.editor.perform(InsertClip(mediaID: context.requireMedia(), at: time))
-
-    case .overwrite:
-      try context.editor.perform(OverwriteClip(mediaID: context.requireMedia(), at: time))
-
-    case .placeOnTop:
-      try context.editor.perform(PlaceOnTop(mediaID: context.requireMedia(), at: time))
+    case .append,
+         .insert,
+         .overwrite,
+         .placeOnTop:
+      try place(in: context, at: time)
 
     case .delete,
          .rippleDelete:

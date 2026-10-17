@@ -33,6 +33,18 @@ struct MediaLoaderTests {
   }
 
   @Test
+  func `a filmstrip has the frames asked for, no larger than asked`() async throws {
+    let url = try await VideoFixture.make(red: 0, green: 0, blue: 255, seconds: 2)
+    let frames = try await MediaLoader.filmstrip(
+      for: url,
+      count: 4,
+      maxSize: CGSize(width: 64, height: 64),
+    )
+    #expect(frames.count == 4)
+    #expect(frames.allSatisfy { $0.width <= 64 && $0.height <= 64 })
+  }
+
+  @Test
   func `loading a missing file throws fileMissing`() async {
     let url = URL(fileURLWithPath: "/nonexistent/clip.mov")
     await #expect(throws: MediaError.fileMissing(url)) {

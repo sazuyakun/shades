@@ -22,8 +22,10 @@ public struct EditorView: View {
         HSplitView {
           MediaBrowser(
             selection: $selection,
+            marks: $sourceMarks,
+            hover: $mediaHover,
             onImport: { urls in Task { await importMedia(urls) } },
-            onAppend: appendClip,
+            onAppend: { run(.append) },
           )
           .frame(minWidth: 220, idealWidth: 280, maxWidth: 420)
           ViewerPane()
@@ -118,6 +120,8 @@ public struct EditorView: View {
   @State private var errorMessage: String?
   @State private var timelineSettings = TimelineSettings()
   @State private var isShowingPalette = false
+  @State private var sourceMarks = [Media.ID: SourceMarks]()
+  @State private var mediaHover: MediaHover?
   @FocusState private var isFocused: Bool
 
   private var actionContext: ActionContext {
@@ -129,6 +133,8 @@ public struct EditorView: View {
       sidePane: $sidePane,
       isShowingPalette: $isShowingPalette,
       isImporting: $isImporting,
+      marks: $sourceMarks,
+      hover: $mediaHover,
     )
   }
 
@@ -150,14 +156,6 @@ public struct EditorView: View {
       } catch {
         errorMessage = error.localizedDescription
       }
-    }
-  }
-
-  private func appendClip(_ mediaID: Media.ID) {
-    do {
-      try editor.perform(AppendClip(mediaID: mediaID))
-    } catch {
-      errorMessage = error.localizedDescription
     }
   }
 

@@ -8,9 +8,11 @@ struct MediaBrowser: View {
   // MARK: Internal
 
   @Binding var selection: Media.ID?
+  @Binding var marks: [Media.ID: SourceMarks]
+  @Binding var hover: MediaHover?
 
   let onImport: ([URL]) -> Void
-  let onAppend: (Media.ID) -> Void
+  let onAppend: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
@@ -22,8 +24,14 @@ struct MediaBrowser: View {
       ScrollView {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
           ForEach(editor.project.media) { media in
-            MediaTile(media: media, isSelected: media.id == selection)
-              .onTapGesture { selection = media.id }
+            MediaTile(
+              media: media,
+              isSelected: media.id == selection,
+              marks: marks[media.id],
+            ) { time in
+              hover = time.map { MediaHover(mediaID: media.id, time: $0) }
+            }
+            .onTapGesture { selection = media.id }
           }
         }
         .padding(.horizontal, 12)
@@ -31,10 +39,13 @@ struct MediaBrowser: View {
       }
       .overlay {
         if editor.project.media.isEmpty {
-          Text("Drop videos here\nor press ⌘I to import")
-            .font(.callout)
-            .multilineTextAlignment(.center)
-            .foregroundStyle(Theme.faintText)
+          Text(
+            "Drop videos or music here\nor press ⌘I to import.\n"
+              + "Hover a clip and press I / O\nto mark just a part."
+          )
+          .font(.callout)
+          .multilineTextAlignment(.center)
+          .foregroundStyle(Theme.faintText)
         }
       }
     }
