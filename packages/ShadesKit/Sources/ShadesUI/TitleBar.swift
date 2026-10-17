@@ -23,6 +23,7 @@ struct TitleBar: View {
             .help("Show or hide Claude's changes (⌘L)")
         }
         CapsuleGroup {
+          TasksRing()
           ClaudeStatusPill()
         }
       }

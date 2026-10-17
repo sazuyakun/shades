@@ -3,6 +3,7 @@ import Network
 import Observation
 import ShadesCommands
 import ShadesEngine
+import ShadesMedia
 
 /// Shades' MCP server: Streamable HTTP on `http://127.0.0.1:4747/mcp`, reachable from this Mac
 /// only. Claude Code connects with `claude mcp add --transport http shades <endpoint>`.
@@ -13,8 +14,13 @@ public final class MCPServer {
 
   // MARK: Lifecycle
 
-  public init(editor: Editor, player: Player, port: UInt16 = defaultPort) {
-    handler = ToolHandler(editor: editor, player: player, activity: activity)
+  public init(
+    editor: Editor,
+    player: Player,
+    jobs: JobQueue = JobQueue(),
+    port: UInt16 = defaultPort,
+  ) {
+    handler = ToolHandler(editor: editor, player: player, activity: activity, jobs: jobs)
     self.port = port
   }
 

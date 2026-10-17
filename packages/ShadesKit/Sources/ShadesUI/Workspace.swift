@@ -23,9 +23,11 @@ public final class Workspace {
     self.defaults = defaults
     let editor = Editor()
     let player = Player()
+    let jobs = JobQueue()
     self.editor = editor
     self.player = player
-    server = MCPServer(editor: editor, player: player)
+    self.jobs = jobs
+    server = MCPServer(editor: editor, player: player, jobs: jobs)
     wasRecovered = defaults.bool(forKey: Keys.isOpen) && !defaults.bool(forKey: Keys.quitCleanly)
     defaults.set(false, forKey: Keys.quitCleanly)
     server.beforeEdit = { [weak self] in self?.snapshotBeforeClaude() }
@@ -45,6 +47,8 @@ public final class Workspace {
   public let editor: Editor
   public let player: Player
   public let server: MCPServer
+  /// Background work for this project: proxies, transcripts, analysis.
+  public let jobs: JobQueue
 
   /// The open project's package, or `nil` when none is open.
   public private(set) var documentURL: URL?
@@ -118,8 +122,7 @@ public final class Workspace {
     await save()
     await saveThumbnail()
     player.pause()
-    proxyTask?.cancel()
-    proxyTask = nil
+    queuedProxies.removeAll()
     player.proxies = [:]
     documentURL = nil
     defaults.set(false, forKey: Keys.isOpen)
@@ -196,38 +199,45 @@ public final class Workspace {
   @ObservationIgnored private var autosaveTask: Task<Void, Never>?
   @ObservationIgnored private var snapshotTask: Task<Void, Never>?
   @ObservationIgnored private var didRestore = false
-  @ObservationIgnored private var proxyTask: Task<Void, Never>?
+  @ObservationIgnored private var queuedProxies = Set<Media.ID>()
   @ObservationIgnored private var lastClaudeSnapshot: ContinuousClock.Instant?
 
-  /// Makes proxies, one at a time in the background, for heavy footage that has none yet;
-  /// playback switches to each as it's ready.
+  /// Queues a proxy for every heavy file that has none yet; playback switches to each as it's
+  /// ready.
   private func makeMissingProxies() {
-    guard let documentURL, proxyTask == nil else {
+    guard let documentURL else {
       return
     }
     let cache = documentURL.appending(path: "cache")
-    proxyTask = Task {
-      while
-        let media = editor.project.media
-          .first(where: { ProxyMaker.needsProxy($0) && player.proxies[$0.id] == nil })
-      {
-        let url = ProxyMaker.proxyURL(for: media, in: cache)
+    for media in editor.project.media
+      where ProxyMaker.needsProxy(media) && player.proxies[media.id] == nil
+    {
+      guard !queuedProxies.contains(media.id) else {
+        continue
+      }
+      queuedProxies.insert(media.id)
+      let url = ProxyMaker.proxyURL(for: media, in: cache)
+      jobs.enqueue("Making an editing copy of \(media.name)") { [weak self] _ throws(JobError) in
         if !FileManager.default.fileExists(atPath: url.path) {
           do throws(MediaError) {
             try await ProxyMaker.makeProxy(of: media, at: url)
           } catch {
-            errorMessage = error.errorDescription
-            break
+            throw .failed(error.errorDescription ?? "The editing copy couldn't be made.")
           }
         }
-        guard !Task.isCancelled, documentURL == self.documentURL else {
-          return
-        }
-        player.proxies[media.id] = url
-        try? await player.load(editor.project) // why: the editor shows playback errors.
+        await self?.useProxy(url, for: media.id, in: documentURL)
       }
-      proxyTask = nil
     }
+  }
+
+  /// Switches playback to a finished proxy, if its project is still open.
+  private func useProxy(_ url: URL, for mediaID: Media.ID, in project: URL) async {
+    queuedProxies.remove(mediaID)
+    guard project == documentURL else {
+      return
+    }
+    player.proxies[mediaID] = url
+    try? await player.load(editor.project) // why: the editor shows playback errors.
   }
 
   private func snapshotBeforeClaude() {

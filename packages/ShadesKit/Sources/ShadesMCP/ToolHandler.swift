@@ -15,10 +15,11 @@ public final class ToolHandler {
 
   // MARK: Lifecycle
 
-  public init(editor: Editor, player: Player, activity: ActivityLog) {
+  public init(editor: Editor, player: Player, activity: ActivityLog, jobs: JobQueue = JobQueue()) {
     self.editor = editor
     self.player = player
     self.activity = activity
+    self.jobs = jobs
   }
 
   // MARK: Public
@@ -107,6 +108,13 @@ public final class ToolHandler {
         ],
         required: ["seconds"],
       ),
+      kind: .read,
+    ),
+    Tool(
+      name: "get_jobs",
+      summary: "List background jobs (proxies, transcripts, analysis): running, waiting and just "
+        + "finished, with progress.",
+      parameters: JSONSchema.object([:]),
       kind: .read,
     ),
     Tool(
@@ -211,6 +219,7 @@ public final class ToolHandler {
   private let editor: Editor
   private let player: Player
   private let activity: ActivityLog
+  private let jobs: JobQueue
 
   private func run(_ name: String, arguments: JSONValue) async throws(ToolError) -> ToolResult {
     switch name {
@@ -230,6 +239,9 @@ public final class ToolHandler {
     case "render_frame":
       let frame = try decode(FrameArguments.self, from: arguments, tool: name)
       return try await renderFrame(atSeconds: frame.seconds, maxSide: frame.maxSide ?? 768)
+
+    case "get_jobs":
+      return .text(jobsReport())
 
     case "select_clips":
       let ids = try decode(SelectArguments.self, from: arguments, tool: name).clipIDs
@@ -390,6 +402,27 @@ public final class ToolHandler {
       throw .documentFailed(error)
     }
     return .text("Opened \(url.deletingPathExtension().lastPathComponent).")
+  }
+
+  private func jobsReport() -> String {
+    guard !jobs.jobs.isEmpty else {
+      return "No background jobs."
+    }
+    var lines = jobs.jobs.map { job in
+      let state =
+        switch job.state {
+        case .queued: "waiting"
+        case .running(let progress): progress.map { "running, \(Int($0 * 100))%" } ?? "running"
+        case .done: "done"
+        case .failed(let message): "failed: \(message)"
+        case .cancelled: "cancelled"
+        }
+      return "- \(job.title): \(state)"
+    }
+    if let reason = jobs.pauseReason {
+      lines.append(reason)
+    }
+    return lines.joined(separator: "\n")
   }
 
   private func noHost() -> ToolError {
