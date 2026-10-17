@@ -218,3 +218,33 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** `Hashable` types can define what "equal" means. Two values that are equal must hash the same, or sets and dictionaries break.
 **JS/TS analogy:** Writing your own `isEqual(a, b)` plus a matching `key(a)` for a `Map`, instead of comparing object identity.
 **In Shades:** `MediaTime` treats 1/2 s and 300/600 s as the same time.
+
+## `@concurrent`
+**What it is:** Marks an `async` function to run on a background thread instead of its caller's actor. With approachable concurrency, plain `async` functions stay on the caller's actor (often the main one), so slow work needs `@concurrent`.
+**JS/TS analogy:** Like moving a heavy job into a Web Worker, but with the same `await` syntax.
+**In Shades:** Reading and writing `.shades` files (`ProjectFile`) and making proxies (`ProxyMaker`) run off the main thread so the UI never stutters.
+
+## `weak` references and `AnyObject` protocols
+**What it is:** A `weak` reference doesn't keep its object alive and becomes `nil` when the object goes away. Only classes can be referenced weakly, so the protocol is marked `AnyObject`.
+**JS/TS analogy:** A `WeakRef` in JavaScript.
+**In Shades:** The MCP tool handler holds the `Workspace` weakly through the `ProjectHost` protocol, so they don't keep each other alive forever.
+
+## `@NSApplicationDelegateAdaptor`
+**What it is:** Lets a SwiftUI app keep a classic AppKit app delegate for the moments SwiftUI has no hook for, like "the app is about to quit".
+**JS/TS analogy:** Like adding a `beforeunload` listener in a framework that otherwise hides the window events.
+**In Shades:** `AppDelegate` saves the open project before Shades quits.
+
+## `onKeyPress` and `@FocusState`
+**What it is:** `onKeyPress` handles raw key presses for the focused view; `@FocusState` tracks and moves keyboard focus.
+**JS/TS analogy:** A `keydown` listener on a focusable `div` with `tabIndex`, plus `element.focus()`.
+**In Shades:** The editor window handles the whole keymap in one `onKeyPress`, looking each press up in `EditorAction`.
+
+## `ScrollPosition` and `onScrollGeometryChange`
+**What it is:** `ScrollPosition` lets code scroll a `ScrollView`; `onScrollGeometryChange` reports how far it has scrolled.
+**JS/TS analogy:** `element.scrollTo()` and a `scroll` event listener.
+**In Shades:** The timeline follows the playhead while playing and keeps track headers in view while you scroll sideways.
+
+## `Mirror` (reflection)
+**What it is:** Looks inside a value at runtime: its type's fields or an enum case's name.
+**JS/TS analogy:** `Object.keys(value)`, roughly.
+**In Shades:** `rejected(_:)` logs just an error's case name (never its payload), keeping user content out of logs.

@@ -4,7 +4,7 @@ The Mac app. It's a **thin shell**: all real code lives in `packages/ShadesKit`.
 
 ## What belongs here
 - App entry point, scenes and windows (welcome window, main editor window)
-- Menus and wiring keyboard shortcuts to commands
+- Hooking up the menus that ShadesUI provides (`FileMenu`); editor actions and their keys live in ShadesUI's `EditorAction`
 - Assets (app icon, accent defaults), Info.plist, entitlements
 - `project.yml`: the XcodeGen spec
 
@@ -22,8 +22,8 @@ Anything else (model, engine, UI views, MCP server) goes in a ShadesKit module, 
 ## Building and running
 - `xcodegen generate --spec apps/mac/project.yml --project apps/mac`
 - `xcodebuild -project apps/mac/Shades.xcodeproj -scheme Shades -derivedDataPath apps/mac/.build build`
-- Run: `open apps/mac/.build/Build/Products/Debug/Shades.app`. It listens for Claude on `127.0.0.1:4747`.
-- `ShadesApp.swift` only creates the `Editor`, `Player` and `MCPServer`, starts the server and opens `EditorView`.
+- Run: `open apps/mac/.build/Build/Products/Debug/Shades.app`. It serves MCP at `http://127.0.0.1:4747/mcp`.
+- `AppDelegate` owns the one `Workspace` (open project, player, Claude's server) and saves it before quitting. `ShadesApp` declares the editor and welcome windows (each reopens the last project if it was open) and Settings.
 
 ## Verifying
 - The user often works via Remote Control: after a build, take screenshots of the running app and send them when asked.

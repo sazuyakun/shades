@@ -25,6 +25,9 @@ enum Guide {
     5. Check your work with render_frame at the moments you changed. Look before you say done.
     6. If something went wrong, undo. Every tool call is one undo step.
 
+    Projects: list_projects, new_project and open_project. Point the user at clips with \
+    select_clips. Heavy footage plays from proxies; render_frame always uses the originals.
+
     Errors come back as plain words saying what went wrong and what to do; read them and retry.
     """
 }
