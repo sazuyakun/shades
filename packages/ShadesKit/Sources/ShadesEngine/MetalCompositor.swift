@@ -3,21 +3,9 @@ import AVFoundation
 // MARK: - MetalCompositor
 
 /// AVFoundation's hook into our renderer: it asks this compositor for every frame it plays or
-/// exports, so preview and export are drawn by the same Metal code.
+/// exports, so preview and export are drawn by the same Metal code. AVFoundation creates it
+/// itself, so the shared GPU setup arrives with each frame's instruction.
 final class MetalCompositor: NSObject, AVVideoCompositing {
-
-  // MARK: Lifecycle
-
-  override init() {
-    do {
-      renderer = try MetalRenderer()
-    } catch {
-      // why: AVFoundation creates this class itself, so setup failure is reported per frame.
-      renderer = nil
-    }
-  }
-
-  // MARK: Internal
 
   let sourcePixelBufferAttributes: [String: any Sendable]? = pixelBufferAttributes
   let requiredPixelBufferAttributesForRenderContext: [String: any Sendable] = pixelBufferAttributes
@@ -26,7 +14,6 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
 
   func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
     guard
-      let renderer,
       let instruction = request.videoCompositionInstruction as? CompositionInstruction,
       let output = request.renderContext.newPixelBuffer()
     else {
@@ -50,7 +37,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       )
     }
     do {
-      try renderer.draw(layers, into: output)
+      try instruction.renderContext.renderer.draw(layers, into: output)
     } catch {
       request.finish(with: error)
       return
@@ -58,10 +45,6 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     instruction.frameCounter.recordFrame()
     request.finish(withComposedVideoFrame: output)
   }
-
-  // MARK: Private
-
-  private let renderer: MetalRenderer?
 
 }
 

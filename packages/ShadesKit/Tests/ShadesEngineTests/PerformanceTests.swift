@@ -16,8 +16,9 @@ struct PerformanceTests {
   @Test
   func `a timeline frame renders within budget`() async throws {
     let project = try await oneClipProject(width: 1920, height: 1080)
+    let context = try RenderContext()
     let time = try await Benchmark.median {
-      _ = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 1440)
+      _ = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 1440, context: context)
     }
     // why: measured 0.13 s on the M1 dev machine and 0.27 s on the CI runner.
     #expect(time < .milliseconds(500))
@@ -26,10 +27,16 @@ struct PerformanceTests {
   @Test
   func `rendering many frames doesn't leak memory`() async throws {
     let project = try await oneClipProject(width: 320, height: 180)
-    _ = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    let context = try RenderContext()
+    _ = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320, context: context)
     let before = Benchmark.memoryFootprint()
     for index in 0 ..< 30 {
-      _ = try await FrameRenderer.png(of: project, atSeconds: Double(index) / 30, maxSide: 320)
+      _ = try await FrameRenderer.png(
+        of: project,
+        atSeconds: Double(index) / 30,
+        maxSide: 320,
+        context: context,
+      )
     }
     #expect(Benchmark.memoryFootprint() - before < 40_000_000)
   }

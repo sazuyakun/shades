@@ -9,18 +9,27 @@ public enum FrameRenderer {
   // MARK: Public
 
   /// Renders the frame at `seconds` as PNG data, no wider or taller than `maxSide` pixels.
+  /// Pass a long-lived `context` when rendering often; a new one compiles the shaders again.
   @MainActor
   public static func png(
     of project: Project,
     atSeconds seconds: Double,
     maxSide: Int,
+    context: RenderContext? = nil,
   ) async throws(EngineError) -> Data {
     let renderState = RenderState()
     renderState.update(from: project.timeline)
+    let renderContext =
+      if let context {
+        context
+      } else {
+        try RenderContext()
+      }
     let composition = try await Composition.build(
       project,
       library: MediaLibrary(),
       renderState: renderState,
+      renderContext: renderContext,
       frameCounter: FrameCounter(),
     )
     let generator = AVAssetImageGenerator(asset: composition.asset)

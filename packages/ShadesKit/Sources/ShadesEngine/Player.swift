@@ -77,6 +77,7 @@ public final class Player {
       project,
       library: library,
       renderState: renderState,
+      renderContext: renderContext(),
       frameCounter: frameCounter,
       sources: proxies,
     )
@@ -132,6 +133,16 @@ public final class Player {
     currentTime = time.seconds
   }
 
+  /// The GPU setup, made the first time it's needed, shared with frame grabs for Claude.
+  public func renderContext() throws(EngineError) -> RenderContext {
+    if let sharedContext {
+      return sharedContext
+    }
+    let context = try RenderContext()
+    sharedContext = context
+    return context
+  }
+
   // MARK: Private
 
   @ObservationIgnored private var timeObserver: Any?
@@ -141,5 +152,6 @@ public final class Player {
   @ObservationIgnored private var structure: Composition.Structure?
   @ObservationIgnored private var cuedTime: Double?
   @ObservationIgnored private var loadedProxies = [Media.ID: URL]()
+  @ObservationIgnored private var sharedContext: RenderContext?
 
 }

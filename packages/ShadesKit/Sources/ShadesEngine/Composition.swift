@@ -40,6 +40,7 @@ extension Composition {
     _ project: Project,
     library: MediaLibrary,
     renderState: RenderState,
+    renderContext: RenderContext,
     frameCounter: FrameCounter,
     sources: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> Composition {
@@ -93,6 +94,7 @@ extension Composition {
       for: videoLayers,
       duration: timeline.duration,
       renderState: renderState,
+      renderContext: renderContext,
       frameCounter: frameCounter,
     )
     return Composition(
@@ -146,6 +148,7 @@ extension Composition {
     for layers: [(trackID: CMPersistentTrackID, clips: [(Clip, CGAffineTransform)])],
     duration: MediaTime,
     renderState: RenderState,
+    renderContext: RenderContext,
     frameCounter: FrameCounter,
   ) -> [CompositionInstruction] {
     var edges: Set = [MediaTime.zero, duration]
@@ -167,6 +170,7 @@ extension Composition {
         timeRange: CMTimeRange(start: start.cmTime, end: end.cmTime),
         layers: showing,
         renderState: renderState,
+        renderContext: renderContext,
         frameCounter: frameCounter,
       )
     }

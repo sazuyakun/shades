@@ -12,11 +12,13 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
     timeRange: CMTimeRange,
     layers: [CompositionLayer],
     renderState: RenderState,
+    renderContext: RenderContext,
     frameCounter: FrameCounter,
   ) {
     self.timeRange = timeRange
     self.layers = layers
     self.renderState = renderState
+    self.renderContext = renderContext
     self.frameCounter = frameCounter
   }
 
@@ -28,6 +30,7 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
   let passthroughTrackID = kCMPersistentTrackID_Invalid
   let layers: [CompositionLayer]
   let renderState: RenderState
+  let renderContext: RenderContext
   let frameCounter: FrameCounter
 
   var requiredSourceTrackIDs: [NSValue]? {
