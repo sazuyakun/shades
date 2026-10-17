@@ -6,6 +6,7 @@ import ShadesCore
 import ShadesDocument
 import ShadesEngine
 import ShadesMCP
+import ShadesMedia
 
 // MARK: - Workspace
 
@@ -117,12 +118,17 @@ public final class Workspace {
     await save()
     await saveThumbnail()
     player.pause()
+    proxyTask?.cancel()
+    proxyTask = nil
+    player.proxies = [:]
     documentURL = nil
     defaults.set(false, forKey: Keys.isOpen)
   }
 
-  /// Call after every project change: saves it shortly after the last change.
+  /// Call after every project change: saves it shortly after the last change, and makes
+  /// proxies for newly imported heavy footage.
   public func projectDidChange() {
+    makeMissingProxies()
     autosaveTask?.cancel()
     autosaveTask = Task {
       try? await Task.sleep(for: Self.autosaveDelay) // why: cancelled means a newer change saves.
@@ -190,7 +196,39 @@ public final class Workspace {
   @ObservationIgnored private var autosaveTask: Task<Void, Never>?
   @ObservationIgnored private var snapshotTask: Task<Void, Never>?
   @ObservationIgnored private var didRestore = false
+  @ObservationIgnored private var proxyTask: Task<Void, Never>?
   @ObservationIgnored private var lastClaudeSnapshot: ContinuousClock.Instant?
+
+  /// Makes proxies, one at a time in the background, for heavy footage that has none yet;
+  /// playback switches to each as it's ready.
+  private func makeMissingProxies() {
+    guard let documentURL, proxyTask == nil else {
+      return
+    }
+    let cache = documentURL.appending(path: "cache")
+    proxyTask = Task {
+      while
+        let media = editor.project.media
+          .first(where: { ProxyMaker.needsProxy($0) && player.proxies[$0.id] == nil })
+      {
+        let url = ProxyMaker.proxyURL(for: media, in: cache)
+        if !FileManager.default.fileExists(atPath: url.path) {
+          do throws(MediaError) {
+            try await ProxyMaker.makeProxy(of: media, at: url)
+          } catch {
+            errorMessage = error.errorDescription
+            break
+          }
+        }
+        guard !Task.isCancelled, documentURL == self.documentURL else {
+          return
+        }
+        player.proxies[media.id] = url
+        try? await player.load(editor.project) // why: the editor shows playback errors.
+      }
+      proxyTask = nil
+    }
+  }
 
   private func snapshotBeforeClaude() {
     let now = ContinuousClock.now
@@ -267,6 +305,7 @@ extension Workspace: ProjectHost {
     defaults.set(url.path, forKey: Keys.lastProject)
     defaults.set(true, forKey: Keys.isOpen)
     startSnapshotTimer()
+    makeMissingProxies()
   }
 
   public func createProject(named name: String, format: VideoFormat) async throws(DocumentError) {

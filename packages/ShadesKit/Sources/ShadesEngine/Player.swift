@@ -37,6 +37,10 @@ public final class Player {
   /// The timeline length in seconds.
   public private(set) var duration: Double = 0
   public private(set) var isPlaying = false
+  /// Light editing copies to play instead of heavy originals, by media. Set them, then `load`.
+  public var proxies = [Media.ID: URL]()
+  /// Whether what's playing now uses any proxy, for the viewer's "Proxy" badge.
+  public private(set) var isUsingProxies = false
 
   /// How fast playback runs: 1 is normal, 2 double speed, −1 backwards.
   public private(set) var rate: Float = 1
@@ -54,7 +58,10 @@ public final class Player {
       return
     }
     let structure = Composition.Structure(timeline)
-    if structure == self.structure, let composition, let item = avPlayer.currentItem {
+    if
+      structure == self.structure, proxies == loadedProxies, let composition,
+      let item = avPlayer.currentItem
+    {
       item.audioMix = composition.audioMix(for: timeline)
       // why: a fresh copy of the video composition makes the player redraw the paused frame.
       item.videoComposition = composition.videoComposition.mutableCopy() as? AVVideoComposition
@@ -68,6 +75,7 @@ public final class Player {
       library: library,
       renderState: renderState,
       frameCounter: frameCounter,
+      sources: proxies,
     )
     // why: a newer edit started its own load while this one was building; it wins.
     guard !Task.isCancelled else {
@@ -79,6 +87,8 @@ public final class Player {
     avPlayer.replaceCurrentItem(with: item)
     composition = built
     self.structure = structure
+    loadedProxies = proxies
+    isUsingProxies = timeline.allClips.contains { proxies[$0.mediaID] != nil }
     await avPlayer.seek(to: playhead, toleranceBefore: .zero, toleranceAfter: .zero)
     currentTime = playhead.seconds
   }
@@ -127,5 +137,6 @@ public final class Player {
   @ObservationIgnored private var composition: Composition?
   @ObservationIgnored private var structure: Composition.Structure?
   @ObservationIgnored private var cuedTime: Double?
+  @ObservationIgnored private var loadedProxies = [Media.ID: URL]()
 
 }

@@ -33,13 +33,15 @@ extension Composition {
     let tracks: [TrackStructure]
   }
 
-  /// Builds the playable form of the project's timeline.
+  /// Builds the playable form of the project's timeline, reading each media file from
+  /// `sources` (its proxy) when given there.
   @MainActor
   static func build(
     _ project: Project,
     library: MediaLibrary,
     renderState: RenderState,
     frameCounter: FrameCounter,
+    sources: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> Composition {
     let timeline = project.timeline
     guard timeline.duration > .zero else {
@@ -55,7 +57,7 @@ extension Composition {
       var placed = [(Clip, CGAffineTransform)]()
       for clip in track.clips {
         let media = try project.mediaForPlayback(clip.mediaID)
-        let source = try await library.tracks(of: media)
+        let source = try await library.tracks(at: sources[media.id] ?? media.url)
         let range = CMTimeRange(start: clip.sourceStart.cmTime, duration: clip.duration.cmTime)
         do {
           if let videoTrack, let video = source.video {

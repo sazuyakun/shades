@@ -10,22 +10,23 @@ final class MediaLibrary {
 
   // MARK: Internal
 
-  /// The playable tracks of `media`, loading the file the first time it's asked for.
-  func tracks(of media: Media) async throws(EngineError) -> MediaTracks {
-    if let cached = cache[media.url] {
+  /// The playable tracks of the file at `url` (the media or its proxy), loading it the first
+  /// time it's asked for.
+  func tracks(at url: URL) async throws(EngineError) -> MediaTracks {
+    if let cached = cache[url] {
       return cached
     }
-    let asset = AVURLAsset(url: media.url)
+    let asset = AVURLAsset(url: url)
     do {
       let video = try await asset.loadTracks(withMediaType: .video).first
       let audio = try await asset.loadTracks(withMediaType: .audio).first
       let rotation = try await video?.load(.preferredTransform) ?? .identity
       let tracks = MediaTracks(asset: asset, video: video, audio: audio, rotation: rotation)
-      cache[media.url] = tracks
+      cache[url] = tracks
       return tracks
     } catch {
-      logger.error("media.openFailed path=\(media.url.path, privacy: .private)")
-      throw .mediaUnreadable(media.url)
+      logger.error("media.openFailed path=\(url.path, privacy: .private)")
+      throw .mediaUnreadable(url)
     }
   }
 

@@ -8,6 +8,7 @@ public enum MediaError: Error, Equatable {
   case unreadable(URL)
   case noPictureOrSound(URL)
   case thumbnailFailed(URL)
+  case proxyFailed(URL)
 }
 
 // MARK: LocalizedError
@@ -23,6 +24,9 @@ extension MediaError: LocalizedError {
       "\(url.lastPathComponent) has no picture or sound in it."
     case .thumbnailFailed(let url):
       "Couldn't make a thumbnail for \(url.lastPathComponent)."
+    case .proxyFailed(let url):
+      "Couldn't make a lighter editing copy of \(url.lastPathComponent). It will play from the "
+        + "original, which may stutter."
     }
   }
 }
