@@ -35,8 +35,9 @@ public enum GoldenFrame {
 
   // MARK: Private
 
-  /// A channel may drift this much (out of 255) between machines' video decoders.
-  private static let channelTolerance = 12
+  /// A channel may drift this much (out of 255) between machines' decoders and scalers; CI's
+  /// downscaling blends edges up to 17 levels differently. A real change is far bigger.
+  private static let channelTolerance = 24
   /// Fraction of pixels allowed to differ even after the one-pixel allowance.
   private static let outlierFraction = 0.005
 
