@@ -198,3 +198,23 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A `var` with a body and no storage: it's recalculated from other properties every time it's read, so it can never go stale.
 **JS/TS analogy:** A class `get` accessor, or a derived value in React (`const total = items.length`) instead of separate state.
 **In Shades:** `ActivityLog.recentlyChangedClipIDs` is derived from `recentEntry`, so the glow and the toast can't disagree.
+
+## `mutating` and `inout`
+**What it is:** Structs are values, so a method that changes one must say so with `mutating`, and a function that edits a value you pass in takes it as `inout` (called with `&`). The caller's copy really changes; nobody else's does.
+**JS/TS analogy:** Like a reducer that gets `draft` from Immer: you "mutate" freely, but it's your own copy, not shared state.
+**In Shades:** `Track.split(at:)` is `mutating`; every command's `apply(to project: inout Project)` edits a copy, and `Editor` only keeps it if nothing threw.
+
+## `any Protocol` and `.Type` (existentials and metatypes)
+**What it is:** `any ToolCommand` is "some value of a type that conforms, decided at runtime"; `any ToolCommand.Type` is the type itself, so you can call its `static` members (`name`, `parameters`) and decode it, without having an instance.
+**JS/TS analogy:** An array of classes `[TrimClip, SplitClip]` where each class has static fields you read before calling `new`.
+**In Shades:** `CommandRegistry.tools` lists the command types; MCP reads their names and schemas and decodes Claude's arguments into the right one.
+
+## Custom `Codable` (`init(from:)` / `encode(to:)`)
+**What it is:** When the automatic JSON mapping isn't enough, a type writes its own decoding and encoding. Decoding can try several shapes.
+**JS/TS analogy:** A hand-written `parse()` with a zod `union`: accept either a number or an object.
+**In Shades:** `MediaTime` reads plain seconds from Claude or exact `{value, timescale}` from project files; `JSONValue` decodes any JSON at all.
+
+## Custom `==` and `hash(into:)`
+**What it is:** `Hashable` types can define what "equal" means. Two values that are equal must hash the same, or sets and dictionaries break.
+**JS/TS analogy:** Writing your own `isEqual(a, b)` plus a matching `key(a)` for a `Map`, instead of comparing object identity.
+**In Shades:** `MediaTime` treats 1/2 s and 300/600 s as the same time.
