@@ -15,7 +15,14 @@ public enum FrameRenderer {
     atSeconds seconds: Double,
     maxSide: Int,
   ) async throws(EngineError) -> Data {
-    let composition = try await Composition.build(project, frameCounter: FrameCounter())
+    let renderState = RenderState()
+    renderState.update(from: project.timeline)
+    let composition = try await Composition.build(
+      project,
+      library: MediaLibrary(),
+      renderState: renderState,
+      frameCounter: FrameCounter(),
+    )
     let generator = AVAssetImageGenerator(asset: composition.asset)
     generator.videoComposition = composition.videoComposition
     generator.requestedTimeToleranceBefore = .zero

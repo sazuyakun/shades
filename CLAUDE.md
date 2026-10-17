@@ -99,6 +99,7 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 - Use `#expect` for checks and `try #require` for preconditions and unwrapping. No `guard`, `try!` or force unwraps in tests.
 - **Every Command and all Core, Document and feature-module logic** gets tests in the same commit. Views aren't unit-tested; rendering is covered by frame snapshot tests.
 - A bug fix starts with a failing test that reproduces it.
+- Tests import modules normally. `@testable import` is allowed only to check internal logic that has no public surface (e.g. `Composition.Structure`).
 - Tests never use real footage. Shared helpers (e.g. `VideoFixture`, which writes solid-color test videos) live in the `ShadesTestSupport` target.
 - Run all tests: `swift test --package-path packages/ShadesKit`.
 

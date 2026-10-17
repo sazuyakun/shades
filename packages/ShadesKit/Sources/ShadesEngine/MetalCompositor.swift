@@ -34,13 +34,23 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       request.finish(with: EngineError.renderFailed)
       return
     }
-    do {
-      // why: there's no source frame in a gap between clips; that's normal and draws black.
-      try renderer.draw(
-        request.sourceFrame(byTrackID: instruction.trackID),
-        transform: instruction.transform,
-        into: output,
+    let layers = instruction.layers.compactMap { layer -> RenderLayer? in
+      guard
+        let style = instruction.renderState.style(of: layer.clipID),
+        style.isVisible, style.opacity > 0,
+        let source = request.sourceFrame(byTrackID: layer.trackID)
+      else {
+        return nil
+      }
+      return RenderLayer(
+        source: source,
+        rotation: layer.rotation,
+        transform: style.transform,
+        opacity: style.opacity,
       )
+    }
+    do {
+      try renderer.draw(layers, into: output)
     } catch {
       request.finish(with: error)
       return

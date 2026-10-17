@@ -38,18 +38,42 @@ public final class Player {
   public private(set) var duration: Double = 0
   public private(set) var isPlaying = false
 
-  /// Rebuilds playback from the project, keeping the playhead where it was.
+  /// Brings playback up to date with the project, keeping the playhead where it was. Only
+  /// changes to clip timing or media rebuild playback; a clip's look, volume or a track's
+  /// visibility update live.
   public func load(_ project: Project) async throws(EngineError) {
-    duration = project.timeline.duration.seconds
+    let timeline = project.timeline
+    duration = timeline.duration.seconds
+    renderState.update(from: timeline)
     guard duration > 0 else {
       avPlayer.replaceCurrentItem(with: nil)
+      composition = nil
+      return
+    }
+    let structure = Composition.Structure(timeline)
+    if structure == self.structure, let composition, let item = avPlayer.currentItem {
+      item.audioMix = composition.audioMix(for: timeline)
+      // why: a fresh copy of the video composition makes the player redraw the paused frame.
+      item.videoComposition = composition.videoComposition.mutableCopy() as? AVVideoComposition
       return
     }
     let playhead = avPlayer.currentTime()
-    let composition = try await Composition.build(project, frameCounter: frameCounter)
-    let item = AVPlayerItem(asset: composition.asset)
-    item.videoComposition = composition.videoComposition
+    let built = try await Composition.build(
+      project,
+      library: library,
+      renderState: renderState,
+      frameCounter: frameCounter,
+    )
+    // why: a newer edit started its own load while this one was building; it wins.
+    guard !Task.isCancelled else {
+      return
+    }
+    let item = AVPlayerItem(asset: built.asset)
+    item.videoComposition = built.videoComposition
+    item.audioMix = built.audioMix(for: timeline)
     avPlayer.replaceCurrentItem(with: item)
+    composition = built
+    self.structure = structure
     await avPlayer.seek(to: playhead, toleranceBefore: .zero, toleranceAfter: .zero)
   }
 
@@ -77,5 +101,9 @@ public final class Player {
   // MARK: Private
 
   @ObservationIgnored private var timeObserver: Any?
+  @ObservationIgnored private let library = MediaLibrary()
+  @ObservationIgnored private let renderState = RenderState()
+  @ObservationIgnored private var composition: Composition?
+  @ObservationIgnored private var structure: Composition.Structure?
 
 }

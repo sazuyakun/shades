@@ -55,7 +55,6 @@ Problems found but not fixed yet. When one is fixed, delete its row in the same 
 
 | # | Issue | Fix in |
 |---|---|---|
-| 5 | Every edit rebuilds the whole playback composition; fine for short projects, slow for long ones | M2 (with the new timeline engine) |
 
 ## 3. Constraints & setup notes
 - Dev machine: **M1, 8 GB RAM, macOS 26**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.
