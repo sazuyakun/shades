@@ -16,9 +16,10 @@ All real Mac code lives here as a Swift package with one module per system. The 
 | ShadesCaptions | Transcription, caption styles |
 | ShadesExport | Presets, encode queue |
 | ShadesMCP | MCP server: commands become Claude tools |
+| ShadesPlugins | Plugin folders (Settings), and from M5 loading and hot-reloading plugins |
 | ShadesUI | SwiftUI views (AppKit/Metal where SwiftUI is too slow) |
 
-Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesCommands, ShadesMedia, ShadesEngine, ShadesMCP, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
+Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesCommands, ShadesMedia, ShadesEngine, ShadesMCP, ShadesPlugins, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
 
 ## Rules
 - **Dependencies point one way:** Core → Commands / Document → feature modules → MCP → UI → the app. Core imports only Foundation, nothing imports ShadesUI except the app, and ShadesMCP never imports ShadesUI (UI reads `MCPServer.status` to show Claude's connection).

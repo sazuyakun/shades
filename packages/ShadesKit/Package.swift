@@ -13,6 +13,7 @@ let package = Package(
         "ShadesMedia",
         "ShadesEngine",
         "ShadesMCP",
+        "ShadesPlugins",
         "ShadesUI",
       ],
     )
@@ -24,6 +25,7 @@ let package = Package(
     .target(name: "ShadesCore"),
     .target(name: "ShadesCommands", dependencies: ["ShadesCore"]),
     .target(name: "ShadesMedia", dependencies: ["ShadesCore"]),
+    .target(name: "ShadesPlugins"),
     .target(
       name: "ShadesEngine",
       dependencies: ["ShadesCore"],
@@ -42,7 +44,13 @@ let package = Package(
     // default; every other module is nonisolated.
     .target(
       name: "ShadesUI",
-      dependencies: ["ShadesCommands", "ShadesEngine", "ShadesMCP", "ShadesMedia"],
+      dependencies: [
+        "ShadesCommands",
+        "ShadesEngine",
+        "ShadesMCP",
+        "ShadesMedia",
+        "ShadesPlugins",
+      ],
       swiftSettings: [.defaultIsolation(MainActor.self)],
     ),
     .target(name: "ShadesTestSupport", path: "Tests/ShadesTestSupport"),
@@ -51,6 +59,7 @@ let package = Package(
     .testTarget(name: "ShadesMediaTests", dependencies: ["ShadesMedia", "ShadesTestSupport"]),
     .testTarget(name: "ShadesEngineTests", dependencies: ["ShadesEngine", "ShadesTestSupport"]),
     .testTarget(name: "ShadesMCPTests", dependencies: ["ShadesMCP", "ShadesTestSupport"]),
+    .testTarget(name: "ShadesPluginsTests", dependencies: ["ShadesPlugins"]),
   ],
 )
 
