@@ -27,6 +27,18 @@ public final class MCPServer {
   public let activity = ActivityLog()
   public private(set) var status = ServerStatus.starting
 
+  /// Runs before every Claude call that may change the project, e.g. to snapshot it first.
+  public var beforeEdit: () -> Void {
+    get { handler.beforeEdit }
+    set { handler.beforeEdit = newValue }
+  }
+
+  /// Who holds the open project, so Claude can list, create and open projects.
+  public var projectHost: (any ProjectHost)? {
+    get { handler.projectHost }
+    set { handler.projectHost = newValue }
+  }
+
   /// The URL Claude connects to.
   public var endpoint: String {
     "http://127.0.0.1:\(port)\(MCPEndpoint.path)"

@@ -16,7 +16,7 @@ struct TitlePill: View {
           endPoint: .bottomTrailing,
         ))
         .frame(width: 20, height: 20)
-      Text(editor.project.timeline.name)
+      Text(workspace.projectName)
         .fontWeight(.medium)
         .foregroundStyle(Theme.text)
       Text(verbatim: "\(format.width)×\(format.height) · \(format.framesPerSecond)p")
@@ -33,5 +33,6 @@ struct TitlePill: View {
   // MARK: Private
 
   @Environment(Editor.self) private var editor
+  @Environment(Workspace.self) private var workspace
 
 }

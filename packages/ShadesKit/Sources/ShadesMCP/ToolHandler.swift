@@ -1,6 +1,7 @@
 import Foundation
 import ShadesCommands
 import ShadesCore
+import ShadesDocument
 import ShadesEngine
 import ShadesMedia
 
@@ -22,8 +23,17 @@ public final class ToolHandler {
 
   // MARK: Public
 
+  /// Runs before every call that may change the project, e.g. to snapshot it first.
+  public var beforeEdit: () -> Void = { }
+  /// Who holds the open project, for the project tools.
+  public weak var projectHost: (any ProjectHost)?
+
   /// Runs a tool. Failures come back as an error result Claude can read and act on.
   public func call(_ name: String, arguments: JSONValue) async -> ToolResult {
+    let isEdit = (Self.builtIns.first { $0.name == name }?.kind ?? .edit) == .edit
+    if isEdit {
+      beforeEdit()
+    }
     let before = editor.project
     let result: ToolResult
     do {
@@ -31,7 +41,6 @@ public final class ToolHandler {
     } catch {
       result = .failure(error.errorDescription ?? "The tool failed.")
     }
-    let isEdit = !(Self.builtIns.first { $0.name == name }?.isReadOnly ?? false)
     if isEdit, editor.project != before || result.isError {
       let previous = Set(before.timeline.allClips)
       activity.record(ActivityEntry(
@@ -54,7 +63,7 @@ public final class ToolHandler {
         name: command.name,
         summary: command.summary,
         parameters: command.parameters,
-        isReadOnly: false,
+        kind: .edit,
       )
     }
   }
@@ -67,13 +76,13 @@ public final class ToolHandler {
       summary: "Get the whole project: media, tracks with their clips, markers, the playhead "
         + "and the selection. Times are in seconds.",
       parameters: JSONSchema.object([:]),
-      isReadOnly: true,
+      kind: .read,
     ),
     Tool(
       name: "get_guide",
       summary: "Read how Shades works and how to edit well with these tools.",
       parameters: JSONSchema.object([:]),
-      isReadOnly: true,
+      kind: .read,
     ),
     Tool(
       name: "import_media",
@@ -82,7 +91,7 @@ public final class ToolHandler {
         ["path": JSONSchema.string("Absolute path to the file")],
         required: ["path"],
       ),
-      isReadOnly: false,
+      kind: .edit,
     ),
     Tool(
       name: "render_frame",
@@ -98,19 +107,19 @@ public final class ToolHandler {
         ],
         required: ["seconds"],
       ),
-      isReadOnly: true,
+      kind: .read,
     ),
     Tool(
       name: "play",
       summary: "Start playback in the viewer.",
       parameters: JSONSchema.object([:]),
-      isReadOnly: true,
+      kind: .read,
     ),
     Tool(
       name: "pause",
       summary: "Pause playback.",
       parameters: JSONSchema.object([:]),
-      isReadOnly: true,
+      kind: .read,
     ),
     Tool(
       name: "seek",
@@ -119,19 +128,19 @@ public final class ToolHandler {
         ["seconds": JSONSchema.number("Time on the timeline", minimum: 0)],
         required: ["seconds"],
       ),
-      isReadOnly: true,
+      kind: .read,
     ),
     Tool(
       name: "undo",
       summary: "Undo the last edit.",
       parameters: JSONSchema.object([:]),
-      isReadOnly: false,
+      kind: .edit,
     ),
     Tool(
       name: "redo",
       summary: "Redo the last undone edit.",
       parameters: JSONSchema.object([:]),
-      isReadOnly: false,
+      kind: .edit,
     ),
     Tool(
       name: "batch",
@@ -152,7 +161,38 @@ public final class ToolHandler {
         ],
         required: ["edits"],
       ),
-      isReadOnly: false,
+      kind: .edit,
+    ),
+    Tool(
+      name: "list_projects",
+      summary: "List the projects in ~/Shades, newest first, and which one is open.",
+      parameters: JSONSchema.object([:]),
+      kind: .project,
+    ),
+    Tool(
+      name: "new_project",
+      summary: "Create a project in ~/Shades and open it. The picture is always 4:3.",
+      parameters: JSONSchema.object(
+        [
+          "name": JSONSchema.string("The project's name"),
+          "size": JSONSchema.string(
+            "Picture size (default 2880x2160)",
+            values: ["2880x2160", "1440x1080"],
+          ),
+          "fps": JSONSchema.number("Frame rate: 24 (default), 30 or 60"),
+        ],
+        required: ["name"],
+      ),
+      kind: .project,
+    ),
+    Tool(
+      name: "open_project",
+      summary: "Save the open project and open another, by name (from list_projects) or path.",
+      parameters: JSONSchema.object(
+        ["name": JSONSchema.string("A project name, or the path to a .shades package")],
+        required: ["name"],
+      ),
+      kind: .project,
     ),
   ]
 
@@ -204,6 +244,15 @@ public final class ToolHandler {
 
     case "batch":
       return try batch(arguments)
+
+    case "list_projects":
+      return await listProjects()
+
+    case "new_project":
+      return try await newProject(decode(NewProjectArguments.self, from: arguments, tool: name))
+
+    case "open_project":
+      return try await openProject(decode(NameArguments.self, from: arguments, tool: name).name)
 
     default:
       return try edit(name, arguments: arguments)
@@ -275,6 +324,59 @@ public final class ToolHandler {
     } catch {
       throw .engineFailed(error)
     }
+  }
+
+  private func listProjects() async -> ToolResult {
+    let open = projectHost?.documentURL
+    let entries = await ProjectLibrary.projects()
+    guard !entries.isEmpty else {
+      return .text("There are no projects in ~/Shades yet. Create one with new_project.")
+    }
+    return .text(entries.map { entry in
+      "- \(entry.name)\(entry.url == open ? " (open)" : "")"
+    }
+    .joined(separator: "\n"))
+  }
+
+  private func newProject(_ arguments: NewProjectArguments) async throws(ToolError) -> ToolResult {
+    guard let host = projectHost else {
+      throw noHost()
+    }
+    let size: VideoFormat = arguments.size == "1440x1080" ? .half : .standard
+    let fps = arguments.fps ?? 24
+    guard VideoFormat.frameRates.contains(fps) else {
+      throw rejected(.commandFailed(.invalidValue("fps must be 24, 30 or 60")), tool: "new_project")
+    }
+    do {
+      try await host.createProject(named: arguments.name, format: size.withFrameRate(fps))
+    } catch {
+      throw .documentFailed(error)
+    }
+    return .text("Created and opened \(arguments.name) (\(size.width)×\(size.height), \(fps) fps).")
+  }
+
+  private func openProject(_ name: String) async throws(ToolError) -> ToolResult {
+    guard let host = projectHost else {
+      throw noHost()
+    }
+    let url = name.hasPrefix("/")
+      ? URL(filePath: name, directoryHint: .isDirectory)
+      : ProjectLibrary.folder.appending(
+        path: "\(name).\(ProjectFile.fileExtension)",
+        directoryHint: .isDirectory,
+      )
+    do {
+      try await host.openProject(at: url)
+    } catch {
+      throw .documentFailed(error)
+    }
+    return .text("Opened \(url.deletingPathExtension().lastPathComponent).")
+  }
+
+  private func noHost() -> ToolError {
+    logger.fault("tool.failed reason=noProjectHost")
+    assertionFailure("The MCP server has no project host")
+    return .noProjectHost
   }
 
   /// What an edit changed, so Claude learns new clip IDs without calling get_project.
@@ -354,6 +456,20 @@ private struct PathArguments: Decodable {
 private struct FrameArguments: Decodable {
   let seconds: Double
   let maxSide: Int?
+}
+
+// MARK: - NewProjectArguments
+
+private struct NewProjectArguments: Decodable {
+  let name: String
+  let size: String?
+  let fps: Int?
+}
+
+// MARK: - NameArguments
+
+private struct NameArguments: Decodable {
+  let name: String
 }
 
 // MARK: - SeekArguments

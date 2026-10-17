@@ -1,5 +1,6 @@
 import Foundation
 import ShadesCommands
+import ShadesDocument
 import ShadesEngine
 import ShadesMedia
 
@@ -10,6 +11,8 @@ public enum ToolError: Error, Equatable {
   case commandFailed(CommandError)
   case mediaFailed(MediaError)
   case engineFailed(EngineError)
+  case documentFailed(DocumentError)
+  case noProjectHost
   case listenFailed(port: UInt16)
 }
 
@@ -24,6 +27,10 @@ extension ToolError: LocalizedError {
       error.errorDescription
     case .engineFailed(let error):
       error.errorDescription
+    case .documentFailed(let error):
+      error.errorDescription
+    case .noProjectHost:
+      "Projects can't be opened right now. Reopen Shades and try again."
     case .listenFailed(let port):
       "Claude can't connect: port \(port) is already in use, usually by another copy of "
         + "Shades. Quit it, then reopen Shades."

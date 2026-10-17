@@ -55,6 +55,23 @@ public struct EditorView: View {
         Task { await importMedia(urls) }
       }
     }
+    .onChange(of: editor.project) { workspace.projectDidChange() }
+    .onDisappear {
+      Task { await workspace.close() }
+      openWindow(id: WindowID.welcome)
+    }
+    .overlay(alignment: .top) {
+      if workspace.wasRecovered {
+        RecoveredNote { workspace.wasRecovered = false }
+          .padding(.top, 56)
+      }
+    }
+    .sheet(item: Binding(get: { workspace.sheet }, set: { workspace.sheet = $0 })) { sheet in
+      switch sheet {
+      case .checkpoint: CheckpointSheet()
+      case .revert: RevertSheet()
+      }
+    }
     .task(id: editor.project) {
       do {
         try await player.load(editor.project)
@@ -64,13 +81,14 @@ public struct EditorView: View {
     }
     .alert(
       "Something went wrong",
-      isPresented: Binding(get: { errorMessage != nil }, set: {
+      isPresented: Binding(get: { errorMessage != nil || workspace.errorMessage != nil }, set: {
         if !$0 {
           errorMessage = nil
+          workspace.errorMessage = nil
         }
       }),
       actions: { Button("OK") { } },
-      message: { Text(errorMessage ?? "") },
+      message: { Text(errorMessage ?? workspace.errorMessage ?? "") },
     )
   }
 
@@ -78,6 +96,8 @@ public struct EditorView: View {
 
   @Environment(Editor.self) private var editor
   @Environment(Player.self) private var player
+  @Environment(Workspace.self) private var workspace
+  @Environment(\.openWindow) private var openWindow
   @State private var selection: Media.ID?
   @State private var sidePane = SidePane.inspector
   @State private var isImporting = false

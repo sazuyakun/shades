@@ -7,7 +7,7 @@ All real Mac code lives here as a Swift package with one module per system. The 
 |---|---|
 | ShadesCore | Model types: Project, Sequence, Track, Clip, time, IDs. Foundation only |
 | ShadesCommands | Command protocol, registry, undo, JSON schemas |
-| ShadesDocument | `.shades` package, autosave, snapshots |
+| ShadesDocument | `.shades` package (project, session, snapshots, thumbnail), the `~/Shades` library. Autosave timing lives in ShadesUI's `Workspace` |
 | ShadesMedia | Import, analysis, thumbnails, waveforms, proxies |
 | ShadesEngine | AVComposition builder, Metal compositor, playback, shaders |
 | ShadesColor | Color management, grade nodes, LUTs, scopes |
@@ -19,7 +19,7 @@ All real Mac code lives here as a Swift package with one module per system. The 
 | ShadesPlugins | Plugin folders (Settings), and from M5 loading and hot-reloading plugins |
 | ShadesUI | SwiftUI views (AppKit/Metal where SwiftUI is too slow) |
 
-Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesCommands, ShadesMedia, ShadesEngine, ShadesMCP, ShadesPlugins, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
+Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesCommands, ShadesDocument, ShadesMedia, ShadesEngine, ShadesMCP, ShadesPlugins, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
 
 ## Rules
 - **Dependencies point one way:** Core → Commands / Document → feature modules → MCP → UI → the app. Core imports only Foundation, nothing imports ShadesUI except the app, and ShadesMCP never imports ShadesUI (UI reads `MCPServer.status` to show Claude's connection).

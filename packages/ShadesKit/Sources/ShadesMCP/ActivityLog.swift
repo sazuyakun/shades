@@ -25,6 +25,12 @@ public final class ActivityLog {
     recentEntry?.changedClipIDs ?? []
   }
 
+  /// Forgets everything, when another project opens.
+  public func clear() {
+    entries.removeAll()
+    recentEntry = nil
+  }
+
   // MARK: Internal
 
   /// Adds an entry and keeps it as the recent one until `highlightDuration` passes.

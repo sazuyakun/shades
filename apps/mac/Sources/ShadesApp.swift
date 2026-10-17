@@ -1,50 +1,54 @@
-import ShadesCommands
-import ShadesEngine
-import ShadesMCP
 import ShadesPlugins
 import ShadesUI
 import SwiftUI
 
-/// The app's entry point: creates the editor, player, Claude server and plugin folders, and
-/// opens the window and Settings.
+/// The app's entry point: the workspace (open project, player, Claude's server), the editor and
+/// welcome windows, and Settings. Reopens the last project at launch and saves it at quit.
 @main
 struct ShadesApp: App {
-
-  // MARK: Lifecycle
-
-  init() {
-    let editor = Editor()
-    let player = Player()
-    let server = MCPServer(editor: editor, player: player)
-    server.start()
-    _editor = State(initialValue: editor)
-    _player = State(initialValue: player)
-    _server = State(initialValue: server)
-  }
 
   // MARK: Internal
 
   var body: some Scene {
-    WindowGroup {
+    Window("Shades", id: WindowID.editor) {
       EditorView()
-        .environment(editor)
-        .environment(player)
-        .environment(server)
+        .environment(workspace)
+        .environment(workspace.editor)
+        .environment(workspace.player)
+        .environment(workspace.server)
+        .task { await workspace.restoreLastProject() }
     }
     .windowStyle(.hiddenTitleBar)
     .defaultSize(width: 1440, height: 900)
+    .defaultLaunchBehavior(hasLastProject ? .presented : .suppressed)
+    .commands { FileMenu(workspace: workspace) }
+
+    Window("Welcome to Shades", id: WindowID.welcome) {
+      WelcomeView()
+        .environment(workspace)
+    }
+    .windowStyle(.hiddenTitleBar)
+    .windowResizability(.contentSize)
+    .defaultLaunchBehavior(hasLastProject ? .suppressed : .presented)
+
     Settings {
       SettingsView()
-        .environment(server)
+        .environment(workspace.server)
         .environment(pluginFolders)
     }
   }
 
   // MARK: Private
 
-  @State private var editor: Editor
-  @State private var player: Player
-  @State private var server: MCPServer
+  @NSApplicationDelegateAdaptor private var delegate: AppDelegate
   @State private var pluginFolders = PluginFolders()
+
+  private var workspace: Workspace {
+    delegate.workspace
+  }
+
+  private var hasLastProject: Bool {
+    workspace.lastProjectURL != nil
+  }
 
 }
