@@ -85,12 +85,16 @@ public struct TrimClip: ToolCommand {
     project.timeline.tracks[location.track] = track
   }
 
-  /// Rejects a trim that leaves nothing or reaches past either end of the media.
+  /// Rejects a trim that leaves nothing or reaches past either end of the media (text clips
+  /// can be any length).
   private func check(_ clip: Clip, in project: Project) throws(CommandError) {
-    let media = try project.requireMedia(clip.mediaID)
-    guard clip.duration > .zero else {
+    guard clip.duration > .zero, clip.timelineStart >= .zero else {
       throw rejected(.invalidRange("the clip would have no length left"))
     }
+    guard let mediaID = clip.mediaID else {
+      return
+    }
+    let media = try project.requireMedia(mediaID)
     let available = media.duration.flooredToFrame(at: project.timeline.format.framesPerSecond)
     guard
       clip.sourceStart >= .zero, clip.sourceStart + clip.duration <= available,

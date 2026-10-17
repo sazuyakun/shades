@@ -45,9 +45,11 @@ extension CommandError: LocalizedError {
       "The timeline has no track \(label). Tracks are named V1, V2… and A1, A2…"
 
     case .wrongTrackKind(let track, let needs):
-      needs == .audio
-        ? "\(track) is a video track. Put sound-only media on an audio track (A1, A2…)."
-        : "\(track) is an audio track. Put video on a video track (V1, V2…)."
+      switch needs {
+      case .audio: "\(track) isn't an audio track. Put sound-only media on an audio track (A1…)."
+      case .video: "\(track) isn't a video track. Put video on a video track (V1, V2…)."
+      case .text: "\(track) isn't a text track. Put text on a text track (T1, T2…)."
+      }
 
     case .lastVideoTrack:
       "A timeline needs at least one video track."

@@ -47,6 +47,18 @@ extension Project {
     return addTrack(kind)
   }
 
+  /// The text track labeled `label`, or the first text track (added if there is none).
+  mutating func textTrack(labeled label: String?) throws(CommandError) -> Int {
+    if let label {
+      let index = try requireTrack(label)
+      guard timeline.tracks[index].kind == .text else {
+        throw rejected(.wrongTrackKind(track: label.uppercased(), needs: .text))
+      }
+      return index
+    }
+    return timeline.tracks.firstIndex { $0.kind == .text } ?? addTrack(.text)
+  }
+
   /// Adds an empty track above the others of its kind and returns its index.
   @discardableResult
   mutating func addTrack(_ kind: TrackKind) -> Int {

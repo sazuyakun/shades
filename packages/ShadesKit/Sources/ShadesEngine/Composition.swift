@@ -52,12 +52,15 @@ extension Composition {
     let asset = AVMutableComposition()
     var videoLayers = [(trackID: CMPersistentTrackID, clips: [(Clip, CGAffineTransform)])]()
     var audioTrackIDs = [Track.ID: CMPersistentTrackID]()
-    for track in timeline.tracks where !track.clips.isEmpty {
+    for track in timeline.tracks where !track.clips.isEmpty && track.kind != .text {
       let videoTrack = track.kind == .video ? try addTrack(.video, to: asset) : nil
       var audioTrack: AVMutableCompositionTrack?
       var placed = [(Clip, CGAffineTransform)]()
       for clip in track.clips {
-        let media = try project.mediaForPlayback(clip.mediaID)
+        guard let mediaID = clip.mediaID else {
+          continue
+        }
+        let media = try project.mediaForPlayback(mediaID)
         let source = try await library.tracks(at: sources[media.id] ?? media.url)
         let range = CMTimeRange(start: clip.sourceStart.cmTime, duration: clip.duration.cmTime)
         do {
@@ -80,6 +83,7 @@ extension Composition {
         videoLayers.append((videoTrack.trackID, placed))
       }
     }
+    let textLayers = timeline.tracks.filter { $0.kind == .text }.map(\.clips)
     let videoComposition = AVMutableVideoComposition()
     videoComposition.customVideoCompositorClass = MetalCompositor.self
     videoComposition.renderSize = CGSize(
@@ -92,6 +96,7 @@ extension Composition {
     )
     videoComposition.instructions = instructions(
       for: videoLayers,
+      text: textLayers,
       duration: timeline.duration,
       renderState: renderState,
       renderContext: renderContext,
@@ -146,26 +151,32 @@ extension Composition {
   /// bottom to top, covering the whole timeline without overlaps as AVFoundation requires.
   private static func instructions(
     for layers: [(trackID: CMPersistentTrackID, clips: [(Clip, CGAffineTransform)])],
+    text: [[Clip]],
     duration: MediaTime,
     renderState: RenderState,
     renderContext: RenderContext,
     frameCounter: FrameCounter,
   ) -> [CompositionInstruction] {
     var edges: Set = [MediaTime.zero, duration]
-    for layer in layers {
-      for (clip, _) in layer.clips {
-        edges.insert(clip.timelineStart)
-        edges.insert(clip.timelineEnd)
-      }
+    for clip in layers.flatMap({ $0.clips.map(\.0) }) + text.flatMap(\.self) {
+      edges.insert(clip.timelineStart)
+      edges.insert(clip.timelineEnd)
     }
     let sorted = edges.sorted()
     return zip(sorted, sorted.dropFirst()).map { start, end in
-      let showing = layers.compactMap { layer -> CompositionLayer? in
+      let video = layers.compactMap { layer -> CompositionLayer? in
         guard let (clip, rotation) = layer.clips.first(where: { $0.0.contains(start) }) else {
           return nil
         }
-        return CompositionLayer(trackID: layer.trackID, clipID: clip.id, rotation: rotation)
+        return CompositionLayer(
+          clipID: clip.id,
+          source: .video(trackID: layer.trackID, rotation: rotation),
+        )
       }
+      let words = text.compactMap { clips in
+        clips.first { $0.contains(start) }.map { CompositionLayer(clipID: $0.id, source: .text) }
+      }
+      let showing = video + words
       return CompositionInstruction(
         timeRange: CMTimeRange(start: start.cmTime, end: end.cmTime),
         layers: showing,
@@ -200,7 +211,7 @@ struct ClipTiming: Hashable {
   }
 
   let id: Clip.ID
-  let mediaID: Media.ID
+  let mediaID: Media.ID?
   let sourceStart: MediaTime
   let duration: MediaTime
   let timelineStart: MediaTime

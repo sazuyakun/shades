@@ -9,9 +9,6 @@ struct TrackRow: View {
 
   // MARK: Internal
 
-  static let videoHeight = 72.0
-  static let audioHeight = 48.0
-
   let track: Track
   /// Every row top to bottom, for moving clips between tracks.
   let rows: [Track]
@@ -43,12 +40,21 @@ struct TrackRow: View {
         }
       }
     }
-    .frame(height: track.kind == .video ? Self.videoHeight : Self.audioHeight)
+    .frame(height: Self.height(of: track))
     .overlay(alignment: .leading) {
       TrackHeader(track: track, onError: onError)
         .offset(x: headerOffset)
     }
     .overlay(alignment: .bottom) { Hairline() }
+  }
+
+  /// How tall a track's row is: video tallest for its filmstrip, text slimmest.
+  static func height(of track: Track) -> Double {
+    switch track.kind {
+    case .video: 72
+    case .audio: 48
+    case .text: 36
+    }
   }
 
   // MARK: Private

@@ -1,5 +1,6 @@
 import CoreVideo
 import Foundation
+import IOSurface
 import Metal
 import ShadesCore
 
@@ -42,7 +43,11 @@ final class MetalRenderer: Sendable {
     encoder.setRenderPipelineState(pipeline)
     let outputSize = CGSize(width: outputTexture.width, height: outputTexture.height)
     for layer in layers {
-      let sourceTexture = try texture(for: layer.source)
+      let sourceTexture =
+        switch layer.source {
+        case .frame(let buffer): try texture(for: buffer)
+        case .surface(let surface): try texture(for: surface)
+        }
       var uniforms = FrameUniforms(
         stored: CGSize(width: sourceTexture.width, height: sourceTexture.height),
         rotation: layer.rotation,
@@ -101,16 +106,23 @@ final class MetalRenderer: Sendable {
 
   /// Wraps a pixel buffer's IOSurface as a Metal texture: the GPU uses the same memory directly.
   private func texture(for buffer: CVPixelBuffer) throws(EngineError) -> any MTLTexture {
+    guard let surface = CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue() else {
+      logger.error("frame.renderFailed reason=noSurface")
+      throw .renderFailed
+    }
+    return try texture(for: surface)
+  }
+
+  /// Wraps a BGRA IOSurface as a Metal texture without copying.
+  private func texture(for surface: IOSurface) throws(EngineError) -> any MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
       pixelFormat: .bgra8Unorm,
-      width: CVPixelBufferGetWidth(buffer),
-      height: CVPixelBufferGetHeight(buffer),
+      width: surface.width,
+      height: surface.height,
       mipmapped: false,
     )
     descriptor.usage = [.shaderRead, .renderTarget]
-    guard
-      let surface = CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue(),
-      let texture = device.makeTexture(descriptor: descriptor, iosurface: surface, plane: 0)
+    guard let texture = device.makeTexture(descriptor: descriptor, iosurface: surface, plane: 0)
     else {
       logger.error("frame.renderFailed reason=texture")
       throw .renderFailed
@@ -124,8 +136,16 @@ final class MetalRenderer: Sendable {
 
 /// One source frame to draw, and how.
 struct RenderLayer {
-  let source: CVPixelBuffer
+  let source: LayerPicture
   let rotation: CGAffineTransform
   let transform: ClipTransform
   let opacity: Double
+}
+
+// MARK: - LayerPicture
+
+/// A layer's picture: a video frame for this moment, or a surface drawn earlier (text).
+enum LayerPicture {
+  case frame(CVPixelBuffer)
+  case surface(IOSurface)
 }

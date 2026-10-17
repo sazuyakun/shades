@@ -62,6 +62,42 @@ struct LayerRenderingTests {
   }
 
   @Test
+  func `a caption is drawn over the video near the bottom`() async throws {
+    var project = try await twoLayers { _ in }
+    project.timeline.tracks.remove(at: 1)
+    let caption = Clip(
+      source: .text(TextContent(text: "Hello Shades")),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 1),
+      timelineStart: .zero,
+    )
+    project.timeline.tracks.append(Track(kind: .text, clips: [caption]))
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    #expect(try color(of: png, x: 0.5, y: 0.3).red > 200)
+    let lowerBand = try (0 ..< 40).flatMap { column in
+      try [0.8, 0.84, 0.88]
+        .map { row in try color(of: png, x: 0.3 + Double(column) * 0.01, y: row) }
+    }
+    // why: downscaled, white letters blend with their outline; red video never has green or blue.
+    #expect(lowerBand.contains { $0.green > 150 && $0.blue > 150 })
+    #expect(try GoldenFrame.matches(png, named: "caption-over-video", in: golden))
+  }
+
+  @Test
+  func `editing words doesn't change the playback structure`() {
+    let caption = Clip(
+      source: .text(TextContent(text: "one")),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 1),
+      timelineStart: .zero,
+    )
+    let timeline = Timeline(tracks: [Track(kind: .video), Track(kind: .text, clips: [caption])])
+    var edited = timeline
+    edited.tracks[1].clips[0].source = .text(TextContent(text: "two"))
+    #expect(Composition.Structure(edited) == Composition.Structure(timeline))
+  }
+
+  @Test
   func `the layer shaders compile`() throws {
     _ = try MetalRenderer()
   }

@@ -92,7 +92,7 @@ public final class Player {
     composition = built
     self.structure = structure
     loadedProxies = proxies
-    isUsingProxies = timeline.allClips.contains { proxies[$0.mediaID] != nil }
+    isUsingProxies = timeline.allClips.contains { $0.mediaID.flatMap { proxies[$0] } != nil }
     await avPlayer.seek(to: playhead, toleranceBefore: .zero, toleranceAfter: .zero)
     currentTime = playhead.seconds
   }

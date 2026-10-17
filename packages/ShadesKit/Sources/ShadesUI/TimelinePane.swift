@@ -73,10 +73,12 @@ struct TimelinePane: View {
   @State private var visibleStart = 0.0
   @State private var scrollPosition = ScrollPosition(edge: .leading)
 
-  /// Video tracks top-down (highest first), then audio tracks.
+  /// Text tracks then video tracks top-down (highest first), then audio tracks.
   private var rows: [Track] {
     let tracks = editor.project.timeline.tracks
-    return tracks.filter { $0.kind == .video }.reversed() + tracks.filter { $0.kind == .audio }
+    let text = tracks.filter { $0.kind == .text }.reversed()
+    let video = tracks.filter { $0.kind == .video }.reversed()
+    return Array(text) + Array(video) + tracks.filter { $0.kind == .audio }
   }
 
   private func scale(fitting width: Double) -> TimelineScale {

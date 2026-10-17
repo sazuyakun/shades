@@ -28,7 +28,8 @@ enum ProjectSummary {
           "kind": .string(track.kind.rawValue),
           "muted": .bool(track.isMuted),
           "hidden": .bool(track.isHidden),
-          "clips": .array(track.clips.map { json(of: $0, media: mediaByID[$0.mediaID]) }),
+          "clips": .array(track.clips
+            .map { json(of: $0, media: $0.mediaID.flatMap { mediaByID[$0] }) }),
         ]
       }),
       "markers": .array(timeline.markers.map { marker in
@@ -63,10 +64,8 @@ enum ProjectSummary {
   }
 
   private static func json(of clip: Clip, media: Media?) -> JSONValue {
-    [
+    var fields: [String: JSONValue] = [
       "id": .string(clip.id.uuidString),
-      "media_id": .string(clip.mediaID.uuidString),
-      "media_name": .string(media?.name ?? "missing"),
       "start": seconds(clip.timelineStart),
       "end": seconds(clip.timelineEnd),
       "source_start": seconds(clip.sourceStart),
@@ -80,6 +79,15 @@ enum ProjectSummary {
       "volume": rounded(clip.volume),
       "audio_enabled": .bool(clip.isAudioEnabled),
     ]
+    switch clip.source {
+    case .media(let id):
+      fields["media_id"] = .string(id.uuidString)
+      fields["media_name"] = .string(media?.name ?? "missing")
+
+    case .text(let content):
+      fields["text"] = .string(content.text)
+    }
+    return .object(fields)
   }
 
   private static func seconds(_ time: MediaTime) -> JSONValue {

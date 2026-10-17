@@ -34,17 +34,31 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
   let frameCounter: FrameCounter
 
   var requiredSourceTrackIDs: [NSValue]? {
-    layers.isEmpty ? nil : layers.map { NSNumber(value: $0.trackID) }
+    let trackIDs = layers.compactMap { layer -> NSNumber? in
+      if case .video(let trackID, _) = layer.source {
+        return NSNumber(value: trackID)
+      }
+      return nil
+    }
+    return trackIDs.isEmpty ? nil : trackIDs
   }
 
 }
 
 // MARK: - CompositionLayer
 
-/// One clip showing during an instruction: where its frames come from and how they're rotated.
+/// One clip showing during an instruction, and where its picture comes from.
 struct CompositionLayer: Sendable {
-  let trackID: CMPersistentTrackID
   let clipID: UUID
-  /// The source video's stored-to-upright rotation (its `preferredTransform`).
-  let rotation: CGAffineTransform
+  let source: LayerSource
+}
+
+// MARK: - LayerSource
+
+/// Where a layer's picture comes from.
+enum LayerSource: Sendable {
+  /// Video frames from a composition track, with the stored-to-upright rotation.
+  case video(trackID: CMPersistentTrackID, rotation: CGAffineTransform)
+  /// Text, drawn from the clip's words in `RenderState`.
+  case text
 }

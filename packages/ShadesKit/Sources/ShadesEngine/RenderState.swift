@@ -17,12 +17,13 @@ public final class RenderState: Sendable {
   /// Takes the current look of every clip from the timeline.
   func update(from timeline: Timeline) {
     var styles = [Clip.ID: LayerStyle]()
-    for track in timeline.tracks where track.kind == .video {
+    for track in timeline.tracks where track.kind != .audio {
       for clip in track.clips {
         styles[clip.id] = LayerStyle(
           transform: clip.transform,
           opacity: clip.opacity,
           isVisible: !track.isHidden,
+          text: clip.text?.text,
         )
       }
     }
@@ -47,4 +48,6 @@ struct LayerStyle: Sendable {
   let transform: ClipTransform
   let opacity: Double
   let isVisible: Bool
+  /// The words, for a text clip.
+  let text: String?
 }

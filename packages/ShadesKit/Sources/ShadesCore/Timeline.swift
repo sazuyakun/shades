@@ -41,7 +41,13 @@ public struct Timeline: Codable, Hashable, Sendable {
   public func label(of track: Track) -> String {
     let sameKind = tracks.filter { $0.kind == track.kind }
     let number = (sameKind.firstIndex { $0.id == track.id } ?? 0) + 1
-    return (track.kind == .video ? "V" : "A") + "\(number)"
+    let letter =
+      switch track.kind {
+      case .video: "V"
+      case .audio: "A"
+      case .text: "T"
+      }
+    return letter + "\(number)"
   }
 
   /// Where a clip is: its track's index and its own index in that track.

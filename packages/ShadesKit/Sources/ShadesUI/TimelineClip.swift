@@ -22,8 +22,9 @@ struct TimelineClip: View {
   var body: some View {
     let width = scale.x(at: clip.duration) + endDelta - startDelta
     TimelineClipView(
-      media: editor.project.media(withID: clip.mediaID),
-      isAudio: track.kind == .audio,
+      media: clip.mediaID.flatMap(editor.project.media(withID:)),
+      text: clip.text?.text,
+      kind: track.kind,
       isSelected: editor.selection.contains(clip.id),
       isRecentlyChanged: server.activity.recentlyChangedClipIDs.contains(clip.id),
     )
@@ -164,7 +165,10 @@ struct TimelineClip: View {
       let earliest = max(clip.timelineStart - clip.sourceStart, .zero)
       return min(max(time, earliest), clip.timelineEnd - frame)
     }
-    let mediaDuration = editor.project.media(withID: clip.mediaID)?.duration
+    guard let mediaID = clip.mediaID else {
+      return max(time, clip.timelineStart + frame)
+    }
+    let mediaDuration = editor.project.media(withID: mediaID)?.duration
       .flooredToFrame(at: fps) ?? clip.duration
     let latest = clip.timelineStart + (mediaDuration - clip.sourceStart)
     return max(min(time, latest), clip.timelineStart + frame)
@@ -231,7 +235,7 @@ struct TimelineClip: View {
   }
 
   private func rowHeight(_ track: Track) -> Double {
-    track.kind == .video ? TrackRow.videoHeight : TrackRow.audioHeight
+    TrackRow.height(of: track)
   }
 
 }

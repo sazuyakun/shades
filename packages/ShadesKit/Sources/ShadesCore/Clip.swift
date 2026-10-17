@@ -1,10 +1,11 @@
 import Foundation
 
-/// A piece of a media file placed on a track, with how it's drawn and heard.
+/// A piece of a media file (or some text) placed on a track, with how it's drawn and heard.
 public struct Clip: Codable, Hashable, Sendable, Identifiable {
 
   // MARK: Lifecycle
 
+  /// A piece of a media file.
   public init(
     id: UUID = UUID(),
     mediaID: Media.ID,
@@ -17,8 +18,35 @@ public struct Clip: Codable, Hashable, Sendable, Identifiable {
     volume: Double = 1,
     isAudioEnabled: Bool = true,
   ) {
+    self.init(
+      id: id,
+      source: .media(mediaID),
+      sourceStart: sourceStart,
+      duration: duration,
+      timelineStart: timelineStart,
+      transform: transform,
+      opacity: opacity,
+      depth: depth,
+      volume: volume,
+      isAudioEnabled: isAudioEnabled,
+    )
+  }
+
+  /// Any clip, from what it shows.
+  public init(
+    id: UUID = UUID(),
+    source: ClipSource,
+    sourceStart: MediaTime,
+    duration: MediaTime,
+    timelineStart: MediaTime,
+    transform: ClipTransform = .identity,
+    opacity: Double = 1,
+    depth: DepthSlot = .inFront,
+    volume: Double = 1,
+    isAudioEnabled: Bool = true,
+  ) {
     self.id = id
-    self.mediaID = mediaID
+    self.source = source
     self.sourceStart = sourceStart
     self.duration = duration
     self.timelineStart = timelineStart
@@ -32,8 +60,8 @@ public struct Clip: Codable, Hashable, Sendable, Identifiable {
   // MARK: Public
 
   public let id: UUID
-  public let mediaID: Media.ID
-  /// Where in the media file the clip begins.
+  public var source: ClipSource
+  /// Where in the media file the clip begins (zero for text).
   public var sourceStart: MediaTime
   public var duration: MediaTime
   /// Where on the timeline the clip begins.
@@ -46,6 +74,22 @@ public struct Clip: Codable, Hashable, Sendable, Identifiable {
   public var volume: Double
   /// Whether a video clip plays its media's own sound (off once the audio is detached).
   public var isAudioEnabled: Bool
+
+  /// The media file the clip plays, unless it's text.
+  public var mediaID: Media.ID? {
+    if case .media(let id) = source {
+      return id
+    }
+    return nil
+  }
+
+  /// The words a text clip shows, unless it plays media.
+  public var text: TextContent? {
+    if case .text(let content) = source {
+      return content
+    }
+    return nil
+  }
 
   /// Where on the timeline the clip ends.
   public var timelineEnd: MediaTime {

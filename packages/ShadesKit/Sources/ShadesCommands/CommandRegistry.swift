@@ -15,6 +15,8 @@ public enum CommandRegistry {
     CloseGaps.self,
     JoinClips.self,
     SetClip.self,
+    AddText.self,
+    SetText.self,
     DetachAudio.self,
     AddTrack.self,
     RemoveTrack.self,

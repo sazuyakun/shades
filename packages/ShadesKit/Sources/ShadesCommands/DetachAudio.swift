@@ -25,7 +25,10 @@ public struct DetachAudio: ToolCommand {
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
     let clip = project.timeline.tracks[location.track].clips[location.clip]
-    let media = try project.requireMedia(clip.mediaID)
+    guard let mediaID = clip.mediaID else {
+      throw rejected(.noAudio(clipID))
+    }
+    let media = try project.requireMedia(mediaID)
     guard
       project.timeline.tracks[location.track].kind == .video, media.hasAudio,
       clip.isAudioEnabled
@@ -40,7 +43,7 @@ public struct DetachAudio: ToolCommand {
       project.timeline.tracks[$0].isClear(from: clip.timelineStart, to: clip.timelineEnd)
     } ?? project.addTrack(.audio)
     project.timeline.tracks[index].add(Clip(
-      mediaID: clip.mediaID,
+      mediaID: mediaID,
       sourceStart: clip.sourceStart,
       duration: clip.duration,
       timelineStart: clip.timelineStart,

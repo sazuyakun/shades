@@ -81,7 +81,7 @@ extension Clip {
   /// The same clip under a fresh ID, for the second half of a split or a copy.
   public func withNewID() -> Clip {
     Clip(
-      mediaID: mediaID,
+      source: source,
       sourceStart: sourceStart,
       duration: duration,
       timelineStart: timelineStart,

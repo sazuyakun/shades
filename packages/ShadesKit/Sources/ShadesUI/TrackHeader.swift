@@ -23,7 +23,7 @@ struct TrackHeader: View {
           .foregroundStyle(isOff ? Theme.negative : Theme.faintText)
       }
       .buttonStyle(.plain)
-      .help(track.kind == .video ? "Hide or show this track" : "Mute or unmute this track")
+      .help(track.kind == .audio ? "Mute or unmute this track" : "Hide or show this track")
     }
     .padding(.horizontal, 10)
     .frame(width: TimelinePane.headerWidth)
@@ -37,22 +37,22 @@ struct TrackHeader: View {
   @Environment(Editor.self) private var editor
 
   private var isOff: Bool {
-    track.kind == .video ? track.isHidden : track.isMuted
+    track.kind == .audio ? track.isMuted : track.isHidden
   }
 
   private var icon: String {
-    switch (track.kind, isOff) {
-    case (.video, false): "eye"
-    case (.video, true): "eye.slash"
-    case (.audio, false): "speaker.wave.2"
-    case (.audio, true): "speaker.slash"
+    switch (track.kind == .audio, isOff) {
+    case (false, false): "eye"
+    case (false, true): "eye.slash"
+    case (true, false): "speaker.wave.2"
+    case (true, true): "speaker.slash"
     }
   }
 
   private func toggle() {
     let label = editor.project.timeline.label(of: track)
     do {
-      if track.kind == .video {
+      if track.kind != .audio {
         try editor.perform(SetTrack(track: label, hidden: !track.isHidden))
       } else {
         try editor.perform(SetTrack(track: label, muted: !track.isMuted))

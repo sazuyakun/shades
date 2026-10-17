@@ -21,20 +21,37 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       request.finish(with: EngineError.renderFailed)
       return
     }
+    let width = CVPixelBufferGetWidth(output)
+    let height = CVPixelBufferGetHeight(output)
     let layers = instruction.layers.compactMap { layer -> RenderLayer? in
       guard
-        let style = instruction.renderState.style(of: layer.clipID),
-        style.isVisible, style.opacity > 0,
-        let source = request.sourceFrame(byTrackID: layer.trackID)
+        let style = instruction.renderState.style(of: layer.clipID), style.isVisible,
+        style.opacity > 0
       else {
         return nil
       }
-      return RenderLayer(
-        source: source,
-        rotation: layer.rotation,
-        transform: style.transform,
-        opacity: style.opacity,
-      )
+      let picture: LayerPicture?
+      let rotation: CGAffineTransform
+      switch layer.source {
+      case .video(let trackID, let sourceRotation):
+        picture = request.sourceFrame(byTrackID: trackID).map(LayerPicture.frame)
+        rotation = sourceRotation
+
+      case .text:
+        let texture = style.text.flatMap { text in
+          instruction.renderContext.caption(text, width: width, height: height)
+        }
+        picture = texture.map(LayerPicture.surface)
+        rotation = .identity
+      }
+      return picture.map { picture in
+        RenderLayer(
+          source: picture,
+          rotation: rotation,
+          transform: style.transform,
+          opacity: style.opacity,
+        )
+      }
     }
     do {
       try instruction.renderContext.renderer.draw(layers, into: output)
