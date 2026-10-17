@@ -25,7 +25,7 @@ extension ServerStatus {
       "Getting ready for Claude…"
 
     case .ready:
-      "Claude can connect through the shades-mcp relay (apps/mcp). Direct HTTP comes in M2."
+      "Claude can connect at http://127.0.0.1:4747/mcp. Set it up once in Settings › Claude."
 
     case .failed(let error):
       error.errorDescription ?? "Claude can't connect."

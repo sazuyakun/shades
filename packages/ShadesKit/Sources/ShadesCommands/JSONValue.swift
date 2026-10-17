@@ -245,3 +245,11 @@ private struct SwiftKey: CodingKey {
   var intValue: Int?
 
 }
+
+// MARK: - JSONValue + ExpressibleByFloatLiteral
+
+extension JSONValue: ExpressibleByFloatLiteral {
+  public init(floatLiteral value: Double) {
+    self = .number(value)
+  }
+}

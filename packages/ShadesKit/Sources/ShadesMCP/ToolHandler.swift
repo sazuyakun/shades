@@ -1,13 +1,16 @@
 import Foundation
-import MCP
 import ShadesCommands
 import ShadesCore
 import ShadesEngine
 import ShadesMedia
 
-/// Shades' actions as Claude tools: what each tool is called, and what it does when called.
+// MARK: - ToolHandler
+
+/// Shades as Claude tools: the built-in ones (read, see, import, transport, undo, batch) plus
+/// every command in `CommandRegistry`. Each call that changes the project is one undo step and
+/// one History entry.
 @MainActor
-public struct ToolHandler {
+public final class ToolHandler {
 
   // MARK: Lifecycle
 
@@ -19,225 +22,342 @@ public struct ToolHandler {
 
   // MARK: Public
 
-  /// Every tool Claude can see.
-  public nonisolated static let tools: [Tool] = [
-    Tool(
-      name: "get_project",
-      description: "Get the whole project as JSON: imported media and the timeline's tracks "
-        + "and clips. Times are exact fractions: seconds = value / timescale.",
-      inputSchema: schema([:]),
-    ),
-    Tool(
-      name: "import_media",
-      description: "Import a video file from disk into the project. Returns its media ID.",
-      inputSchema: schema(["path": ("string", "Absolute path to the video file")]),
-    ),
-    Tool(
-      name: "append_clip",
-      description: "Place a whole imported media file at the end of the timeline.",
-      inputSchema: schema(["media_id": ("string", "ID returned by import_media")]),
-    ),
-    Tool(name: "play", description: "Start playback in the viewer.", inputSchema: schema([:])),
-    Tool(name: "pause", description: "Pause playback.", inputSchema: schema([:])),
-    Tool(
-      name: "seek",
-      description: "Move the playhead to a time on the timeline.",
-      inputSchema: schema(["seconds": ("number", "Time on the timeline, in seconds")]),
-    ),
-    Tool(
-      name: "render_frame",
-      description: "Render the timeline at a time and return it as an image, to check the look.",
-      inputSchema: schema(["seconds": ("number", "Time on the timeline, in seconds")]),
-    ),
-  ]
-
-  /// Runs a tool call and logs it if it was an edit. Failures come back as an error result
-  /// Claude can read and act on.
-  public func call(_ parameters: CallTool.Parameters) async -> CallTool.Result {
-    let clipIDsBefore = clipIDs()
-    let result: CallTool.Result
+  /// Runs a tool. Failures come back as an error result Claude can read and act on.
+  public func call(_ name: String, arguments: JSONValue) async -> ToolResult {
+    let before = editor.project
+    let result: ToolResult
     do {
-      result = try await run(parameters)
+      result = try await run(name, arguments: arguments)
     } catch {
-      result = text(error.errorDescription ?? "The tool failed.", isError: true)
+      result = .failure(error.errorDescription ?? "The tool failed.")
     }
-    if let title = Self.editTitles[parameters.name] {
+    let isEdit = !(Self.builtIns.first { $0.name == name }?.isReadOnly ?? false)
+    if isEdit, editor.project != before || result.isError {
+      let previous = Set(before.timeline.allClips)
       activity.record(ActivityEntry(
-        title: title,
-        summary: summary(of: result),
-        isError: result.isError == true,
-        changedClipIDs: clipIDs().subtracting(clipIDsBefore),
+        title: title(of: name, arguments: arguments),
+        summary: result.text,
+        isError: result.isError,
+        changedClipIDs: Set(editor.project.timeline.allClips.filter { !previous.contains($0) }
+          .map(\.id)),
       ))
     }
     return result
   }
 
+  // MARK: Internal
+
+  /// Every tool, built-ins first.
+  var tools: [Tool] {
+    Self.builtIns + CommandRegistry.tools.map { command in
+      Tool(
+        name: command.name,
+        summary: command.summary,
+        parameters: command.parameters,
+        isReadOnly: false,
+      )
+    }
+  }
+
   // MARK: Private
 
-  /// History titles for the tools that change the project; every other tool only reads or
-  /// previews, so it isn't logged.
-  private nonisolated static let editTitles = [
-    "import_media": "Imported media",
-    "append_clip": "Appended a clip",
+  private static let builtIns = [
+    Tool(
+      name: "get_project",
+      summary: "Get the whole project: media, tracks with their clips, markers, the playhead "
+        + "and the selection. Times are in seconds.",
+      parameters: JSONSchema.object([:]),
+      isReadOnly: true,
+    ),
+    Tool(
+      name: "get_guide",
+      summary: "Read how Shades works and how to edit well with these tools.",
+      parameters: JSONSchema.object([:]),
+      isReadOnly: true,
+    ),
+    Tool(
+      name: "import_media",
+      summary: "Import a video or audio file from disk (it stays where it is). Returns its ID.",
+      parameters: JSONSchema.object(
+        ["path": JSONSchema.string("Absolute path to the file")],
+        required: ["path"],
+      ),
+      isReadOnly: false,
+    ),
+    Tool(
+      name: "render_frame",
+      summary: "Render the timeline at a time as an image, to check how it looks.",
+      parameters: JSONSchema.object(
+        [
+          "seconds": JSONSchema.number("Time on the timeline", minimum: 0),
+          "max_side": JSONSchema.number(
+            "Longest side in pixels (default 768)",
+            minimum: 64,
+            maximum: 2880,
+          ),
+        ],
+        required: ["seconds"],
+      ),
+      isReadOnly: true,
+    ),
+    Tool(
+      name: "play",
+      summary: "Start playback in the viewer.",
+      parameters: JSONSchema.object([:]),
+      isReadOnly: true,
+    ),
+    Tool(
+      name: "pause",
+      summary: "Pause playback.",
+      parameters: JSONSchema.object([:]),
+      isReadOnly: true,
+    ),
+    Tool(
+      name: "seek",
+      summary: "Move the playhead to a time on the timeline.",
+      parameters: JSONSchema.object(
+        ["seconds": JSONSchema.number("Time on the timeline", minimum: 0)],
+        required: ["seconds"],
+      ),
+      isReadOnly: true,
+    ),
+    Tool(
+      name: "undo",
+      summary: "Undo the last edit.",
+      parameters: JSONSchema.object([:]),
+      isReadOnly: false,
+    ),
+    Tool(
+      name: "redo",
+      summary: "Redo the last undone edit.",
+      parameters: JSONSchema.object([:]),
+      isReadOnly: false,
+    ),
+    Tool(
+      name: "batch",
+      summary: "Apply many edit tools in order as one undo step, all or nothing. Each edit names "
+        + "a tool (like split_clip) and its arguments.",
+      parameters: JSONSchema.object(
+        [
+          "edits": JSONSchema.array(
+            "The edits, applied in order",
+            items: JSONSchema.object(
+              [
+                "tool": JSONSchema.string("An edit tool's name"),
+                "arguments": JSONSchema.object([:]),
+              ],
+              required: ["tool"],
+            ),
+          )
+        ],
+        required: ["edits"],
+      ),
+      isReadOnly: false,
+    ),
   ]
 
   private let editor: Editor
   private let player: Player
   private let activity: ActivityLog
 
-  /// A JSON Schema object with the given required properties: name → (type, description).
-  private nonisolated static func schema(_ properties: [String: (
-    type: String,
-    description: String,
-  )]) -> Value {
-    .object([
-      "type": "object",
-      "properties": .object(properties.mapValues { property in
-        .object(["type": .string(property.type), "description": .string(property.description)])
-      }),
-      "required": .array(properties.keys.sorted().map { .string($0) }),
-    ])
-  }
-
-  private func run(_ parameters: CallTool.Parameters) async throws(ToolError) -> CallTool.Result {
-    switch parameters.name {
+  private func run(_ name: String, arguments: JSONValue) async throws(ToolError) -> ToolResult {
+    switch name {
     case "get_project":
-      return text(projectJSON())
+      return try json(ProjectSummary.json(
+        of: editor.project,
+        playhead: player.currentTime,
+        selection: editor.selection,
+      ))
+
+    case "get_guide":
+      return .text(Guide.text)
 
     case "import_media":
-      return try await importMedia(at: string("path", in: parameters))
+      return try await importMedia(decode(PathArguments.self, from: arguments, tool: name).path)
 
-    case "append_clip":
-      return try appendClip(mediaID: string("media_id", in: parameters))
+    case "render_frame":
+      let frame = try decode(FrameArguments.self, from: arguments, tool: name)
+      return try await renderFrame(atSeconds: frame.seconds, maxSide: frame.maxSide ?? 768)
 
     case "play":
       player.play()
-      return text("Playing.")
+      return .text("Playing.")
 
     case "pause":
       player.pause()
-      return text("Paused at \(player.currentTime) seconds.")
+      return .text("Paused at \(player.currentTime) seconds.")
 
     case "seek":
-      let seconds = try number("seconds", in: parameters)
-      await player.seek(toSeconds: seconds)
-      return text("Playhead at \(player.currentTime) seconds.")
+      await player
+        .seek(toSeconds: try decode(SeekArguments.self, from: arguments, tool: name).seconds)
+      return .text("Playhead at \(player.currentTime) seconds.")
 
-    case "render_frame":
-      return try await renderFrame(atSeconds: number("seconds", in: parameters))
+    case "undo":
+      let title = editor.undoTitle
+      try perform { () throws(CommandError) in try editor.undo() }
+      return .text("Undid \(title ?? "the last edit").")
+
+    case "redo":
+      let title = editor.redoTitle
+      try perform { () throws(CommandError) in try editor.redo() }
+      return .text("Redid \(title ?? "the last edit").")
+
+    case "batch":
+      return try batch(arguments)
 
     default:
-      logger.error("tool.failed reason=unknownTool name=\(parameters.name, privacy: .public)")
-      throw .unknownTool(parameters.name)
+      return try edit(name, arguments: arguments)
     }
   }
 
-  private func importMedia(at path: String) async throws(ToolError) -> CallTool.Result {
+  /// Runs one registry command as its own undo step.
+  private func edit(_ name: String, arguments: JSONValue) throws(ToolError) -> ToolResult {
+    let before = editor.project
+    try perform { () throws(CommandError) in
+      try editor.perform(CommandRegistry.command(named: name, arguments: arguments))
+    }
+    return .text(report(since: before))
+  }
+
+  /// Runs several registry commands as one undo step.
+  private func batch(_ arguments: JSONValue) throws(ToolError) -> ToolResult {
+    guard case .array(let edits) = arguments["edits"] else {
+      throw rejected(.commandFailed(.invalidArguments("missing edits")), tool: "batch")
+    }
+    let before = editor.project
+    try perform { () throws(CommandError) in
+      var commands = [any Command]()
+      for (index, edit) in edits.enumerated() {
+        guard let tool = edit["tool"]?.stringValue else {
+          throw CommandError.invalidArguments("edit \(index + 1) has no tool")
+        }
+        do throws(CommandError) {
+          try commands.append(CommandRegistry.command(
+            named: tool,
+            arguments: edit["arguments"] ?? [:],
+          ))
+        } catch {
+          throw CommandError
+            .invalidArguments("edit \(index + 1) (\(tool)): \(error.errorDescription ?? "")")
+        }
+      }
+      try editor.perform(commands, title: "Batch of \(commands.count) Edits")
+    }
+    return .text(report(since: before))
+  }
+
+  private func importMedia(_ path: String) async throws(ToolError) -> ToolResult {
     let media: Media
     do {
-      media = try await MediaLoader.load(URL(fileURLWithPath: path))
+      media = try await MediaLoader.load(URL(filePath: path))
     } catch {
       throw .mediaFailed(error)
     }
-    do {
-      try editor.perform(AddMedia(media: media))
-    } catch {
-      throw .commandFailed(error)
-    }
-    return text(
-      "Imported \(media.name) as media \(media.id): \(media.duration.seconds) s, "
-        + "\(media.width)×\(media.height), \(media.hasAudio ? "with" : "no") audio."
+    try perform { () throws(CommandError) in try editor.perform(AddMedia(media: media)) }
+    let picture = media.hasVideo ? "\(media.width)×\(media.height), " : "sound only, "
+    return .text(
+      "Imported \(media.name) as media \(media.id): \(media.duration.seconds) s, \(picture)"
+        + "\(media.hasAudio ? "with" : "no") audio."
     )
   }
 
-  private func appendClip(mediaID: String) throws(ToolError) -> CallTool.Result {
-    guard let id = UUID(uuidString: mediaID) else {
-      logger.error("tool.failed reason=invalidArgument name=media_id")
-      throw .invalidArgument("media_id")
-    }
+  private func renderFrame(
+    atSeconds seconds: Double,
+    maxSide: Int,
+  ) async throws(ToolError) -> ToolResult {
     do {
-      try editor.perform(AppendClip(mediaID: id))
-    } catch {
-      throw .commandFailed(error)
-    }
-    return text(
-      "Appended. The timeline is now \(editor.project.timeline.duration.seconds) seconds long."
-    )
-  }
-
-  private func renderFrame(atSeconds seconds: Double) async throws(ToolError) -> CallTool.Result {
-    let png: Data
-    do {
-      png = try await FrameRenderer.png(of: editor.project, atSeconds: seconds, maxSide: 768)
+      let png = try await FrameRenderer.png(
+        of: editor.project,
+        atSeconds: seconds,
+        maxSide: maxSide,
+      )
+      return ToolResult(content: [.png(png)])
     } catch {
       throw .engineFailed(error)
     }
-    return CallTool.Result(
-      content: [.image(
-        data: png.base64EncodedString(),
-        mimeType: "image/png",
-        annotations: nil,
-        _meta: nil,
-      )]
-    )
   }
 
-  private func projectJSON() -> String {
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+  /// What an edit changed, so Claude learns new clip IDs without calling get_project.
+  private func report(since before: Project) -> String {
+    let timeline = editor.project.timeline
+    let previous = Set(before.timeline.allClips)
+    let changed = timeline.allClips.filter { !previous.contains($0) }
+    let removed = before.timeline.allClips.count { timeline.clip(withID: $0.id) == nil }
+    var lines =
+      ["Done. The timeline is \(String(format: "%.3f", timeline.duration.seconds)) s long."]
+    if !changed.isEmpty {
+      lines.append("New or changed clips:")
+      lines += changed.map { "- " + ProjectSummary.describe($0, in: timeline) }
+    }
+    if removed > 0 {
+      lines.append("Removed \(removed) clip\(removed == 1 ? "" : "s").")
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  /// The History title for a call, e.g. "Split Clip".
+  private func title(of name: String, arguments _: JSONValue) -> String {
+    switch name {
+    case "import_media": AddMedia.title
+    case "undo": "Undo"
+    case "redo": "Redo"
+    case "batch": "Batch of Edits"
+    default: CommandRegistry.tools.first { $0.name == name }?.title ?? name
+    }
+  }
+
+  /// Runs project work, wrapping its error for MCP. (Commands log their own rejections.)
+  private func perform(_ work: () throws(CommandError) -> Void) throws(ToolError) {
     do {
-      return try String(decoding: encoder.encode(editor.project), as: UTF8.self)
+      try work()
     } catch {
-      logger.fault("project.encodeFailed")
-      assertionFailure("Project failed to encode as JSON")
-      return "{}"
+      throw .commandFailed(error)
     }
   }
 
-  private func string(
-    _ name: String,
-    in parameters: CallTool.Parameters,
-  ) throws(ToolError) -> String {
-    guard let value = parameters.arguments?[name]?.stringValue else {
-      logger.error("tool.failed reason=missingArgument name=\(name, privacy: .public)")
-      throw .missingArgument(name)
+  /// Decodes a built-in tool's arguments, logging a rejection where it happens.
+  private func decode<T: Decodable>(
+    _: T.Type,
+    from arguments: JSONValue,
+    tool: String,
+  ) throws(ToolError) -> T {
+    do {
+      return try arguments.decode(T.self)
+    } catch {
+      throw rejected(.commandFailed(error), tool: tool)
     }
-    return value
   }
 
-  /// Reads a number argument, accepting both `5` and `5.0`.
-  private func number(
-    _ name: String,
-    in parameters: CallTool.Parameters,
-  ) throws(ToolError) -> Double {
-    let value = parameters.arguments?[name]
-    guard let number = value?.doubleValue ?? value?.intValue.map(Double.init) else {
-      logger.error("tool.failed reason=missingArgument name=\(name, privacy: .public)")
-      throw .missingArgument(name)
+  private func rejected(_ error: ToolError, tool: String) -> ToolError {
+    logger.error("tool.rejected reason=invalidArguments tool=\(tool, privacy: .public)")
+    return error
+  }
+
+  private func json(_ value: JSONValue) throws(ToolError) -> ToolResult {
+    do {
+      return try .text(String(decoding: value.jsonData(pretty: true), as: UTF8.self))
+    } catch {
+      throw .commandFailed(error)
     }
-    return number
   }
 
-  private func text(_ message: String, isError: Bool = false) -> CallTool.Result {
-    CallTool.Result(
-      content: [.text(text: message, annotations: nil, _meta: nil)],
-      isError: isError ? true : nil,
-    )
-  }
+}
 
-  /// The text parts of a result, joined, for the History pane.
-  private func summary(of result: CallTool.Result) -> String {
-    result.content.compactMap { content in
-      if case .text(let text, _, _) = content {
-        return text
-      }
-      return nil
-    }
-    .joined(separator: " ")
-  }
+// MARK: - PathArguments
 
-  private func clipIDs() -> Set<UUID> {
-    Set(editor.project.timeline.tracks.flatMap(\.clips).map(\.id))
-  }
+private struct PathArguments: Decodable {
+  let path: String
+}
 
+// MARK: - FrameArguments
+
+private struct FrameArguments: Decodable {
+  let seconds: Double
+  let maxSide: Int?
+}
+
+// MARK: - SeekArguments
+
+private struct SeekArguments: Decodable {
+  let seconds: Double
 }

@@ -5,11 +5,8 @@ import ShadesMedia
 
 // MARK: - ToolError
 
-/// Why a Claude tool call failed. Named `ToolError` because the MCP library owns `MCPError`.
+/// Why a Claude tool call failed, or why Claude can't connect.
 public enum ToolError: Error, Equatable {
-  case unknownTool(String)
-  case missingArgument(String)
-  case invalidArgument(String)
   case commandFailed(CommandError)
   case mediaFailed(MediaError)
   case engineFailed(EngineError)
@@ -21,12 +18,6 @@ public enum ToolError: Error, Equatable {
 extension ToolError: LocalizedError {
   public var errorDescription: String? {
     switch self {
-    case .unknownTool(let name):
-      "There's no tool called \(name)."
-    case .missingArgument(let name):
-      "The \(name) argument is required."
-    case .invalidArgument(let name):
-      "The \(name) argument has the wrong type or value."
     case .commandFailed(let error):
       error.errorDescription
     case .mediaFailed(let error):

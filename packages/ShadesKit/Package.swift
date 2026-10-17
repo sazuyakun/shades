@@ -18,9 +18,6 @@ let package = Package(
       ],
     )
   ],
-  dependencies: [
-    .package(url: "https://github.com/modelcontextprotocol/swift-sdk.git", from: "0.12.1")
-  ],
   targets: [
     .target(name: "ShadesCore"),
     .target(name: "ShadesCommands", dependencies: ["ShadesCore"]),
@@ -37,7 +34,6 @@ let package = Package(
         "ShadesCommands",
         "ShadesEngine",
         "ShadesMedia",
-        .product(name: "MCP", package: "swift-sdk"),
       ],
     ),
     // ShadesUI sits above ShadesMCP (to show Claude's status) and runs on the main actor by
@@ -62,7 +58,11 @@ let package = Package(
       dependencies: ["ShadesEngine", "ShadesTestSupport"],
       exclude: ["Golden"],
     ),
-    .testTarget(name: "ShadesMCPTests", dependencies: ["ShadesMCP", "ShadesTestSupport"]),
+    .testTarget(
+      name: "ShadesMCPTests",
+      dependencies: ["ShadesMCP", "ShadesTestSupport"],
+      exclude: ["Golden"],
+    ),
     .testTarget(name: "ShadesPluginsTests", dependencies: ["ShadesPlugins"]),
   ],
 )

@@ -1,7 +1,8 @@
+import AppKit
 import ShadesMCP
 import SwiftUI
 
-/// Settings › Claude: whether Claude can connect, and how.
+/// Settings › Claude: whether Claude can connect, and the one-time command that connects it.
 struct ClaudeSettings: View {
 
   // MARK: Internal
@@ -16,14 +17,25 @@ struct ClaudeSettings: View {
           Text(server.status.title)
         }
       }
-      LabeledContent("Port") {
-        Text(verbatim: "127.0.0.1:\(server.port)")
+      LabeledContent("Endpoint") {
+        Text(server.endpoint)
           .textSelection(.enabled)
       }
-      Text(server.status.message)
-        .foregroundStyle(.secondary)
-        .textSelection(.enabled)
-        .fixedSize(horizontal: false, vertical: true)
+      Section("Connect Claude Code once, from a terminal") {
+        HStack {
+          Text(server.connectCommand)
+            .font(.system(.callout, design: .monospaced))
+            .textSelection(.enabled)
+            .lineLimit(2)
+          Spacer()
+          Button("Copy") { copy(server.connectCommand) }
+        }
+      }
+      if case .failed = server.status {
+        Text(server.status.message)
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
     }
     .formStyle(.grouped)
   }
@@ -31,5 +43,10 @@ struct ClaudeSettings: View {
   // MARK: Private
 
   @Environment(MCPServer.self) private var server
+
+  private func copy(_ text: String) {
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(text, forType: .string)
+  }
 
 }

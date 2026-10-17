@@ -10,8 +10,7 @@ shades/
 ├── apps/
 │   ├── mac/                  Shades.app: a thin app target (entry point, windows, menus, assets)
 │   │   └── project.yml       XcodeGen spec; the .xcodeproj is generated, not committed
-│   ├── web/                  the Shades website + download page (stack decided later)
-│   └── mcp/                  relay Claude Code & Desktop launch; pipes to Shades.app
+│   └── web/                  the Shades website + download page (stack decided later)
 ├── packages/
 │   └── ShadesKit/            all real Mac code, as Swift Package modules
 │       ├── Package.swift

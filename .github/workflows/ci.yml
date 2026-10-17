@@ -32,9 +32,6 @@ jobs:
           name: golden-mismatches
           path: packages/ShadesKit/Tests/**/Golden/
 
-      - name: Build the relay
-        run: swift build -c release --package-path apps/mcp
-
       - name: Build Shades.app
         run: |
           xcodegen generate --spec apps/mac/project.yml --project apps/mac

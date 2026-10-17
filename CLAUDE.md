@@ -44,7 +44,6 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 - No third-party package is added without the user's explicit approval. Approved packages are listed here with the reason.
 - Approved:
   - **WhisperKit** (`argmaxinc/WhisperKit`, **exact 1.1.0**, MIT). Only the captions module may import it. Why: on-device transcription with word timings, handles Hinglish. Pinned to Nebula's version so the downloaded model is shared, not re-downloaded.
-  - **MCP Swift SDK** (`modelcontextprotocol/swift-sdk`, from 0.12.1; Apache-2.0/MIT): **being removed in M2**, replaced by our own HTTP MCP server ported from Nebula (see `docs/SYSTEM.md` §7). Only `ShadesMCP` may import it until then.
 - **Bundled models and libraries must be MIT, Apache-2.0 or similar. Never GPL, never non-commercial.**
 
 ## Swift conventions (all Swift code: apps and packages)
@@ -111,7 +110,6 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 - This root file covers the whole repo. **Every app and package has its own `CLAUDE.md`** with what's specific to it:
   - `apps/mac/CLAUDE.md`: the Shades Mac app
   - `apps/web/CLAUDE.md`: the website
-  - `apps/mcp/CLAUDE.md`: the stdio relay (deleted in M2, when Shades serves MCP over HTTP itself)
   - `packages/ShadesKit/CLAUDE.md`: the Swift modules
 - When you add a new app or package, create its `CLAUDE.md` in the same commit.
 - When you change how an app or package works (build commands, structure, rules), update its `CLAUDE.md` too.

@@ -1,4 +1,4 @@
-import MCP
+import Foundation
 import ShadesCommands
 import ShadesEngine
 import ShadesMCP
@@ -13,35 +13,26 @@ struct ActivityLogTests {
   @Test
   func `edits Claude makes are logged with the clips they changed`() async throws {
     let url = try await VideoFixture.make(red: 0, green: 0, blue: 255)
-    _ = await handler.call(CallTool.Parameters(
-      name: "import_media",
-      arguments: ["path": .string(url.path)],
-    ))
+    _ = await handler.call("import_media", arguments: ["path": .string(url.path)])
     let mediaID = try #require(editor.project.media.first?.id)
-    _ = await handler.call(CallTool.Parameters(
-      name: "append_clip",
-      arguments: ["media_id": .string(mediaID.uuidString)],
-    ))
-    let clipID = try #require(editor.project.timeline.tracks[0].clips.first?.id)
-    #expect(activity.entries.map(\.title) == ["Appended a clip", "Imported media"])
+    _ = await handler.call("append_clip", arguments: ["media_id": .string(mediaID.uuidString)])
+    let clipID = try #require(editor.project.timeline.allClips.first?.id)
+    #expect(activity.entries.map(\.title) == ["Append Clip", "Import Media"])
     #expect(activity.entries.first?.changedClipIDs == [clipID])
-    #expect(activity.recentEntry?.title == "Appended a clip")
+    #expect(activity.recentEntry?.title == "Append Clip")
     #expect(activity.recentlyChangedClipIDs == [clipID])
   }
 
   @Test
   func `reading and previewing are not logged`() async {
-    _ = await handler.call(CallTool.Parameters(name: "get_project"))
-    _ = await handler.call(CallTool.Parameters(name: "play"))
+    _ = await handler.call("get_project", arguments: [:])
+    _ = await handler.call("play", arguments: [:])
     #expect(activity.entries.isEmpty)
   }
 
   @Test
   func `a failed edit is logged as an error`() async {
-    _ = await handler.call(CallTool.Parameters(
-      name: "append_clip",
-      arguments: ["media_id": .string("not-a-uuid")],
-    ))
+    _ = await handler.call("append_clip", arguments: ["media_id": "not-a-uuid"])
     #expect(activity.entries.first?.isError == true)
   }
 
