@@ -5,8 +5,10 @@ import ShadesTestSupport
 import Testing
 
 /// Performance gates: budgets that fail CI on a regression. Budgets are set for the slowest
-/// machine we run on (the free CI runner), well above what the M1 dev machine measures.
-@Suite(.serialized)
+/// machine we run on (the free CI runner), well above what the M1 dev machine measures. They
+/// only run with `SHADES_PERFORMANCE=1` and alone (`--no-parallel`), because other tests running
+/// at the same time would skew the timings and memory.
+@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["SHADES_PERFORMANCE"] == "1"))
 struct PerformanceTests {
 
   // MARK: Internal

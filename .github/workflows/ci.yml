@@ -25,6 +25,9 @@ jobs:
       - name: Test ShadesKit
         run: swift test --package-path packages/ShadesKit
 
+      - name: Performance gates
+        run: SHADES_PERFORMANCE=1 swift test --package-path packages/ShadesKit --filter PerformanceTests --no-parallel
+
       - name: Upload golden-frame mismatches
         if: failure()
         uses: actions/upload-artifact@v4

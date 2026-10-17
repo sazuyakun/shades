@@ -37,17 +37,41 @@ public enum GoldenFrame {
 
   /// A channel may drift this much (out of 255) between machines' video decoders.
   private static let channelTolerance = 12
-  /// Fraction of channels allowed beyond the tolerance, for edge pixels.
+  /// Fraction of pixels allowed to differ even after the one-pixel allowance.
   private static let outlierFraction = 0.005
 
+  /// Pixels match if the expected pixel, or one of its neighbours, is within tolerance, so an
+  /// edge that a GPU anti-aliases a fraction of a pixel differently still passes.
   private static func isClose(_ actual: Bitmap, _ expected: Bitmap) -> Bool {
     guard actual.width == expected.width, actual.height == expected.height else {
       return false
     }
-    let outliers = zip(actual.bytes, expected.bytes).count { pair in
-      abs(Int(pair.0) - Int(pair.1)) > channelTolerance
+    var outliers = 0
+    for y in 0 ..< actual.height {
+      for x in 0 ..< actual.width where !hasNearbyMatch(x, y, actual, expected) {
+        outliers += 1
+      }
     }
-    return Double(outliers) <= Double(actual.bytes.count) * outlierFraction
+    return Double(outliers) <= Double(actual.width * actual.height) * outlierFraction
+  }
+
+  private static func hasNearbyMatch(_ x: Int, _ y: Int, _ actual: Bitmap, _ expected: Bitmap)
+    -> Bool
+  {
+    let pixel = (y * actual.width + x) * 4
+    for neighbourY in max(y - 1, 0) ... min(y + 1, actual.height - 1) {
+      for neighbourX in max(x - 1, 0) ... min(x + 1, actual.width - 1) {
+        let other = (neighbourY * actual.width + neighbourX) * 4
+        let isSame = (0 ..< 4).allSatisfy { channel in
+          abs(Int(actual.bytes[pixel + channel]) - Int(expected.bytes[other + channel]))
+            <= channelTolerance
+        }
+        if isSame {
+          return true
+        }
+      }
+    }
+    return false
   }
 
   private static func rgba(of png: Data) throws(FixtureError) -> Bitmap {
