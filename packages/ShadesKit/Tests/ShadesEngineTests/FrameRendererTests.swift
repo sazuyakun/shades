@@ -63,17 +63,17 @@ struct FrameRendererTests {
 
   @Test
   func `frames are rendered in the timeline's format, not the clip's`() async throws {
-    // A landscape clip in a vertical Reel: tall output, black bars above and below.
-    let project = try await makeProject(left: .red, right: .red, format: .reel9x16)
+    // A 16:9 clip in a 4:3 timeline: 4:3 output, black bars above and below.
+    let project = try await makeProject(left: .red, right: .red)
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
     let (width, height) = try size(of: png)
-    let top = try pixel(of: png, x: 0.5, y: 0.1)
+    let top = try pixel(of: png, x: 0.5, y: 0.05)
     let center = try pixel(of: png, x: 0.5, y: 0.5)
-    #expect(width == 180)
-    #expect(height == 320)
+    #expect(width == 320)
+    #expect(height == 240)
     #expect(top.0 < 20)
     #expect(center.0 > 200)
-    #expect(try GoldenFrame.matches(png, named: "landscape-in-vertical", in: golden))
+    #expect(try GoldenFrame.matches(png, named: "landscape-in-4x3", in: golden))
   }
 
   @Test
@@ -97,7 +97,6 @@ struct FrameRendererTests {
     transform: CGAffineTransform = .identity,
     codec: AVVideoCodecType = .h264,
     startingAt start: MediaTime = .zero,
-    format: VideoFormat = .youTube4x3,
   ) async throws -> Project {
     let url = try await VideoFixture.make(
       left: left,
@@ -121,7 +120,7 @@ struct FrameRendererTests {
     )
     return Project(
       media: [media],
-      timeline: Timeline(format: format, tracks: [Track(name: "V1", clips: [clip])]),
+      timeline: Timeline(format: .half, tracks: [Track(kind: .video, clips: [clip])]),
     )
   }
 

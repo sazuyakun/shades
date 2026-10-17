@@ -3,21 +3,24 @@ import Testing
 
 struct VideoFormatTests {
   @Test
-  func `presets have the agreed sizes`() {
-    #expect(VideoFormat.youTube4x3.width == 1440)
-    #expect(VideoFormat.youTube4x3.height == 1080)
-    #expect(VideoFormat.reel9x16.width == 1080)
-    #expect(VideoFormat.reel9x16.height == 1920)
+  func `presets are 4:3 at the agreed sizes`() {
+    #expect(VideoFormat.standard.width == 2880)
+    #expect(VideoFormat.standard.height == 2160)
+    #expect(VideoFormat.half.width == 1440)
+    #expect(VideoFormat.half.height == 1080)
   }
 
   @Test
-  func `a preset can be made at another frame rate`() {
-    #expect(VideoFormat.reel9x16.withFrameRate(60).framesPerSecond == 60)
+  func `new timelines start at 2880×2160 and 24 fps`() {
+    #expect(Timeline().format == .standard)
+    #expect(Timeline().format.framesPerSecond == 24)
   }
 
   @Test
-  func `new timelines start as YouTube 4:3 at 30 fps`() {
-    #expect(Timeline().format == .youTube4x3)
-    #expect(Timeline().format.framesPerSecond == 30)
+  func `every offered frame rate has a whole number of timeline units per frame`() {
+    for rate in VideoFormat.frameRates {
+      let frame = VideoFormat.standard.withFrameRate(rate).frameDuration
+      #expect(frame.value * Int64(rate) == Int64(MediaTime.timelineTimescale))
+    }
   }
 }

@@ -13,7 +13,7 @@ struct TrackRow: View {
 
   var body: some View {
     HStack(spacing: 0) {
-      Text(track.name)
+      Text(editor.project.timeline.label(of: track))
         .font(.caption.weight(.semibold))
         .padding(.leading, 10)
         .frame(width: TimelinePane.headerWidth, alignment: .leading)

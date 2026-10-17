@@ -11,6 +11,7 @@ public struct Media: Codable, Hashable, Sendable, Identifiable {
     duration: MediaTime,
     width: Int,
     height: Int,
+    hasVideo: Bool = true,
     hasAudio: Bool,
   ) {
     self.id = id
@@ -18,6 +19,7 @@ public struct Media: Codable, Hashable, Sendable, Identifiable {
     self.duration = duration
     self.width = width
     self.height = height
+    self.hasVideo = hasVideo
     self.hasAudio = hasAudio
   }
 
@@ -28,6 +30,7 @@ public struct Media: Codable, Hashable, Sendable, Identifiable {
   public let duration: MediaTime
   public let width: Int
   public let height: Int
+  public let hasVideo: Bool
   public let hasAudio: Bool
 
   /// The file name without its extension, shown in the browser and timeline.
