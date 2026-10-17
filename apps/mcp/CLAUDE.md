@@ -1,5 +1,7 @@
 # apps/mcp: the Claude relay (`shades-mcp`)
 
+> **Being removed in M2.** Shades will serve MCP over HTTP itself (`docs/SYSTEM.md` §7), so this relay and its folder get deleted then. Don't extend it.
+
 A tiny command-line program that connects Claude to Shades. **Claude Code and Claude Desktop both launch it** (they talk to local MCP servers over stdin/stdout), and it passes every byte to and from the MCP server running **inside Shades.app** on `127.0.0.1:4747`. Root rules (git workflow, Swift conventions) in `/CLAUDE.md` still apply.
 
 ## Why it's an app, not part of a package

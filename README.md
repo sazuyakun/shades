@@ -15,7 +15,8 @@ Swift · SwiftUI + AppKit · Metal · AVFoundation · Apple Silicon only.
 ## Where to start
 | Want to… | Read |
 |---|---|
-| Understand the architecture, the systems and the milestones | [docs/PLAN.md](docs/PLAN.md) |
+| Understand how the whole product works | [docs/SYSTEM.md](docs/SYSTEM.md) |
+| See the scope and milestones | [docs/PLAN.md](docs/PLAN.md) |
 | See the target look of the app | [docs/DESIGN.md](docs/DESIGN.md) |
 | Know how the app behaves (flows, keymap, Claude) | [docs/UX.md](docs/UX.md) |
 | Find your way around the code | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |

@@ -72,10 +72,6 @@ html,body{height:100%;background:#0a0908;color:var(--text)}
 .req.active{background:linear-gradient(90deg,rgba(181,140,255,.08),transparent)}
 .mini{display:flex;gap:6px;margin-top:9px}
 .mini span{font-size:11px;padding:3px 9px;border-radius:10px;background:var(--raised);border:1px solid var(--hair2);color:var(--dim)}
-.follow{margin:auto 12px 12px;border:1px solid var(--hair2);border-radius:14px;background:var(--raised);padding:10px 10px 8px 12px}
-.follow .ph{color:var(--faint)}
-.follow .bar{display:flex;align-items:center;gap:6px;margin-top:10px}
-.follow .bar span{font-size:11px;padding:2px 8px;border-radius:9px;border:1px solid var(--hair2);color:var(--dim)}
 .send{margin-left:auto;width:26px;height:26px;border-radius:13px;background:#ece8e3;color:#141210;display:flex;align-items:center;justify-content:center;font-weight:700}
 /* timeline */
 .tl{display:grid;grid-template-columns:76px 1fr;border-top:1px solid var(--hair);position:relative;min-height:0}
@@ -102,15 +98,6 @@ html,body{height:100%;background:#0a0908;color:var(--text)}
 .playhead{position:absolute;top:0;bottom:0;width:1.5px;background:#ece8e3;z-index:5;border-radius:1px}
 .playhead::before{content:"";position:absolute;top:-1px;left:-5px;width:12px;height:12px;border-radius:3px;background:#ece8e3}
 .range{position:absolute;top:24px;bottom:0;background:rgba(10,132,255,.10);border-left:1px solid var(--accent);border-right:1px solid var(--accent);z-index:3}
-/* glaze prompt */
-.prompt{position:absolute;z-index:10;width:420px;background:#1e1c19;border:1px solid #3a3631;border-radius:22px;padding:6px 6px 6px 16px;
-  display:flex;align-items:center;gap:10px;box-shadow:0 16px 40px rgba(0,0,0,.6)}
-.prompt .txt{flex:1;font-size:14px}
-.prompt .cur{display:inline-block;width:1.5px;height:16px;background:var(--text);vertical-align:-3px;margin-left:1px}
-.prompt .send{width:32px;height:32px;border-radius:16px;font-size:15px}
-.ctx{position:absolute;z-index:10;display:flex;gap:6px}
-.ctx span{font-size:10.5px;padding:2px 9px;border-radius:10px;background:#1e1c19;border:1px solid var(--hair2);color:var(--dim)}
-.ctx span.a{color:#9ccbff;border-color:rgba(10,132,255,.45)}
 .hide{display:none!important}
 </style></head>
 <body>
@@ -120,7 +107,8 @@ html,body{height:100%;background:#0a0908;color:var(--text)}
     <div class="left"><div class="caps"><span>↶</span><span>↷</span></div><div class="caps"><span>⇣ Import</span></div></div>
     <div class="pill"><div class="ico"></div>I Said Yes <span class="sub">· 4:3 Master</span></div>
     <div class="right">
-      <div class="caps"><span id="t-insp">Inspector</span><span id="t-claude">✦ Claude <span style="color:var(--faint)">⌘L</span></span></div>
+      <div class="caps"><span id="t-insp">Inspector</span><span id="t-claude">History <span style="color:var(--faint)">⌘L</span></span></div>
+      <div class="caps"><span><i style="display:inline-block;width:7px;height:7px;border-radius:4px;background:#5fc27a"></i>Claude</span></div>
       <div class="caps"><span style="color:var(--text)">⇪ Export</span></div>
     </div>
   </div>
@@ -164,7 +152,7 @@ html,body{height:100%;background:#0a0908;color:var(--text)}
     </div>
 
     <div class="pane" id="claude" style="border-right:none">
-      <div class="label">Claude <b>3 requests</b></div>
+      <div class="label">History <b>3 Claude requests</b></div>
       <div class="req active">
         <div class="t"><b>Make this part punchier</b><span>now</span></div>
         <div class="meta">2 clips · 01:36–01:44</div>
@@ -186,16 +174,12 @@ html,body{height:100%;background:#0a0908;color:var(--text)}
         <div class="meta"><span class="del">−47 cuts</span> · 10:12 → 8:31</div>
         <div class="mini"><span>Undo</span><span>Show</span></div>
       </div>
-      <div class="follow">
-        <div class="ph">Ask Claude about the whole project…</div>
-        <div class="bar"><span>Project</span><span>Claude Code</span><div class="send">↑</div></div>
-      </div>
     </div>
   </div>
 
   <div class="tl">
     <div class="tlbar">
-      <div class="tabs"><span class="on">4:3 Master</span><span>Reel 1</span><span>Reel 2</span><span style="color:var(--faint)">+</span></div>
+      <div class="tabs"><span class="on">Master · 4:3</span><span>Short 1 · Chul ka keeda</span><span>Short 2 · The void</span><span style="color:var(--faint)">+ range</span></div>
       <span style="margin-left:auto;color:var(--faint);font:11px ui-monospace,monospace">08:31 / 12:04</span>
       <div class="caps"><span>✂︎</span><span>⌁</span><span>🔍</span></div>
     </div>
@@ -229,14 +213,11 @@ html,body{height:100%;background:#0a0908;color:var(--text)}
       <div class="range" style="left:24.3%;width:35.3%"></div>
       <div class="playhead" style="left:38%"></div>
     </div>
-    <div class="ctx" id="ctx" style="left:calc(76px + 24.3% + 14px);top:106px"><span class="a">2 clips</span><span>01:36–01:44</span><span>transcript</span></div>
-    <div class="prompt" id="prompt" style="left:calc(76px + 24.3%);top:56px"><div class="txt">make this part punchier<span class="cur"></span></div><div class="send">↑</div></div>
   </div>
 </div>
 <script>
 const claude = location.search === '?claude';
 document.getElementById(claude ? 'inspector' : 'claude').classList.add('hide');
 document.getElementById(claude ? 't-claude' : 't-insp').classList.add('on');
-if (claude) { document.getElementById('prompt').classList.add('hide'); document.getElementById('ctx').classList.add('hide'); }
 </script>
 </body></html>

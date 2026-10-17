@@ -2,17 +2,17 @@
 
 How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 
-**Principle:** one hand on the mouse, the other on the keyboard for edits. Claude is one key away and never in the way.
+**Principle:** one hand on the mouse, the other on the keyboard for edits. Claude works over MCP from Claude Code; inside the app you only ever see what it did.
 
 ## Getting in
 | Moment | Behaviour |
 |---|---|
 | Opening Shades | A small native welcome window: **New Project**, recent projects with thumbnails, and "drop footage here" |
-| New project | Name it and pick a preset: **YouTube 4:3** (1440×1080) or **Reel 9:16** (1080×1920), plus a frame rate (24, 30 or 60; default 30). Custom sizes and a ProRes master come later. Until the New Project window exists (M1), projects start as YouTube 4:3 at 30 fps |
-| Sequence format | Each sequence (4:3 Master, Reel 1…) has its own format. Clips of any shape are fitted inside it upright, with black bars where the shapes differ |
+| New project | Name it and pick a size: **2880×2160** (default) or **1440×1080**, both 4:3, plus a frame rate (24, 30 or 60; default **24**) |
+| Format | Every timeline is a 4:3 picture. Clips of any shape are fitted inside it upright (16:9 iPhone footage is auto-reframed to 4:3). The 9:16 and 16:9 versions are only canvases added at export |
 | Importing | Media stays where it is on disk; Shades links to it and copies nothing. "Collect media" copies into the project later if wanted |
 | Background work | Thumbnails, waveforms, transcripts and proxies run quietly. A progress ring sits in the toolbar; click it for details. Nothing blocks editing |
-| Sequences | Tabs above the timeline ("4:3 Master · Reel 1 · Reel 2"). Switching tabs reshapes the viewer to match |
+| Shorts | Marked as named ranges on the master timeline ("Short 1 · Chul ka keeda") and exported in a batch on the 9:16 canvas |
 
 ## Editing by hand
 - **Choosing a range:** hover-scrub a thumbnail in the media browser and press **I** / **O** to mark just the part you want. There's no separate source viewer.
@@ -46,24 +46,21 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | ⌘= · ⌘− · ⇧Z | Zoom in / out / fit |
 | ⇧⌘L | Link / unlink audio and video |
 | ⌘S · ⌘E | Named checkpoint · Export |
-| **Tab** · ⌘K | **Ask Claude** about the selection |
-| ⌘L | Show or hide the Claude pane |
-| Esc | Close the prompt · stop Claude |
+| ⌘K | Command palette: every action by name |
+| ⌘L | Show or hide the History pane |
+| Esc | Close a sheet or palette |
 
 All shortcuts are remappable.
 
 ## Working with Claude
-1. **Select** clips or a range. A small ✨ button appears next to the selection.
-2. **Press Tab** (or click ✨, or ⌘K). The prompt opens next to the selection, showing what it will send: clips, time range, transcript, frames.
-3. **Type and press Return.** The prompt shrinks to a status pill ("Cutting pauses… 12/47") with **Stop**.
-4. **Edits happen live** on the timeline. Changed clips glow soft purple, then fade.
-5. **When done**, a toast summarises it ("Claude · removed 47 pauses") with **Undo**. The whole request is one undo step.
-
-**The Claude pane (⌘L):** swaps the inspector for a list of every request: its steps as they run, the result ("+2 clips", "−47 cuts"), and **Undo** / **Show** per request. Its box at the bottom asks about the whole project rather than a selection.
+There's no AI inside Shades: Claude Code edits over MCP ([SYSTEM.md](SYSTEM.md)), and the app shows what it did.
+1. **Edits appear live** on the timeline while Claude works. Changed clips glow soft purple, then fade.
+2. **A toast** summarises each request ("Claude · removed 47 pauses") with **Undo**. The whole request is one undo step.
+3. **The History pane (⌘L)** swaps the inspector for a read-only list of every change Claude made: the request, its result ("+2 clips", "−47 cuts"), and **Undo** / **Show** per request. It's an edit log, not a chat.
 
 **Connection status:** a pill in the toolbar shows **● Claude ready** (green) or **● Claude offline** (red). Clicking it explains why and what to do, e.g. "port 4747 is already in use, usually by another copy of Shades. Quit it, then reopen Shades." In the v2 restyle it becomes the dot on the ✦ Claude capsule.
 
-**First-time setup:** the first Tab press opens a guided sheet. It detects Claude Code or Claude Desktop, then either shows the one command to run (with a Copy button) or adds the config itself, and finishes with "Connected ✓".
+**First-time setup:** connect once from a terminal with `claude mcp add --transport http shades http://127.0.0.1:4747/mcp`. Settings › Claude shows the command with a Copy button.
 
 ## Playback
 Auto quality. When footage is too heavy to play in real time, Shades quietly lowers preview resolution or switches to proxies to stay smooth. A small "Proxy" badge in the viewer shows when that's happening. Export is always full quality.
@@ -76,6 +73,6 @@ Auto quality. When footage is too heavy to play in real time, Shades quietly low
 | Crash | On relaunch the project reopens silently, exactly where you were (playhead, zoom, selection), with a small "Recovered" note |
 
 ## Export
-- **⌘E** opens a sheet: preset (**YouTube 4:3**, **Reel 9:16**, **ProRes master**), file name and location.
+- **⌘E** opens a sheet: **YouTube** (4:3 picture on a 16:9 black canvas), **Reels/Shorts** (4:3 picture on a 9:16 black canvas, one file per short range), **Frame**, **GIF** or **SRT**, plus file name and location.
 - Press Export and keep editing; progress shows in the toolbar ring. Several exports can be queued.
 - **When it's done** (or when Claude finishes while you're in another app), Shades plays a soft chime and shows a native Mac notification. Clicking it reveals the file or jumps to the edit.

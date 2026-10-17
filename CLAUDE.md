@@ -1,6 +1,6 @@
 # shades
 
-Open-source, AI-native video editor for Mac. A monorepo with exactly two kinds of folders: `apps/` for anything that runs on its own (a program, a website, a server) and `packages/` for code that apps use. Nothing else at the top level besides `docs/`.
+Open-source, AI-native video editor for Mac. **No AI inside the app:** Claude Code drives it over MCP, and taste comes from playbook plugins (`docs/SYSTEM.md`). A monorepo with exactly two kinds of folders: `apps/` for anything that runs on its own (a program, a website, a server) and `packages/` for code that apps use. Nothing else at the top level besides `docs/`.
 
 ## Code philosophy (non-negotiable)
 1. **Simplest possible.** The least code and the fewest concepts that solve the problem. No speculative abstractions, no "might need it later".
@@ -43,7 +43,9 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 ## Dependencies
 - No third-party package is added without the user's explicit approval. Approved packages are listed here with the reason.
 - Approved:
-  - **MCP Swift SDK** (`modelcontextprotocol/swift-sdk`, product `MCP`, from 0.12.1; Apache-2.0/MIT). Only `ShadesMCP` (and `apps/mcp`) may import it. Why: the official MCP implementation, kept current with the protocol spec. Its own dependencies come with it: `swift-nio`, `swift-log`, `swift-system`, `swift-docc-plugin` (Apple) and `eventsource` (mattt). They are not approved for direct use by our code.
+  - **WhisperKit** (`argmaxinc/WhisperKit`, **exact 1.1.0**, MIT). Only the captions module may import it. Why: on-device transcription with word timings, handles Hinglish. Pinned to Nebula's version so the downloaded model is shared, not re-downloaded.
+  - **MCP Swift SDK** (`modelcontextprotocol/swift-sdk`, from 0.12.1; Apache-2.0/MIT): **being removed in M2**, replaced by our own HTTP MCP server ported from Nebula (see `docs/SYSTEM.md` §7). Only `ShadesMCP` may import it until then.
+- **Bundled models and libraries must be MIT, Apache-2.0 or similar. Never GPL, never non-commercial.**
 
 ## Swift conventions (all Swift code: apps and packages)
 **Base:** the [Airbnb Swift Style Guide](https://swift.airbnb.tech/) on top of Apple's [API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/). Where this file is more specific, this file wins.
@@ -109,13 +111,14 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 - This root file covers the whole repo. **Every app and package has its own `CLAUDE.md`** with what's specific to it:
   - `apps/mac/CLAUDE.md`: the Shades Mac app
   - `apps/web/CLAUDE.md`: the website
-  - `apps/mcp/CLAUDE.md`: the relay Claude Code and Claude Desktop launch
+  - `apps/mcp/CLAUDE.md`: the stdio relay (deleted in M2, when Shades serves MCP over HTTP itself)
   - `packages/ShadesKit/CLAUDE.md`: the Swift modules
 - When you add a new app or package, create its `CLAUDE.md` in the same commit.
 - When you change how an app or package works (build commands, structure, rules), update its `CLAUDE.md` too.
 
 ## Project docs
-- `docs/PLAN.md`: architecture, systems, v1 scope, milestones, performance targets
+- `docs/SYSTEM.md`: **how the whole product works**: taste agent vs builder agent, MCP, format, layers and depth slots, analysis, Polish, plugins, storage, export, quality gates
+- `docs/PLAN.md`: product scope, milestones, known issues, performance targets
 - `docs/ARCHITECTURE.md`: code layout and rules
 - `docs/DESIGN.md` / `docs/UX.md`: locked look, flows and keymap
 - `docs/LAUNCH.md`: launch blockers (placeholder icon etc.). Flag these when launch gets close.

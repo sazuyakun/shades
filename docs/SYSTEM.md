@@ -1,0 +1,106 @@
+# Shades: system design
+
+How the whole product works. Decided with Soham on 2026-10-17. Product scope and milestones are in [PLAN.md](PLAN.md); the look is in [DESIGN.md](DESIGN.md).
+
+## 1. The system
+
+```
+ Taste agent  (Claude Code in ~/shades-playbook)        Builder agent  (Claude Code in this repo)
+ ├─ owns Soham's taste: TASTE.md, toolbox, plans         ├─ builds Shades to final-product quality
+ ├─ drives Shades through its MCP server ─────────┐      ├─ triages issues into PLAN.md (Soham approves order)
+ ├─ ships taste as plugins (~/shades-playbook/plugins)   └─ ports proven code from Nebula
+ └─ files issues on sazuyakun/shades (editor-request) ─▶ builder
+                                                   │
+                    ┌──────────────────────────────▼──────────────────────────────┐
+                    │                       Shades.app (local)                    │
+                    │  editor UI (manual editing)   ·   MCP server (HTTP, localhost)│
+                    │  one action system · one renderer · one project store       │
+                    └─────────────────────────────────────────────────────────────┘
+```
+
+- **No AI inside the app.** The only AI is Claude Code talking to Shades over MCP. No chat, no prompt box, no API keys.
+- **Shades is a real editor** that Soham can use by hand. Everything Claude does, the UI can do, and the other way round.
+- **Shades is neutral.** It ships powerful, unopinionated primitives (grading, type, motion, effects, sound). Taste comes from the playbook as plugins.
+
+## 2. One action system, one renderer, one store (from Nebula)
+- **Project store:** the open project is one value (`Project`). Every change is a command applied through one path, so undo, autosave, preview refresh, the activity history and MCP all hang off it.
+- **Actions:** menus, keyboard shortcuts, the ⌘K palette, buttons and MCP tools all trigger the same actions.
+- **Renderer:** preview, frame grabs for Claude, thumbnails and export all draw through the same Metal compositor, so what you see is what you export.
+
+## 3. Format
+- **The picture is always 4:3.** Every timeline is a 4:3 picture: **2880×2160 at 24 fps** by default (1440×1080 also available). Frame rate is picked per project (24, 30 or 60).
+- **Canvases are added at export**, never edited:
+  - YouTube: the picture at 2880×2160, centred in a black 3840×2160 canvas.
+  - Reels/Shorts: the picture at 1080×810, centred in a black 1080×1920 canvas.
+- **Shorts are ranges of the master**, exported in a batch.
+- iPhone 16 footage is 4K 16:9. **Auto-reframe** crops it to 4:3 and keeps the subject in frame, adjustable per clip.
+
+## 4. Layers and depth slots
+Every clip can be split by the renderer into **background** and **subject** using its matte (the person or object cut-out). Every text, graphic, sticker or video layer has a **depth slot**:
+
+| Slot | What it does | Example |
+|---|---|---|
+| In front | Drawn over everything | Captions, corner labels |
+| Behind subject | Between the background and the subject | "CHUL" behind Soham |
+| Inside subject | Drawn only inside the subject's outline | Silhouette portals |
+| Replace background | Replaces the background | Paper cut-out on a red canvas |
+
+The frame is drawn in a fixed order: background → behind-subject layers → subject → inside-subject layers → in-front layers.
+
+## 5. Analysis
+Heavy understanding of footage, cached forever per media file in the project:
+
+| Analysis | Engine | When |
+|---|---|---|
+| Thumbnails, waveforms | AVFoundation | On import (cheap) |
+| Transcript with word timings | **WhisperKit** (same version and model folder as Nebula, so the model is shared, not re-downloaded) | On demand |
+| Person/object cut-outs (mattes) | **Chosen by a benchmark on Soham's footage**: Apple Vision (+ edge refinement), BEN2 (MIT), BiRefNet (MIT), SAM 2.1 / EdgeTAM (Apache-2.0). GPL and non-commercial models are excluded | On demand |
+| Subject tracking (reframe, motion tracking) | Vision tracking / the benchmark winner | On demand |
+| Speech activity, beats, shot changes | Ported from Nebula + Accelerate | On demand |
+| Music stems | On-device stem separation (MIT-licensed model) | On demand |
+
+**Scheduling:** heavy jobs queue and run one at a time at low priority. They pause on battery or thermal pressure, show in the toolbar's background-tasks ring, and are readable over MCP.
+
+## 6. Smart tools: propose, review, apply
+Rule-based tools (no AI) that write ordinary, editable timeline items, starting with **Polish** for talking-head footage:
+- **Scope:** Polish runs on the range you select, never the whole timeline unless you select it all.
+- **Automations:** cut silences and fillers (um, uh, matlab…), remove retakes (repeated lines in the transcript), snap cuts to beats, punch-in zooms on jump cuts, and audio polish (ducking, loudness, noise reduction).
+- **Propose, then apply:** Polish first returns a **plan**. It shows as ghost overlays on the timeline (e.g. red stripes for silences) plus a checklist grouped by type with counts. Toggle groups or single items, preview, then apply. Applying is one undo step.
+- Over MCP, Claude gets the same plan and applies all or some of it.
+
+## 7. MCP server
+- **Our own small server over Streamable HTTP** inside Shades.app, on `127.0.0.1:4747/mcp`, localhost only. Ported from Nebula; no MCP library and **no relay app**.
+- Connect: `claude mcp add --transport http shades http://127.0.0.1:4747/mcp`
+- **Tool shape:**
+  - **Read:** project, timeline, selection, transcript, analysis results, plugins, background jobs.
+  - **See:** render a frame, filmstrip, scopes, so Claude checks its own work.
+  - **Edit:** one small tool per command, plus a **batch** tool for many edits in one undo step.
+  - **Smart:** Polish, captions and other propose/apply tools.
+  - **Guide:** a built-in resource that teaches Claude the tools, the layer model and good practice.
+- Every MCP change shows live in the editor, glows purple, appears in the History pane, and is undoable per request.
+
+## 8. Plugins (taste lives here)
+- **A plugin is a folder with a manifest** that can contain: LUTs, grade recipes, type styles plus font files, title and motion templates (JSON), sticker and overlay packs, SFX packs, and **Metal shader effects** (compiled at runtime). No compiled code, so plugins are safe.
+- **Settings → Plugins** holds a list of plugin folders (add, remove, reorder). Each folder is watched and hot-reloaded. Soham's is `~/shades-playbook/plugins`; other users start with `~/Shades/Plugins`.
+- The core must support everything a plugin can describe: grades, type, motion, effects, sound.
+- Over MCP, Claude can list plugins, use them, and write new ones as files.
+
+## 9. Storage
+- **Projects:** `~/Shades/<name>.shades`, a package with `project.json`, snapshots, and caches (analysis, mattes, proxies). Footage stays where it is on disk and is linked.
+- **Proxies:** for 4K HEVC footage, generated in the background so editing stays smooth on 8 GB. Export always uses the originals.
+
+## 10. Export
+- **YouTube:** the 16:9 canvas (HEVC or H.264).
+- **Reels/Shorts:** the 9:16 canvas, with batch export of master ranges.
+- **Frames, GIF and SRT.**
+- A background export queue, with a notification and chime when done.
+
+## 11. Quality bar
+"Bug-free and performant" means all four gates are enforced:
+1. **Golden-frame render tests:** every effect, layer and grade has reference frames. A visual change fails CI unless approved.
+2. **MCP scenario tests:** scripted end-to-end edits, like a taste-agent session, run in CI against the real engine.
+3. **Performance gates:** benchmarks for playback fps, memory, export speed and analysis time on reference footage. Regressions fail CI.
+4. **Real-edit dogfooding:** every milestone ends with a real playbook edit done through MCP. Problems go to the known-issues table.
+
+## 12. Code reused from Nebula
+Ported and adapted to Shades' conventions (same author, MIT): the HTTP MCP server, WhisperKit captions, audio (speech activity, ducking, waveforms, noise reduction) and spring physics.
