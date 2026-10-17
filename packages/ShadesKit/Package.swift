@@ -9,6 +9,7 @@ let package = Package(
       name: "ShadesKit",
       targets: [
         "ShadesCore",
+        "ShadesAudio",
         "ShadesCaptions",
         "ShadesCommands",
         "ShadesDocument",
@@ -27,9 +28,14 @@ let package = Package(
     .target(name: "ShadesCore"),
     .target(name: "ShadesCommands", dependencies: ["ShadesCore"]),
     .target(name: "ShadesDocument", dependencies: ["ShadesCore"]),
+    .target(name: "ShadesAudio", dependencies: ["ShadesCore", "ShadesMedia"]),
     .target(
       name: "ShadesCaptions",
-      dependencies: ["ShadesCore", .product(name: "WhisperKit", package: "WhisperKit")],
+      dependencies: [
+        "ShadesCore",
+        "ShadesMedia",
+        .product(name: "WhisperKit", package: "WhisperKit"),
+      ],
     ),
     .target(name: "ShadesMedia", dependencies: ["ShadesCore"]),
     .target(name: "ShadesPlugins"),
@@ -63,6 +69,7 @@ let package = Package(
     ),
     .target(name: "ShadesTestSupport", path: "Tests/ShadesTestSupport"),
     .testTarget(name: "ShadesCoreTests", dependencies: ["ShadesCore"]),
+    .testTarget(name: "ShadesAudioTests", dependencies: ["ShadesAudio", "ShadesTestSupport"]),
     .testTarget(name: "ShadesCaptionsTests", dependencies: ["ShadesCaptions", "ShadesTestSupport"]),
     .testTarget(name: "ShadesCommandsTests", dependencies: ["ShadesCommands"]),
     .testTarget(name: "ShadesDocumentTests", dependencies: ["ShadesDocument"]),

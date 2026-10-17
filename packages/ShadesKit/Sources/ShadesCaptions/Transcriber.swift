@@ -1,5 +1,6 @@
 import Foundation
 import ShadesCore
+import ShadesMedia
 import WhisperKit
 
 /// Transcribes what's said in a media file on this Mac, with word timings. Ported from Nebula:
@@ -23,9 +24,14 @@ public enum Transcriber {
       } else {
         try await ModelStore.download(model) { progress($0 * 0.3) }
       }
-    let samples = try await AudioSamples.mono(from: url)
+    let samples: [Float]
+    do {
+      samples = try await AudioDecoder.mono(from: url, sampleRate: sampleRate)
+    } catch {
+      throw error == .noAudio(url) ? .noAudio(url) : .audioUnreadable(error)
+    }
     // why: less than half a second of sound can't hold a word.
-    guard samples.count >= Int(AudioSamples.sampleRate / 2) else {
+    guard samples.count >= Int(sampleRate / 2) else {
       logger.error("transcribe.failed reason=tooShort")
       throw .noSpeech
     }
@@ -39,6 +45,11 @@ public enum Transcriber {
     progress(1)
     return segments
   }
+
+  // MARK: Internal
+
+  /// Samples per second the speech model listens to.
+  static let sampleRate = 16_000.0
 
   // MARK: Private
 

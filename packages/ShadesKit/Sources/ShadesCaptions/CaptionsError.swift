@@ -1,4 +1,5 @@
 import Foundation
+import ShadesMedia
 
 // MARK: - CaptionsError
 
@@ -6,7 +7,7 @@ import Foundation
 public enum CaptionsError: Error, Equatable {
   case modelDownloadFailed(model: String)
   case modelLoadFailed(model: String)
-  case audioUnreadable(URL)
+  case audioUnreadable(MediaError)
   case noAudio(URL)
   case noSpeech
   case transcriptionFailed
@@ -26,8 +27,8 @@ extension CaptionsError: LocalizedError {
       "The \(model) speech model couldn't be loaded. Try again; if it keeps failing, delete it in "
         + "Settings and download it again."
 
-    case .audioUnreadable(let url):
-      "The sound in \(url.lastPathComponent) couldn't be read. Check the file still plays."
+    case .audioUnreadable(let error):
+      error.errorDescription
 
     case .noAudio(let url):
       "\(url.lastPathComponent) has no sound to transcribe."

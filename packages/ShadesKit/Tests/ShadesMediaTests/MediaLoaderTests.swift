@@ -45,6 +45,22 @@ struct MediaLoaderTests {
   }
 
   @Test
+  func `sound decodes to mono samples at the asked rate`() async throws {
+    let url = try AudioFixture.makeTone(seconds: 2)
+    let samples = try await AudioDecoder.mono(from: url, sampleRate: 16000)
+    #expect(abs(Double(samples.count) - 32000) < 800)
+    #expect(samples.contains { abs($0) > 0.3 })
+  }
+
+  @Test
+  func `decoding a file without sound says so`() async throws {
+    let url = try await VideoFixture.make(red: 0, green: 0, blue: 0)
+    await #expect(throws: MediaError.noAudio(url)) {
+      try await AudioDecoder.mono(from: url, sampleRate: 16000)
+    }
+  }
+
+  @Test
   func `loading a missing file throws fileMissing`() async {
     let url = URL(fileURLWithPath: "/nonexistent/clip.mov")
     await #expect(throws: MediaError.fileMissing(url)) {
