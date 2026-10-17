@@ -18,8 +18,8 @@ public enum VideoFixture {
     return try await make(left: color, right: color, seconds: seconds, width: width, height: height)
   }
 
-  /// Writes a silent H.264 `.mov` whose stored frames are `left` on the left half and `right` on
-  /// the right half, tagged with `transform` the way an iPhone tags portrait video.
+  /// Writes a silent `.mov` whose stored frames are `left` on the left half and `right` on the
+  /// right half, tagged with `transform` the way an iPhone tags portrait video.
   public static func make(
     left: FixtureColor,
     right: FixtureColor,
@@ -27,6 +27,7 @@ public enum VideoFixture {
     width: Int = 320,
     height: Int = 180,
     transform: CGAffineTransform = .identity,
+    codec: AVVideoCodecType = .h264,
   ) async throws(FixtureError) -> URL {
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent(UUID().uuidString)
@@ -40,7 +41,7 @@ public enum VideoFixture {
     let input = AVAssetWriterInput(
       mediaType: .video,
       outputSettings: [
-        AVVideoCodecKey: AVVideoCodecType.h264,
+        AVVideoCodecKey: codec,
         AVVideoWidthKey: width,
         AVVideoHeightKey: height,
       ],

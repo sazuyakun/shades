@@ -1,4 +1,4 @@
-import CoreGraphics
+import AVFoundation
 import Foundation
 import ImageIO
 import ShadesCore
@@ -45,6 +45,22 @@ struct FrameRendererTests {
   }
 
   @Test
+  func `rotated HEVC video, as an iPhone records it, is drawn upright`() async throws {
+    let quarterTurn = CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: 180, ty: 0)
+    let project = try await makeProject(
+      left: .red,
+      right: .blue,
+      transform: quarterTurn,
+      codec: .hevc,
+    )
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    let top = try pixel(of: png, x: 0.5, y: 0.25)
+    let bottom = try pixel(of: png, x: 0.5, y: 0.75)
+    #expect(top.0 > 200 && top.2 < 60)
+    #expect(bottom.2 > 200 && bottom.0 < 60)
+  }
+
+  @Test
   func `frames are rendered in the timeline's format, not the clip's`() async throws {
     // A landscape clip in a vertical Reel: tall output, black bars above and below.
     let project = try await makeProject(left: .red, right: .red, format: .reel9x16)
@@ -73,10 +89,16 @@ struct FrameRendererTests {
     left: FixtureColor,
     right: FixtureColor,
     transform: CGAffineTransform = .identity,
+    codec: AVVideoCodecType = .h264,
     startingAt start: MediaTime = .zero,
     format: VideoFormat = .youTube4x3,
   ) async throws -> Project {
-    let url = try await VideoFixture.make(left: left, right: right, transform: transform)
+    let url = try await VideoFixture.make(
+      left: left,
+      right: right,
+      transform: transform,
+      codec: codec,
+    )
     let upright = CGSize(width: 320, height: 180).applying(transform)
     let media = Media(
       url: url,

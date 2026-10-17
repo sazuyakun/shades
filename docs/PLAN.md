@@ -55,7 +55,6 @@ Problems found but not fixed yet. When one is fixed, delete its row in the same 
 
 | # | Issue | Fix in |
 |---|---|---|
-| 4 | Real iPhone 16 footage (HEVC, rotation) is untested. Test with the clips in `~/shades-playbook` (e.g. `temp/IMG_9046.MOV`) | Before M2 |
 | 5 | Every edit rebuilds the whole playback composition; fine for short projects, slow for long ones | M2 (with the new timeline engine) |
 | 7 | The current `reel9x16` timeline preset contradicts the 4:3 rule: 9:16 is an export canvas, not a timeline. The default timeline must become 2880×2160 @ 24 | M2 |
 | 8 | The relay (`apps/mcp`) and the MCP SDK dependency are replaced by the built-in HTTP server | M2 |
