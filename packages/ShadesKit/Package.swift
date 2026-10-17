@@ -57,7 +57,11 @@ let package = Package(
     .testTarget(name: "ShadesCoreTests", dependencies: ["ShadesCore"]),
     .testTarget(name: "ShadesCommandsTests", dependencies: ["ShadesCommands"]),
     .testTarget(name: "ShadesMediaTests", dependencies: ["ShadesMedia", "ShadesTestSupport"]),
-    .testTarget(name: "ShadesEngineTests", dependencies: ["ShadesEngine", "ShadesTestSupport"]),
+    .testTarget(
+      name: "ShadesEngineTests",
+      dependencies: ["ShadesEngine", "ShadesTestSupport"],
+      exclude: ["Golden"],
+    ),
     .testTarget(name: "ShadesMCPTests", dependencies: ["ShadesMCP", "ShadesTestSupport"]),
     .testTarget(name: "ShadesPluginsTests", dependencies: ["ShadesPlugins"]),
   ],

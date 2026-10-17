@@ -32,4 +32,6 @@ Modules are created only when a milestone first needs them. They exist today: Sh
 
 ## Testing
 - Swift Testing, with one test target per module (`ShadesCoreTests`, …). Rules are in the root CLAUDE.md.
+- **Golden frames:** every effect, layer and grade gets a render test that ends with `#expect(try GoldenFrame.matches(png, named: "<kebab-name>", in: golden))`. References live in a `Golden/` folder next to the test file (excluded from the target in `Package.swift`). A missing reference is recorded and fails once; re-record after an approved visual change with `SHADES_RECORD_GOLDEN=1 swift test …`, and commit the PNGs. A mismatch writes `<name>.actual.png` (git-ignored) to compare.
 - Rendered-frame snapshot tests to keep preview and export identical.
+- **Performance gates:** budgets live in `PerformanceTests` (one suite per module that has hot paths, `.serialized`), measured with `Benchmark.median` and `Benchmark.memoryFootprint()` from `ShadesTestSupport`. Budgets are set for the CI runner; never loosen one to make a regression pass, fix the regression.

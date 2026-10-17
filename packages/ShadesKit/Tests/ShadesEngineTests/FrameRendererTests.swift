@@ -42,6 +42,7 @@ struct FrameRendererTests {
     let bottom = try pixel(of: png, x: 0.5, y: 0.75)
     #expect(top.0 > 200 && top.2 < 60)
     #expect(bottom.2 > 200 && bottom.0 < 60)
+    #expect(try GoldenFrame.matches(png, named: "portrait-upright", in: golden))
   }
 
   @Test
@@ -72,6 +73,7 @@ struct FrameRendererTests {
     #expect(height == 320)
     #expect(top.0 < 20)
     #expect(center.0 > 200)
+    #expect(try GoldenFrame.matches(png, named: "landscape-in-vertical", in: golden))
   }
 
   @Test
@@ -85,6 +87,10 @@ struct FrameRendererTests {
 
   /// A project whose timeline is one 1-second 320×180 test clip, placed at `start`. The media's
   /// size is the upright (display) size, as `MediaLoader` reports it.
+  /// Reference frames for this suite, checked into the repo.
+  private let golden = URL(filePath: #filePath).deletingLastPathComponent()
+    .appending(path: "Golden")
+
   private func makeProject(
     left: FixtureColor,
     right: FixtureColor,
