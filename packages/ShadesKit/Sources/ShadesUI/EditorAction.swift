@@ -53,6 +53,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case importMedia
   case commandPalette
   case toggleHistory
+  case toggleTranscript
 
   // MARK: Internal
 
@@ -110,6 +111,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .importMedia: "Import Media…"
     case .commandPalette: "Command Palette"
     case .toggleHistory: "Show / Hide History"
+    case .toggleTranscript: "Show / Hide Transcript"
     }
   }
 
@@ -163,6 +165,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .importMedia: Shortcut("i", .command)
     case .commandPalette: Shortcut("k", .command)
     case .toggleHistory: Shortcut("l", .command)
+    case .toggleTranscript: Shortcut("t", [.command, .option])
     }
   }
 
@@ -187,7 +190,8 @@ enum EditorAction: CaseIterable, Identifiable {
          .zoomToFit,
          .importMedia,
          .commandPalette,
-         .toggleHistory:
+         .toggleHistory,
+         .toggleTranscript:
       view(in: context)
     case .selectAtPlayhead,
          .selectForward,
@@ -274,6 +278,11 @@ enum EditorAction: CaseIterable, Identifiable {
       context.sidePane.wrappedValue = context.sidePane.wrappedValue == .history
         ? .inspector
         : .history
+
+    case .toggleTranscript:
+      context.sidePane.wrappedValue = context.sidePane.wrappedValue == .transcript
+        ? .inspector
+        : .transcript
 
     default: break
     }

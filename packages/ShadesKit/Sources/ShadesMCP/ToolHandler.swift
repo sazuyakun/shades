@@ -1,4 +1,5 @@
 import Foundation
+import ShadesCaptions
 import ShadesCommands
 import ShadesCore
 import ShadesDocument
@@ -71,7 +72,7 @@ public final class ToolHandler {
 
   // MARK: Private
 
-  private static let builtIns = [
+  private static let builtIns: [Tool] = [
     Tool(
       name: "get_project",
       summary: "Get the whole project: media, tracks with their clips, markers, the playhead "
@@ -184,6 +185,57 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "transcribe",
+      summary: "Transcribe speech in the background (word timings, on this Mac). By default every "
+        +
+        "clip with sound on the timeline that has no transcript yet. Watch progress with get_jobs.",
+      parameters: JSONSchema.object([
+        "media_ids": JSONSchema.array("Media to transcribe", items: Fields.mediaID),
+        "model": JSONSchema.string(
+          "Speech model: small (default, balanced), base (fastest) or large_turbo (best for "
+            + "Hinglish, slower)",
+          values: ["base", "small", "large_turbo"],
+        ),
+        "language": JSONSchema.string("Language code like en or hi; leave out to detect"),
+      ]),
+      kind: .project,
+    ),
+    Tool(
+      name: "analyze_audio",
+      summary: "Find when people talk and the music's beats, in the background. By default every "
+        + "clip with sound on the timeline not analysed yet.",
+      parameters: JSONSchema.object(["media_ids": JSONSchema.array(
+        "Media to analyse",
+        items: Fields.mediaID,
+      )]),
+      kind: .project,
+    ),
+    Tool(
+      name: "get_transcript",
+      summary: "What's said on the timeline, as caption-sized lines with timeline times. Pass "
+        + "words: true for every word's time (for cutting words with remove_ranges).",
+      parameters: JSONSchema.object([
+        "start": Fields.time("From"),
+        "end": Fields.time("Up to"),
+        "words": JSONSchema.boolean("List every word with its time"),
+      ]),
+      kind: .read,
+    ),
+    Tool(
+      name: "get_analysis",
+      summary: "What's been worked out for each media file: transcript language and length, "
+        + "speech stretches and beats (in the file's own time).",
+      parameters: JSONSchema.object([:]),
+      kind: .read,
+    ),
+    Tool(
+      name: "add_captions",
+      summary: "Add captions for what's said (in a range, or everywhere) as text clips on a text "
+        + "track. Needs transcripts first. Edit them afterwards with set_text.",
+      parameters: JSONSchema.object(["start": Fields.time("From"), "end": Fields.time("Up to")]),
+      kind: .edit,
+    ),
+    Tool(
       name: "list_projects",
       summary: "List the projects in ~/Shades, newest first, and which one is open.",
       parameters: JSONSchema.object([:]),
@@ -275,6 +327,35 @@ public final class ToolHandler {
 
     case "batch":
       return try batch(arguments)
+
+    case "transcribe":
+      let request = try decode(TranscribeArguments.self, from: arguments, tool: name)
+      return queued(try host().transcribe(
+        request.mediaIDs,
+        model: request.model.flatMap(TranscriptionModel.init(argument:)) ?? .small,
+        language: request.language,
+      ), nothingLeft: "Every clip with sound already has a transcript.")
+
+    case "analyze_audio":
+      let request = try decode(MediaListArguments.self, from: arguments, tool: name)
+      return queued(
+        try host().analyzeAudio(request.mediaIDs),
+        nothingLeft: "Every clip with sound is already analysed.",
+      )
+
+    case "get_transcript":
+      return try transcript(decode(RangeArguments.self, from: arguments, tool: name))
+
+    case "get_analysis":
+      return try analysisReport()
+
+    case "add_captions":
+      let request = try decode(RangeArguments.self, from: arguments, tool: name)
+      let projectHost = try host()
+      let count = try perform { () throws(CommandError) -> Int in
+        try projectHost.addCaptions(in: request.range)
+      }
+      return .text("Added \(count) captions on a text track.")
 
     case "list_projects":
       return await listProjects()
@@ -425,6 +506,76 @@ public final class ToolHandler {
     return lines.joined(separator: "\n")
   }
 
+  /// The project host, with a project open (analysis needs one to save into).
+  private func host() throws(ToolError) -> any ProjectHost {
+    guard let projectHost else {
+      throw noHost()
+    }
+    guard projectHost.documentURL != nil else {
+      logger.error("tool.rejected reason=noProjectOpen")
+      throw .noProjectOpen
+    }
+    return projectHost
+  }
+
+  private func queued(_ titles: [String], nothingLeft: String) -> ToolResult {
+    guard !titles.isEmpty else {
+      return .text(nothingLeft)
+    }
+    return .text("Queued:\n" + titles.lazy.map { "- " + $0 }
+      .joined(separator: "\n") + "\nWatch with get_jobs.")
+  }
+
+  private func transcript(_ request: RangeArguments) throws(ToolError) -> ToolResult {
+    let words = try editor.project.timeline.spokenWords(transcripts: host().analysis.transcripts)
+      .filter { word in
+        request.range.map { $0.start <= word.start && word.start < $0.end } ?? true
+      }
+    guard !words.isEmpty else {
+      return .text(
+        "No transcribed speech here. Run transcribe first (and wait for it in get_jobs)."
+      )
+    }
+    if request.words == true {
+      return .text(words.map { "\(format($0.start))–\(format($0.end)) \($0.text)" }
+        .joined(separator: "\n"))
+    }
+    return .text(CaptionLayout.lines(for: words)
+      .map { "\(format($0.start))–\(format($0.end)): \($0.text)" }
+      .joined(separator: "\n"))
+  }
+
+  private func analysisReport() throws(ToolError) -> ToolResult {
+    let analyses = try host().analysis.analyses
+    let lines = editor.project.media.compactMap { media -> String? in
+      guard let analysis = analyses[media.id] else {
+        return nil
+      }
+      var parts = [String]()
+      if let transcript = analysis.transcript {
+        parts.append("transcript (\(transcript.language ?? "?"), \(transcript.words.count) words)")
+      }
+      if let speech = analysis.speech {
+        let talking = speech.reduce(0) { $0 + $1.duration.seconds }
+        parts
+          .append(
+            "speech in \(speech.count) stretches, \(format(MediaTime(seconds: talking))) s in all"
+          )
+      }
+      if let beats = analysis.beats, !beats.beats.isEmpty {
+        parts.append("beats at \(Int(beats.beatsPerMinute.rounded())) BPM")
+      }
+      return "- \(media.name) (\(media.id)): " + parts.joined(separator: "; ")
+    }
+    return .text(lines.isEmpty
+      ? "Nothing analysed yet. Use transcribe and analyze_audio."
+      : lines.joined(separator: "\n"))
+  }
+
+  private func format(_ time: MediaTime) -> String {
+    String(format: "%.2f", time.seconds)
+  }
+
   private func noHost() -> ToolError {
     logger.fault("tool.failed reason=noProjectHost")
     assertionFailure("The MCP server has no project host")
@@ -461,9 +612,9 @@ public final class ToolHandler {
   }
 
   /// Runs project work, wrapping its error for MCP. (Commands log their own rejections.)
-  private func perform(_ work: () throws(CommandError) -> Void) throws(ToolError) {
+  private func perform<T>(_ work: () throws(CommandError) -> T) throws(ToolError) -> T {
     do {
-      try work()
+      return try work()
     } catch {
       throw .commandFailed(error)
     }
@@ -528,6 +679,48 @@ private struct NameArguments: Decodable {
 
 private struct SelectArguments: Decodable {
   let clipIDs: [UUID]
+}
+
+// MARK: - TranscribeArguments
+
+private struct TranscribeArguments: Decodable {
+  let mediaIDs: [UUID]?
+  let model: String?
+  let language: String?
+}
+
+// MARK: - MediaListArguments
+
+private struct MediaListArguments: Decodable {
+  let mediaIDs: [UUID]?
+}
+
+// MARK: - RangeArguments
+
+private struct RangeArguments: Decodable {
+  let start: MediaTime?
+  let end: MediaTime?
+  let words: Bool?
+
+  /// The stretch asked for, open-ended on either side.
+  var range: TimeRange? {
+    guard start != nil || end != nil else {
+      return nil
+    }
+    return TimeRange(start: start ?? .zero, end: end ?? MediaTime(seconds: 1_000_000))
+  }
+}
+
+extension TranscriptionModel {
+  /// The model Claude names: "base", "small" or "large_turbo".
+  fileprivate init?(argument: String) {
+    switch argument {
+    case "base": self = .base
+    case "small": self = .small
+    case "large_turbo": self = .largeTurbo
+    default: return nil
+    }
+  }
 }
 
 // MARK: - SeekArguments

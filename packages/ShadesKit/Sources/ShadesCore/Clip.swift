@@ -1,7 +1,9 @@
 import Foundation
 
+// MARK: - Clip
+
 /// A piece of a media file (or some text) placed on a track, with how it's drawn and heard.
-public struct Clip: Codable, Hashable, Sendable, Identifiable {
+public struct Clip: Hashable, Sendable, Identifiable {
 
   // MARK: Lifecycle
 
@@ -99,6 +101,66 @@ public struct Clip: Codable, Hashable, Sendable, Identifiable {
   /// Whether `time` falls inside the clip (its start included, its end not).
   public func contains(_ time: MediaTime) -> Bool {
     timelineStart <= time && time < timelineEnd
+  }
+
+}
+
+// MARK: Codable
+
+extension Clip: Codable {
+
+  // MARK: Lifecycle
+
+  /// Reads a clip, including clips saved before text clips existed (a bare `mediaID`).
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    let source = try container.decodeIfPresent(ClipSource.self, forKey: .source)
+      ?? .media(container.decode(Media.ID.self, forKey: .mediaID))
+    try self.init(
+      id: container.decode(UUID.self, forKey: .id),
+      source: source,
+      sourceStart: container.decode(MediaTime.self, forKey: .sourceStart),
+      duration: container.decode(MediaTime.self, forKey: .duration),
+      timelineStart: container.decode(MediaTime.self, forKey: .timelineStart),
+      transform: container.decode(ClipTransform.self, forKey: .transform),
+      opacity: container.decode(Double.self, forKey: .opacity),
+      depth: container.decode(DepthSlot.self, forKey: .depth),
+      volume: container.decode(Double.self, forKey: .volume),
+      isAudioEnabled: container.decode(Bool.self, forKey: .isAudioEnabled),
+    )
+  }
+
+  // MARK: Public
+
+  public func encode(to encoder: any Encoder) throws {
+    var container = encoder.container(keyedBy: CodingKeys.self)
+    try container.encode(id, forKey: .id)
+    try container.encode(source, forKey: .source)
+    try container.encode(sourceStart, forKey: .sourceStart)
+    try container.encode(duration, forKey: .duration)
+    try container.encode(timelineStart, forKey: .timelineStart)
+    try container.encode(transform, forKey: .transform)
+    try container.encode(opacity, forKey: .opacity)
+    try container.encode(depth, forKey: .depth)
+    try container.encode(volume, forKey: .volume)
+    try container.encode(isAudioEnabled, forKey: .isAudioEnabled)
+  }
+
+  // MARK: Private
+
+  private enum CodingKeys: String, CodingKey {
+    case id
+    case source
+    /// Where clips saved before text clips existed kept their media.
+    case mediaID
+    case sourceStart
+    case duration
+    case timelineStart
+    case transform
+    case opacity
+    case depth
+    case volume
+    case isAudioEnabled
   }
 
 }

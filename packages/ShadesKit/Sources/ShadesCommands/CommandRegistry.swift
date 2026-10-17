@@ -12,6 +12,7 @@ public enum CommandRegistry {
     TrimClip.self,
     SplitClip.self,
     DeleteClips.self,
+    RemoveRanges.self,
     CloseGaps.self,
     JoinClips.self,
     SetClip.self,

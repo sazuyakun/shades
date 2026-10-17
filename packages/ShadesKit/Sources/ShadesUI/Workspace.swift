@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
 import Observation
+import ShadesAudio
+import ShadesCaptions
 import ShadesCommands
 import ShadesCore
 import ShadesDocument
@@ -49,6 +51,8 @@ public final class Workspace {
   public let server: MCPServer
   /// Background work for this project: proxies, transcripts, analysis.
   public let jobs: JobQueue
+  /// What's been worked out about each media file: transcripts, speech, beats.
+  public let analysis = AnalysisLibrary()
 
   /// The open project's package, or `nil` when none is open.
   public private(set) var documentURL: URL?
@@ -124,6 +128,7 @@ public final class Workspace {
     player.pause()
     queuedProxies.removeAll()
     player.proxies = [:]
+    analysis.clear()
     documentURL = nil
     defaults.set(false, forKey: Keys.isOpen)
   }
@@ -240,6 +245,14 @@ public final class Workspace {
     try? await player.load(editor.project) // why: the editor shows playback errors.
   }
 
+  /// Media on the timeline that plays sound, or just `ids` when given.
+  private func soundMedia(_ ids: [Media.ID]?) -> [Media] {
+    let used = Set(editor.project.timeline.allClips.compactMap(\.mediaID))
+    return editor.project.media.filter { media in
+      media.hasAudio && (ids.map { $0.contains(media.id) } ?? used.contains(media.id))
+    }
+  }
+
   private func snapshotBeforeClaude() {
     let now = ContinuousClock.now
     if let last = lastClaudeSnapshot, now - last < Self.claudeRequestGap {
@@ -301,11 +314,15 @@ public final class Workspace {
 // MARK: ProjectHost
 
 extension Workspace: ProjectHost {
+
+  // MARK: Public
+
   public func openProject(at url: URL) async throws(DocumentError) {
     let (project, session) = try await ProjectFile.read(at: url)
     await close()
     // why: the editor view loads playback when the project changes; it starts at the cue.
     player.cue(toSeconds: session.playhead)
+    await analysis.load(from: url)
     editor.load(project)
     editor.selection = Set(session.selection)
     server.activity.clear()
@@ -322,4 +339,102 @@ extension Workspace: ProjectHost {
     let url = try await ProjectLibrary.create(named: name, format: format)
     try await openProject(at: url)
   }
+
+  /// Queues transcripts for `mediaIDs` (default: sound on the timeline not yet transcribed) and
+  /// returns what was queued.
+  public func transcribe(
+    _ mediaIDs: [Media.ID]?,
+    model: TranscriptionModel,
+    language: String?,
+  ) -> [String] {
+    guard let package = documentURL else {
+      return []
+    }
+    let wanted = soundMedia(mediaIDs)
+      .filter { mediaIDs != nil || analysis.analyses[$0.id]?.transcript == nil }
+    return wanted.map { media in
+      let title = "Transcribing \(media.name)"
+      jobs.enqueue(title) { [weak self] progress throws(JobError) in
+        let transcript: Transcript
+        do throws(CaptionsError) {
+          transcript = try await Transcriber.transcribe(
+            media.url,
+            model: model,
+            language: language,
+            progress: progress,
+          )
+        } catch {
+          throw error == .cancelled
+            ? .cancelled
+            : .failed(error.errorDescription ?? "The transcript couldn't be made.")
+        }
+        try await self?.store(media.id, in: package) { $0.transcript = transcript }
+      }
+      return title
+    }
+  }
+
+  /// Queues speech-activity and beat detection for `mediaIDs` (default: sound on the timeline
+  /// not yet analysed) and returns what was queued.
+  public func analyzeAudio(_ mediaIDs: [Media.ID]?) -> [String] {
+    guard let package = documentURL else {
+      return []
+    }
+    let wanted = soundMedia(mediaIDs)
+      .filter { mediaIDs != nil || analysis.analyses[$0.id]?.speech == nil }
+    return wanted.map { media in
+      let title = "Analysing the sound of \(media.name)"
+      jobs.enqueue(title) { [weak self] progress throws(JobError) in
+        let speech: [TimeRange]
+        let beats: BeatGrid
+        do throws(AudioError) {
+          speech = try await SpeechActivity.detect(in: media.url)
+          progress(0.5)
+          beats = try await BeatDetector.detect(in: media.url)
+        } catch {
+          throw .failed(error.errorDescription ?? "The sound couldn't be analysed.")
+        }
+        try await self?.store(media.id, in: package) { analysis in
+          analysis.speech = speech
+          analysis.beats = beats
+        }
+      }
+      return title
+    }
+  }
+
+  /// Adds captions for what's said on the timeline (in `range`, or everywhere) as text clips on
+  /// a text track, in one undo step. Returns how many were added.
+  public func addCaptions(in range: TimeRange?) throws(CommandError) -> Int {
+    let words = editor.project.timeline.spokenWords(transcripts: analysis.transcripts)
+      .filter { word in range.map { $0.start <= word.start && word.start < $0.end } ?? true }
+    guard !words.isEmpty else {
+      throw .invalidArguments("there are no transcribed words here; transcribe the clips first")
+    }
+    let lines = CaptionLayout.lines(for: words)
+    try editor.perform(
+      lines.map { AddText(text: $0.text, at: $0.start, duration: $0.end - $0.start) },
+      title: "Add Captions",
+    )
+    return lines.count
+  }
+
+  // MARK: Private
+
+  /// Saves an analysis result, if its project is still the open one.
+  private func store(
+    _ mediaID: Media.ID,
+    in package: URL,
+    change: (inout MediaAnalysis) -> Void,
+  ) async throws(JobError) {
+    guard package == documentURL else {
+      throw .cancelled
+    }
+    do {
+      try await analysis.update(mediaID, in: package, change: change)
+    } catch {
+      throw .failed(error.errorDescription ?? "The result couldn't be saved.")
+    }
+  }
+
 }

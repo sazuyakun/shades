@@ -47,6 +47,7 @@ let package = Package(
     .target(
       name: "ShadesMCP",
       dependencies: [
+        "ShadesCaptions",
         "ShadesCommands",
         "ShadesDocument",
         "ShadesEngine",
@@ -58,6 +59,8 @@ let package = Package(
     .target(
       name: "ShadesUI",
       dependencies: [
+        "ShadesAudio",
+        "ShadesCaptions",
         "ShadesCommands",
         "ShadesDocument",
         "ShadesEngine",

@@ -18,6 +18,8 @@ struct TitleBar: View {
         CapsuleGroup {
           Button("Inspector") { sidePane = .inspector }
             .buttonStyle(CapsuleButtonStyle(isOn: sidePane == .inspector))
+          Button("Transcript") { sidePane = sidePane == .transcript ? .inspector : .transcript }
+            .buttonStyle(CapsuleButtonStyle(isOn: sidePane == .transcript))
           Button("History") { sidePane = sidePane == .history ? .inspector : .history }
             .buttonStyle(CapsuleButtonStyle(isOn: sidePane == .history))
             .help("Show or hide Claude's changes (⌘L)")

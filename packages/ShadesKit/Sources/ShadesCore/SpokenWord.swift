@@ -4,6 +4,13 @@ import Foundation
 
 /// A word heard on the timeline: its text, when it plays, and the clip it comes from.
 public struct SpokenWord: Hashable, Sendable {
+  public init(text: String, start: MediaTime, end: MediaTime, clipID: Clip.ID) {
+    self.text = text
+    self.start = start
+    self.end = end
+    self.clipID = clipID
+  }
+
   public let text: String
   public let start: MediaTime
   public let end: MediaTime

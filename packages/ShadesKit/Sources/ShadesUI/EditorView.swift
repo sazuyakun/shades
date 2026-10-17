@@ -34,6 +34,7 @@ public struct EditorView: View {
           Group {
             switch sidePane {
             case .inspector: InspectorPane(selection: selection, onError: { errorMessage = $0 })
+            case .transcript: TranscriptPane(onError: { errorMessage = $0 })
             case .history: HistoryPane()
             }
           }

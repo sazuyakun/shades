@@ -13,6 +13,7 @@ public enum ToolError: Error, Equatable {
   case engineFailed(EngineError)
   case documentFailed(DocumentError)
   case noProjectHost
+  case noProjectOpen
   case listenFailed(port: UInt16)
 }
 
@@ -29,6 +30,8 @@ extension ToolError: LocalizedError {
       error.errorDescription
     case .documentFailed(let error):
       error.errorDescription
+    case .noProjectOpen:
+      "No project is open. Open one with open_project or create one with new_project."
     case .noProjectHost:
       "Projects can't be opened right now. Reopen Shades and try again."
     case .listenFailed(let port):
