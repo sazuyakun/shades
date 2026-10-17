@@ -13,13 +13,13 @@ All real Mac code lives here as a Swift package with one module per system. The 
 | ShadesColor | Color management, grade nodes, LUTs, scopes |
 | ShadesGraphics | Titles, templates, keyframes |
 | ShadesAudio | Mixer, ducking, loudness, beats |
-| ShadesCaptions | Transcription, caption styles |
+| ShadesCaptions | WhisperKit transcription (models, audio decoding), caption lines. The only module that imports WhisperKit |
 | ShadesExport | Presets, encode queue |
 | ShadesMCP | MCP server: commands become Claude tools |
 | ShadesPlugins | Plugin folders (Settings), and from M5 loading and hot-reloading plugins |
 | ShadesUI | SwiftUI views (AppKit/Metal where SwiftUI is too slow) |
 
-Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesCommands, ShadesDocument, ShadesMedia, ShadesEngine, ShadesMCP, ShadesPlugins, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
+Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesCaptions, ShadesCommands, ShadesDocument, ShadesMedia, ShadesEngine, ShadesMCP, ShadesPlugins, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
 
 ## Rules
 - **Dependencies point one way:** Core → Commands / Document → feature modules → MCP → UI → the app. Core imports only Foundation, nothing imports ShadesUI except the app, and ShadesMCP never imports ShadesUI (UI reads `MCPServer.status` to show Claude's connection).
@@ -36,4 +36,5 @@ Modules are created only when a milestone first needs them. They exist today: Sh
 - Swift Testing, with one test target per module (`ShadesCoreTests`, …). Rules are in the root CLAUDE.md.
 - **Golden frames:** every effect, layer and grade gets a render test that ends with `#expect(try GoldenFrame.matches(png, named: "<kebab-name>", in: golden))`. References live in a `Golden/` folder next to the test file (excluded from the target in `Package.swift`). A missing reference is recorded and fails once; re-record after an approved visual change with `SHADES_RECORD_GOLDEN=1 swift test …`, and commit the PNGs. A mismatch writes `<name>.actual.png` (git-ignored) to compare.
 - Rendered-frame snapshot tests to keep preview and export identical.
+- Tests that need a speech model run only with `SHADES_WHISPER=1` (it downloads the Small model once, about 485 MB). Spoken test audio comes from `SpeechFixture` (the Mac's `say`), never real recordings.
 - **Performance gates:** budgets live in `PerformanceTests` (one suite per module that has hot paths, `.serialized`), measured with `Benchmark.median` and `Benchmark.memoryFootprint()` from `ShadesTestSupport`. Budgets are set for the CI runner; never loosen one to make a regression pass, fix the regression. Suites are enabled only with `SHADES_PERFORMANCE=1` and run alone: `SHADES_PERFORMANCE=1 swift test --package-path packages/ShadesKit --filter PerformanceTests --no-parallel` (CI does this as its own step).

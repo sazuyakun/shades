@@ -9,6 +9,7 @@ let package = Package(
       name: "ShadesKit",
       targets: [
         "ShadesCore",
+        "ShadesCaptions",
         "ShadesCommands",
         "ShadesDocument",
         "ShadesMedia",
@@ -19,10 +20,17 @@ let package = Package(
       ],
     )
   ],
+  dependencies: [
+    .package(url: "https://github.com/argmaxinc/WhisperKit.git", exact: "1.1.0")
+  ],
   targets: [
     .target(name: "ShadesCore"),
     .target(name: "ShadesCommands", dependencies: ["ShadesCore"]),
     .target(name: "ShadesDocument", dependencies: ["ShadesCore"]),
+    .target(
+      name: "ShadesCaptions",
+      dependencies: ["ShadesCore", .product(name: "WhisperKit", package: "WhisperKit")],
+    ),
     .target(name: "ShadesMedia", dependencies: ["ShadesCore"]),
     .target(name: "ShadesPlugins"),
     .target(
@@ -55,6 +63,7 @@ let package = Package(
     ),
     .target(name: "ShadesTestSupport", path: "Tests/ShadesTestSupport"),
     .testTarget(name: "ShadesCoreTests", dependencies: ["ShadesCore"]),
+    .testTarget(name: "ShadesCaptionsTests", dependencies: ["ShadesCaptions", "ShadesTestSupport"]),
     .testTarget(name: "ShadesCommandsTests", dependencies: ["ShadesCommands"]),
     .testTarget(name: "ShadesDocumentTests", dependencies: ["ShadesDocument"]),
     .testTarget(name: "ShadesMediaTests", dependencies: ["ShadesMedia", "ShadesTestSupport"]),

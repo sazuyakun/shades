@@ -43,7 +43,7 @@ Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftform
 ## Dependencies
 - No third-party package is added without the user's explicit approval. Approved packages are listed here with the reason.
 - Approved:
-  - **WhisperKit** (`argmaxinc/WhisperKit`, **exact 1.1.0**, MIT). Only the captions module may import it. Why: on-device transcription with word timings, handles Hinglish. Pinned to Nebula's version so the downloaded model is shared, not re-downloaded.
+  - **WhisperKit** (`argmaxinc/WhisperKit`, **exact 1.1.0**, MIT). Only the captions module may import it. Why: on-device transcription with word timings, handles Hinglish. Pinned to Nebula's version so the downloaded model is shared, not re-downloaded. It brings Apple's `swift-argument-parser` (Apache-2.0) with it, which our code doesn't use directly. Models download into `~/Library/Application Support/Shades/Models`, after checking Nebula's folder.
 - **Bundled models and libraries must be MIT, Apache-2.0 or similar. Never GPL, never non-commercial.**
 
 ## Swift conventions (all Swift code: apps and packages)
