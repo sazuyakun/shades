@@ -1,9 +1,11 @@
 import ShadesCore
 import SwiftUI
 
-/// One clip on a track: rounded, labeled, with a thumbnail like Final Cut's filmstrip.
+/// One clip on a track: rounded, labeled, with a thumbnail like Final Cut's filmstrip. Glows
+/// purple for a moment after Claude changes it.
 struct TimelineClipView: View {
   let media: Media?
+  let isRecentlyChanged: Bool
 
   var body: some View {
     RoundedRectangle(cornerRadius: 7)
@@ -28,5 +30,12 @@ struct TimelineClipView: View {
       .overlay {
         RoundedRectangle(cornerRadius: 7).strokeBorder(.white.opacity(0.08))
       }
+      .overlay {
+        RoundedRectangle(cornerRadius: 7)
+          .strokeBorder(Theme.claude, lineWidth: 2)
+          .shadow(color: Theme.claude, radius: 8)
+          .opacity(isRecentlyChanged ? 1 : 0)
+      }
+      .animation(.easeOut(duration: 0.6), value: isRecentlyChanged)
   }
 }

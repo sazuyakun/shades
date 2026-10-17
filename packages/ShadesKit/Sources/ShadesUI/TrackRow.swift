@@ -1,5 +1,6 @@
 import ShadesCommands
 import ShadesCore
+import ShadesMCP
 import SwiftUI
 
 /// A track's slim header ("V1") and its lane of clips, with a hairline below.
@@ -20,9 +21,12 @@ struct TrackRow: View {
       Hairline(vertical: true)
       ZStack(alignment: .leading) {
         ForEach(track.clips) { clip in
-          TimelineClipView(media: editor.project.media(withID: clip.mediaID))
-            .frame(width: scale.x(atSeconds: clip.duration.seconds), height: 64)
-            .offset(x: scale.x(atSeconds: clip.timelineStart.seconds))
+          TimelineClipView(
+            media: editor.project.media(withID: clip.mediaID),
+            isRecentlyChanged: server.activity.recentlyChangedClipIDs.contains(clip.id),
+          )
+          .frame(width: scale.x(atSeconds: clip.duration.seconds), height: 64)
+          .offset(x: scale.x(atSeconds: clip.timelineStart.seconds))
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
@@ -34,5 +38,6 @@ struct TrackRow: View {
   // MARK: Private
 
   @Environment(Editor.self) private var editor
+  @Environment(MCPServer.self) private var server
 
 }

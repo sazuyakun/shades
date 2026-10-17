@@ -80,7 +80,7 @@ struct ToolHandlerTests {
   private let player = Player()
 
   private var handler: ToolHandler {
-    ToolHandler(editor: editor, player: player)
+    ToolHandler(editor: editor, player: player, activity: ActivityLog())
   }
 
 }

@@ -13,7 +13,7 @@ public final class MCPServer {
   // MARK: Lifecycle
 
   public init(editor: Editor, player: Player, port: UInt16 = defaultPort) {
-    handler = ToolHandler(editor: editor, player: player)
+    handler = ToolHandler(editor: editor, player: player, activity: activity)
     self.port = port
   }
 
@@ -23,6 +23,8 @@ public final class MCPServer {
   public static let defaultPort: UInt16 = 4747
 
   public let port: UInt16
+  /// What Claude has changed this session, for the History pane.
+  public let activity = ActivityLog()
   public private(set) var status = ServerStatus.starting
 
   /// Starts accepting connections from Claude, on localhost only. The outcome shows in `status`.

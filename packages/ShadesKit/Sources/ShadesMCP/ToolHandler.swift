@@ -11,9 +11,10 @@ public struct ToolHandler {
 
   // MARK: Lifecycle
 
-  public init(editor: Editor, player: Player) {
+  public init(editor: Editor, player: Player, activity: ActivityLog) {
     self.editor = editor
     self.player = player
+    self.activity = activity
   }
 
   // MARK: Public
@@ -50,26 +51,39 @@ public struct ToolHandler {
     ),
   ]
 
-  /// Runs a tool call. Failures come back as an error result Claude can read and act on.
+  /// Runs a tool call and logs it if it was an edit. Failures come back as an error result
+  /// Claude can read and act on.
   public func call(_ parameters: CallTool.Parameters) async -> CallTool.Result {
+    let clipIDsBefore = clipIDs()
+    let result: CallTool.Result
     do {
-      return try await run(parameters)
+      result = try await run(parameters)
     } catch {
-      return CallTool.Result(
-        content: [.text(
-          text: error.errorDescription ?? "The tool failed.",
-          annotations: nil,
-          _meta: nil,
-        )],
-        isError: true,
-      )
+      result = text(error.errorDescription ?? "The tool failed.", isError: true)
     }
+    if let title = Self.editTitles[parameters.name] {
+      activity.record(ActivityEntry(
+        title: title,
+        summary: summary(of: result),
+        isError: result.isError == true,
+        changedClipIDs: clipIDs().subtracting(clipIDsBefore),
+      ))
+    }
+    return result
   }
 
   // MARK: Private
 
+  /// History titles for the tools that change the project; every other tool only reads or
+  /// previews, so it isn't logged.
+  private nonisolated static let editTitles = [
+    "import_media": "Imported media",
+    "append_clip": "Appended a clip",
+  ]
+
   private let editor: Editor
   private let player: Player
+  private let activity: ActivityLog
 
   /// A JSON Schema object with the given required properties: name → (type, description).
   private nonisolated static func schema(_ properties: [String: (
@@ -204,8 +218,26 @@ public struct ToolHandler {
     return number
   }
 
-  private func text(_ message: String) -> CallTool.Result {
-    CallTool.Result(content: [.text(text: message, annotations: nil, _meta: nil)])
+  private func text(_ message: String, isError: Bool = false) -> CallTool.Result {
+    CallTool.Result(
+      content: [.text(text: message, annotations: nil, _meta: nil)],
+      isError: isError ? true : nil,
+    )
+  }
+
+  /// The text parts of a result, joined, for the History pane.
+  private func summary(of result: CallTool.Result) -> String {
+    result.content.compactMap { content in
+      if case .text(let text, _, _) = content {
+        return text
+      }
+      return nil
+    }
+    .joined(separator: " ")
+  }
+
+  private func clipIDs() -> Set<UUID> {
+    Set(editor.project.timeline.tracks.flatMap(\.clips).map(\.id))
   }
 
 }

@@ -44,6 +44,9 @@ struct TimelinePane: View {
         }
       }
     }
+    .overlay(alignment: .bottom) {
+      ClaudeToast().padding(.bottom, 16)
+    }
     .background(Theme.background)
   }
 
