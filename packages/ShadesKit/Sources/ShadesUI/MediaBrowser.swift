@@ -14,25 +14,31 @@ struct MediaBrowser: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      MediaBrowserHeader(selection: selection, onAppend: onAppend)
+      MediaBrowserHeader(
+        count: editor.project.media.count,
+        selection: selection,
+        onAppend: onAppend,
+      )
       ScrollView {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 10)], spacing: 10) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
           ForEach(editor.project.media) { media in
             MediaTile(media: media, isSelected: media.id == selection)
               .onTapGesture { selection = media.id }
           }
         }
-        .padding(10)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
       }
       .overlay {
         if editor.project.media.isEmpty {
           Text("Drop videos here\nor press ⌘I to import")
+            .font(.callout)
             .multilineTextAlignment(.center)
-            .foregroundStyle(Theme.secondaryText)
+            .foregroundStyle(Theme.faintText)
         }
       }
     }
-    .background(Theme.panel)
+    .background(Theme.background)
     .dropDestination(for: URL.self) { urls, _ in
       onImport(urls)
       return true

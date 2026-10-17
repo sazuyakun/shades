@@ -4,7 +4,8 @@ import ShadesEngine
 import ShadesMedia
 import SwiftUI
 
-/// The main window: media browser, viewer and inspector on top, the timeline below.
+/// The main window: the title bar, then media browser, viewer and side pane on top, with the
+/// timeline below. Panes are separated by hairlines on one warm near-black.
 public struct EditorView: View {
 
   // MARK: Lifecycle
@@ -14,36 +15,37 @@ public struct EditorView: View {
   // MARK: Public
 
   public var body: some View {
-    VSplitView {
-      HSplitView {
-        MediaBrowser(
-          selection: $selection,
-          onImport: { urls in Task { await importMedia(urls) } },
-          onAppend: appendClip,
-        )
-        .frame(minWidth: 220, idealWidth: 300, maxWidth: 420)
-        ViewerPane()
-          .frame(minWidth: 400, maxWidth: .infinity)
-          .layoutPriority(1)
-        InspectorPane(selection: selection)
-          .frame(minWidth: 220, idealWidth: 280, maxWidth: 360)
+    VStack(spacing: 0) {
+      TitleBar(sidePane: $sidePane, onImport: { isImporting = true })
+      Hairline()
+      VSplitView {
+        HSplitView {
+          MediaBrowser(
+            selection: $selection,
+            onImport: { urls in Task { await importMedia(urls) } },
+            onAppend: appendClip,
+          )
+          .frame(minWidth: 220, idealWidth: 280, maxWidth: 420)
+          ViewerPane()
+            .frame(minWidth: 400, maxWidth: .infinity)
+            .layoutPriority(1)
+          Group {
+            switch sidePane {
+            case .inspector: InspectorPane(selection: selection)
+            case .history: HistoryPane()
+            }
+          }
+          .frame(minWidth: 240, idealWidth: 300, maxWidth: 380)
+        }
+        .frame(minHeight: 320, idealHeight: 560)
+        TimelinePane()
+          .frame(minHeight: 200, idealHeight: 300)
       }
-      .frame(minHeight: 320, idealHeight: 560)
-      TimelinePane()
-        .frame(minHeight: 200, idealHeight: 300)
     }
-    .background(Theme.window)
+    .ignoresSafeArea(.container, edges: .top)
+    .background(Theme.background)
+    .foregroundStyle(Theme.text)
     .preferredColorScheme(.dark)
-    .toolbar {
-      ToolbarItem(placement: .navigation) {
-        Button("Import", systemImage: "square.and.arrow.down") { isImporting = true }
-          .keyboardShortcut("i")
-          .help("Import media (⌘I)")
-      }
-      ToolbarItem(placement: .primaryAction) {
-        ClaudeStatusPill()
-      }
-    }
     .fileImporter(
       isPresented: $isImporting,
       allowedContentTypes: [.movie],
@@ -77,6 +79,7 @@ public struct EditorView: View {
   @Environment(Editor.self) private var editor
   @Environment(Player.self) private var player
   @State private var selection: Media.ID?
+  @State private var sidePane = SidePane.inspector
   @State private var isImporting = false
   @State private var errorMessage: String?
 

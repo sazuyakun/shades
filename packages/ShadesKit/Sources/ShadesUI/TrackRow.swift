@@ -2,7 +2,7 @@ import ShadesCommands
 import ShadesCore
 import SwiftUI
 
-/// A track's slim header ("V1") and its lane of clips.
+/// A track's slim header ("V1") and its lane of clips, with a hairline below.
 struct TrackRow: View {
 
   // MARK: Internal
@@ -14,10 +14,10 @@ struct TrackRow: View {
     HStack(spacing: 0) {
       Text(track.name)
         .font(.caption.weight(.semibold))
-        .padding(.leading, 8)
+        .padding(.leading, 10)
         .frame(width: TimelinePane.headerWidth, alignment: .leading)
         .frame(maxHeight: .infinity)
-        .background(Theme.trackHeader)
+      Hairline(vertical: true)
       ZStack(alignment: .leading) {
         ForEach(track.clips) { clip in
           TimelineClipView(media: editor.project.media(withID: clip.mediaID))
@@ -28,6 +28,7 @@ struct TrackRow: View {
       .frame(maxWidth: .infinity, alignment: .leading)
     }
     .frame(height: 72)
+    .overlay(alignment: .bottom) { Hairline() }
   }
 
   // MARK: Private

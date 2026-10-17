@@ -14,12 +14,13 @@ struct TimelineRuler: View {
       while scale.x(atSeconds: seconds) < size.width {
         let x = scale.x(atSeconds: seconds)
         context.fill(
-          Path(CGRect(x: x, y: size.height - 6, width: 1, height: 6)),
-          with: .color(.gray),
+          Path(CGRect(x: x, y: size.height - 5, width: 1, height: 5)),
+          with: .color(Theme.strongHairline),
         )
         context.draw(
-          Text(Timecode.short(seconds)).font(.caption2.monospacedDigit()).foregroundStyle(.gray),
-          at: CGPoint(x: x + 4, y: 9),
+          Text(Timecode.short(seconds)).font(.system(size: 10, design: .monospaced))
+            .foregroundStyle(Theme.faintText),
+          at: CGPoint(x: x + 4, y: 10),
           anchor: .leading,
         )
         seconds += step

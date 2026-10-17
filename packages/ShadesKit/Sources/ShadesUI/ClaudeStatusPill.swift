@@ -1,8 +1,8 @@
 import ShadesMCP
 import SwiftUI
 
-/// A toolbar pill showing whether Claude can connect. When it can't, clicking it explains why
-/// and what to do.
+/// Claude's connection as a dot in the title bar. Clicking it explains the state and, when
+/// Claude can't connect, what to do.
 struct ClaudeStatusPill: View {
 
   // MARK: Internal
@@ -17,12 +17,13 @@ struct ClaudeStatusPill: View {
           .frame(width: 7, height: 7)
         Text(title)
       }
-      .font(.callout)
     }
+    .buttonStyle(CapsuleButtonStyle())
     .help(message)
     .popover(isPresented: $isShowingDetails, arrowEdge: .bottom) {
       Text(message)
-        .frame(width: 260, alignment: .leading)
+        .textSelection(.enabled)
+        .frame(width: 280, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
         .padding(14)
     }
@@ -34,18 +35,18 @@ struct ClaudeStatusPill: View {
   @State private var isShowingDetails = false
 
   private var title: String {
-    switch server.status {
-    case .starting: "Claude"
-    case .ready: "Claude ready"
-    case .failed: "Claude offline"
+    if case .failed = server.status {
+      "Claude offline"
+    } else {
+      "Claude"
     }
   }
 
   private var color: Color {
     switch server.status {
-    case .starting: .gray
-    case .ready: .green
-    case .failed: .red
+    case .starting: Theme.faintText
+    case .ready: Theme.positive
+    case .failed: Theme.negative
     }
   }
 
@@ -53,8 +54,10 @@ struct ClaudeStatusPill: View {
     switch server.status {
     case .starting:
       "Getting ready for Claude…"
+
     case .ready:
-      "Claude can connect. Use the shades-mcp relay from Claude Code or Claude Desktop."
+      "Claude can connect through the shades-mcp relay (apps/mcp). Direct HTTP comes in M2."
+
     case .failed(let error):
       error.errorDescription ?? "Claude can't connect."
     }

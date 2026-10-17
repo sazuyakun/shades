@@ -15,15 +15,21 @@ struct MediaTile: View {
           Spacer()
           Text(Timecode.short(media.duration.seconds))
         }
-        .font(.caption2)
+        .font(.caption)
         .foregroundStyle(.white)
-        .shadow(radius: 2)
-        .padding(5)
+        .shadow(color: .black, radius: 3)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 5)
       }
-      .clipShape(.rect(cornerRadius: 5))
+      .clipShape(.rect(cornerRadius: 8))
       .overlay {
-        RoundedRectangle(cornerRadius: 5)
-          .strokeBorder(isSelected ? Color.accentColor : .clear, lineWidth: 2)
+        RoundedRectangle(cornerRadius: 8)
+          .strokeBorder(
+            isSelected ? Color.accentColor : Theme.strongHairline,
+            lineWidth: isSelected
+              ? 2
+              : 1,
+          )
       }
   }
 }

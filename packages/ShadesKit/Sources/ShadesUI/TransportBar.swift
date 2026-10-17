@@ -1,25 +1,33 @@
 import ShadesEngine
 import SwiftUI
 
-/// Play/pause and the playhead's timecode, under the viewer.
+/// The round play/pause button and the playhead's timecode, under the viewer.
 struct TransportBar: View {
+
+  // MARK: Internal
+
   var body: some View {
-    HStack(spacing: 18) {
+    HStack(spacing: 14) {
       Button {
         player.togglePlayback()
       } label: {
         Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
-          .frame(width: 20)
+          .font(.system(size: 11, weight: .bold))
+          .foregroundStyle(Theme.background)
+          .frame(width: 30, height: 30)
+          .background(Theme.text, in: .circle)
       }
       .buttonStyle(.plain)
       .keyboardShortcut(.space, modifiers: [])
       .help("Play or pause (Space)")
-      Text(Timecode.full(player.currentTime))
-        .font(.system(size: 18, weight: .medium, design: .monospaced))
+      TimecodeText(seconds: player.currentTime)
     }
-    .foregroundStyle(.white)
-    .frame(height: 40)
+    .frame(maxWidth: .infinity)
+    .frame(height: 46)
   }
 
+  // MARK: Private
+
   @Environment(Player.self) private var player
+
 }

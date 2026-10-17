@@ -6,27 +6,27 @@ struct TimelineClipView: View {
   let media: Media?
 
   var body: some View {
-    RoundedRectangle(cornerRadius: 5)
+    RoundedRectangle(cornerRadius: 7)
       .fill(Theme.videoClip)
       .overlay(alignment: .leading) {
         if let media {
           ThumbnailImage(url: media.url)
             .frame(width: 90)
-            .padding(.top, 16)
-            .padding(.bottom, 3)
+            .padding(.top, 17)
+            .padding(.bottom, 4)
         }
       }
       .overlay(alignment: .topLeading) {
         Text(media?.name ?? "Missing media")
-          .font(.caption2)
+          .font(.system(size: 10.5))
           .foregroundStyle(.white)
           .lineLimit(1)
-          .padding(.horizontal, 6)
+          .padding(.horizontal, 7)
           .padding(.top, 2)
       }
-      .clipShape(.rect(cornerRadius: 5))
+      .clipShape(.rect(cornerRadius: 7))
       .overlay {
-        RoundedRectangle(cornerRadius: 5).strokeBorder(.white.opacity(0.12))
+        RoundedRectangle(cornerRadius: 7).strokeBorder(.white.opacity(0.08))
       }
   }
 }

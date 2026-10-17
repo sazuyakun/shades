@@ -10,23 +10,31 @@ struct InspectorPane: View {
   let selection: Media.ID?
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      Picker("Inspector", selection: $tab) {
-        ForEach(InspectorTab.allCases, id: \.self) { Text($0.rawValue) }
+    let media = selection.flatMap(editor.project.media(withID:))
+    VStack(alignment: .leading, spacing: 0) {
+      SectionLabel(title: media?.name ?? "Inspector")
+      CapsuleGroup {
+        ForEach(InspectorTab.allCases, id: \.self) { item in
+          Button(item.rawValue) { tab = item }
+            .buttonStyle(CapsuleButtonStyle(isOn: tab == item))
+        }
       }
-      .pickerStyle(.segmented)
-      .labelsHidden()
-      if tab == .info, let media = selection.flatMap(editor.project.media(withID:)) {
-        MediaInfo(media: media)
-      } else {
-        Text(tab == .info ? "Select a clip to see its details." : "Nothing to adjust yet.")
-          .foregroundStyle(Theme.secondaryText)
+      .padding(.horizontal, 14)
+      .padding(.bottom, 10)
+      Hairline()
+      Group {
+        if tab == .info, let media {
+          MediaInfo(media: media)
+        } else {
+          Text(tab == .info ? "Select a clip to see its details." : "Nothing to adjust yet.")
+            .foregroundStyle(Theme.faintText)
+        }
       }
+      .font(.callout)
+      .padding(14)
       Spacer()
     }
-    .font(.callout)
-    .padding(12)
-    .background(Theme.panel)
+    .background(Theme.background)
   }
 
   // MARK: Private
