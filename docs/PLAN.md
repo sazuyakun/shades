@@ -4,7 +4,7 @@ An open-source, Mac-only video editor that is **powerful, smooth on a base M1 wi
 
 How the system works is in [SYSTEM.md](SYSTEM.md). The look is in [DESIGN.md](DESIGN.md), behaviour and keymap in [UX.md](UX.md), and code layout in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-**North star:** the taste agent (Claude in `~/shades-playbook`) cuts *"01: I Said Yes"* start to finish in Shades, using Soham's taste plugins, with no fallback to Resolve. Soham makes that edit himself after M8; the build ends with a showcase video instead.
+**North star:** the taste agent (Claude in `~/shades-playbook`) cuts *"01: I Said Yes"* start to finish in Shades, using Soham's taste plugins, with no fallback to Resolve. Soham makes that edit separately after M8; the build ends with a showcase video instead.
 
 ---
 
