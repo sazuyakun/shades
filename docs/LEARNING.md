@@ -188,3 +188,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Inside an `@Observable` class, marks a property that views should *not* react to (internal plumbing that never changes what's on screen).
 **JS/TS analogy:** Keeping a value in a `useRef` instead of `useState`, so changing it doesn't re-render.
 **In Shades:** `MCPServer` hides its listener and tool handler this way; only `status` drives the toolbar pill.
+
+## `.transition` and `.animation(_:value:)`
+**What it is:** `.transition` says how a view enters and leaves when an `if` adds or removes it (slide, fade). `.animation(_:value:)` animates any change on screen whenever `value` changes.
+**JS/TS analogy:** Framer Motion's `<AnimatePresence>` with `initial`/`exit`, and `animate` keyed on a value.
+**In Shades:** `ClaudeToast` slides up and fades when Claude edits; `TimelineClipView` fades its purple glow in and out.
+
+## Computed properties
+**What it is:** A `var` with a body and no storage: it's recalculated from other properties every time it's read, so it can never go stale.
+**JS/TS analogy:** A class `get` accessor, or a derived value in React (`const total = items.length`) instead of separate state.
+**In Shades:** `ActivityLog.recentlyChangedClipIDs` is derived from `recentEntry`, so the glow and the toast can't disagree.
