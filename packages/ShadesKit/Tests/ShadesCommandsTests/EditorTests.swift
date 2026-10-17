@@ -78,4 +78,21 @@ struct EditorTests {
       try editor.perform(AddMedia(media: media))
     }
   }
+
+  @Test
+  func `edits sharing a key merge into one undo step until coalescing ends`() throws {
+    let media = makeMedia(seconds: 2)
+    let editor = Editor(project: Project(media: [media]))
+    try editor.perform(AppendClip(mediaID: media.id))
+    let clip = try #require(editor.project.timeline.allClips.first)
+    for opacity in [0.9, 0.7, 0.5] {
+      try editor.perform(SetClip(clipID: clip.id, opacity: opacity), coalescing: "opacity")
+    }
+    editor.endCoalescing()
+    try editor.perform(SetClip(clipID: clip.id, opacity: 0.2), coalescing: "opacity")
+    try editor.undo()
+    #expect(editor.project.timeline.allClips.first?.opacity == 0.5)
+    try editor.undo()
+    #expect(editor.project.timeline.allClips.first?.opacity == 1)
+  }
 }

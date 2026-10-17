@@ -31,7 +31,7 @@ public struct EditorView: View {
             .layoutPriority(1)
           Group {
             switch sidePane {
-            case .inspector: InspectorPane(selection: selection)
+            case .inspector: InspectorPane(selection: selection, onError: { errorMessage = $0 })
             case .history: HistoryPane()
             }
           }

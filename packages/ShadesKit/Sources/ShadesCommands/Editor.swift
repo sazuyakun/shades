@@ -36,12 +36,20 @@ public final class Editor {
   }
 
   /// Applies a command as one undo step. If it throws, the project is left exactly as it was.
-  public func perform<C: Command>(_ command: C) throws(CommandError) {
-    try perform([command], title: C.title)
+  /// Edits sharing a `coalescing` key back to back (like one slider drag) merge into one step.
+  public func perform<C: Command>(
+    _ command: C,
+    coalescing key: String? = nil,
+  ) throws(CommandError) {
+    try perform([command], title: C.title, coalescing: key)
   }
 
   /// Applies several commands as one undo step, all or nothing.
-  public func perform(_ commands: [any Command], title: String) throws(CommandError) {
+  public func perform(
+    _ commands: [any Command],
+    title: String,
+    coalescing key: String? = nil,
+  ) throws(CommandError) {
     var edited = project
     for command in commands {
       try command.apply(to: &edited)
@@ -49,7 +57,10 @@ public final class Editor {
     guard edited != project else {
       return
     }
-    undoStack.append(UndoStep(title: title, project: project))
+    let continues = key != nil && key == undoStack.last?.key && redoStack.isEmpty
+    if !continues {
+      undoStack.append(UndoStep(title: title, project: project, key: key))
+    }
     if undoStack.count > Self.undoLimit {
       undoStack.removeFirst()
     }
@@ -63,7 +74,7 @@ public final class Editor {
     guard let step = undoStack.popLast() else {
       throw rejected(.nothingToUndo)
     }
-    redoStack.append(UndoStep(title: step.title, project: project))
+    redoStack.append(UndoStep(title: step.title, project: project, key: nil))
     project = step.project
     pruneSelection()
   }
@@ -73,9 +84,17 @@ public final class Editor {
     guard let step = redoStack.popLast() else {
       throw rejected(.nothingToRedo)
     }
-    undoStack.append(UndoStep(title: step.title, project: project))
+    undoStack.append(UndoStep(title: step.title, project: project, key: nil))
     project = step.project
     pruneSelection()
+  }
+
+  /// Ends the current run of coalesced edits, so the next edit is its own undo step.
+  public func endCoalescing() {
+    guard let last = undoStack.popLast() else {
+      return
+    }
+    undoStack.append(UndoStep(title: last.title, project: last.project, key: nil))
   }
 
   /// Swaps in another project (one just opened), with a fresh undo history.
@@ -105,4 +124,6 @@ public final class Editor {
 private struct UndoStep {
   let title: String
   let project: Project
+  /// Edits with the same key right after this one merge into it.
+  let key: String?
 }

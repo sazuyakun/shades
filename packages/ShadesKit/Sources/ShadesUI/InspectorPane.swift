@@ -2,17 +2,23 @@ import ShadesCommands
 import ShadesCore
 import SwiftUI
 
-/// Details of the selected media, under Video / Color / Audio / Info tabs.
+/// The selected clip (or, with none, the media chosen in the browser) under Video / Color /
+/// Audio / Info tabs.
 struct InspectorPane: View {
 
   // MARK: Internal
 
   let selection: Media.ID?
+  let onError: (String) -> Void
 
   var body: some View {
-    let media = selection.flatMap(editor.project.media(withID:))
+    let timeline = editor.project.timeline
+    let clip = editor.selection.count == 1
+      ? editor.selection.first.flatMap(timeline.clip(withID:))
+      : nil
+    let media = (clip?.mediaID ?? selection).flatMap(editor.project.media(withID:))
     VStack(alignment: .leading, spacing: 0) {
-      SectionLabel(title: media?.name ?? "Inspector")
+      SectionLabel(title: media?.name ?? "Inspector", detail: clip.map { _ in "Clip" })
       CapsuleGroup {
         ForEach(InspectorTab.allCases, id: \.self) { item in
           Button(item.rawValue) { tab = item }
@@ -22,17 +28,12 @@ struct InspectorPane: View {
       .padding(.horizontal, 14)
       .padding(.bottom, 10)
       Hairline()
-      Group {
-        if tab == .info, let media {
-          MediaInfo(media: media, framesPerSecond: editor.project.timeline.format.framesPerSecond)
-        } else {
-          Text(tab == .info ? "Select a clip to see its details." : "Nothing to adjust yet.")
-            .foregroundStyle(Theme.faintText)
-        }
+      ScrollView {
+        content(clip: clip, media: media)
+          .font(.callout)
+          .padding(14)
+          .frame(maxWidth: .infinity, alignment: .leading)
       }
-      .font(.callout)
-      .padding(14)
-      Spacer()
     }
     .background(Theme.background)
   }
@@ -40,6 +41,45 @@ struct InspectorPane: View {
   // MARK: Private
 
   @Environment(Editor.self) private var editor
-  @State private var tab = InspectorTab.info
+  @State private var tab = InspectorTab.video
+
+  @ViewBuilder
+  private func content(clip: Clip?, media: Media?) -> some View {
+    let isVideoTrack = clip.flatMap { editor.project.timeline.location(ofClip: $0.id) }
+      .map { editor.project.timeline.tracks[$0.track].kind == .video } ?? false
+    switch tab {
+    case .video:
+      if let clip, isVideoTrack {
+        ClipVideoInspector(clip: clip, onError: onError)
+      } else {
+        hint(clip == nil
+          ? "Select a clip on the timeline to adjust it."
+          : "Sound clips have no picture.")
+      }
+
+    case .color:
+      hint("Color grading arrives with the color tools.")
+
+    case .audio:
+      if let clip, media?.hasAudio == true {
+        ClipAudioInspector(clip: clip, isVideoTrack: isVideoTrack, onError: onError)
+      } else {
+        hint(clip == nil
+          ? "Select a clip on the timeline to adjust its sound."
+          : "This clip has no sound.")
+      }
+
+    case .info:
+      if let media {
+        MediaInfo(media: media, framesPerSecond: editor.project.timeline.format.framesPerSecond)
+      } else {
+        hint("Select a clip to see its details.")
+      }
+    }
+  }
+
+  private func hint(_ text: String) -> some View {
+    Text(text).foregroundStyle(Theme.faintText)
+  }
 
 }

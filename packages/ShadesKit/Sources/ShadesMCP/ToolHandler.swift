@@ -110,6 +110,18 @@ public final class ToolHandler {
       kind: .read,
     ),
     Tool(
+      name: "select_clips",
+      summary: "Select clips on the timeline, to point the user at them (an empty list clears).",
+      parameters: JSONSchema.object(
+        ["clip_ids": JSONSchema.array(
+          "IDs of clips to select",
+          items: JSONSchema.string("A clip ID"),
+        )],
+        required: ["clip_ids"],
+      ),
+      kind: .read,
+    ),
+    Tool(
       name: "play",
       summary: "Start playback in the viewer.",
       parameters: JSONSchema.object([:]),
@@ -218,6 +230,13 @@ public final class ToolHandler {
     case "render_frame":
       let frame = try decode(FrameArguments.self, from: arguments, tool: name)
       return try await renderFrame(atSeconds: frame.seconds, maxSide: frame.maxSide ?? 768)
+
+    case "select_clips":
+      let ids = try decode(SelectArguments.self, from: arguments, tool: name).clipIDs
+      editor.selection = Set(ids.filter { editor.project.timeline.clip(withID: $0) != nil })
+      return .text(
+        "Selected \(editor.selection.count) clip\(editor.selection.count == 1 ? "" : "s")."
+      )
 
     case "play":
       player.play()
@@ -470,6 +489,12 @@ private struct NewProjectArguments: Decodable {
 
 private struct NameArguments: Decodable {
   let name: String
+}
+
+// MARK: - SelectArguments
+
+private struct SelectArguments: Decodable {
+  let clipIDs: [UUID]
 }
 
 // MARK: - SeekArguments

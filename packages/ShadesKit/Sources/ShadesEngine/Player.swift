@@ -15,7 +15,10 @@ public final class Player {
       queue: .main,
     ) { [weak self] time in
       MainActor.assumeIsolated {
-        self?.currentTime = time.seconds
+        // why: while an item loads the player reports an invalid time; keep the last good one.
+        if time.seconds.isFinite {
+          self?.currentTime = time.seconds
+        }
         self?.isPlaying = self?.avPlayer.rate != 0
       }
     }
