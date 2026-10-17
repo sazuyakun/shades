@@ -4,7 +4,7 @@ An open-source, Mac-only video editor that is **powerful, smooth on a base M1 wi
 
 How the system works is in [SYSTEM.md](SYSTEM.md). The look is in [DESIGN.md](DESIGN.md), behaviour and keymap in [UX.md](UX.md), and code layout in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-**North star:** the taste agent (Claude in `~/shades-playbook`) cuts *"01: I Said Yes"* start to finish in Shades, using Soham's taste plugins, with no fallback to Resolve.
+**North star:** the taste agent (Claude in `~/shades-playbook`) cuts *"01: I Said Yes"* start to finish in Shades, using Soham's taste plugins, with no fallback to Resolve. Soham makes that edit himself after M8; the build ends with a showcase video instead.
 
 ---
 
@@ -34,16 +34,18 @@ Each milestone ends with all four quality gates green ([SYSTEM.md §11](SYSTEM.m
 | Milestone | Goal |
 |---|---|
 | ~~**M0**~~ | ✅ Foundation: modules, Metal compositor, player, basic UI, first MCP tools, CI and enforcement |
-| **M1 · UI** | Build the locked v2 look ([DESIGN.md](DESIGN.md)) **without the Tab prompt**. Add the History pane (⌘L), the connection pill, background-tasks ring, Settings (including plugin folders) |
+| **M1 · UI** | Build the locked v2 look ([DESIGN.md](DESIGN.md)) **without the Tab prompt**. Add the History pane (⌘L), the connection pill, Settings (including plugin folders) |
 | **M2 · Timeline core + MCP** | Project library and save/load, New Project (2880×2160 @ 24 by default), multi-track timeline with all core edits and undo, the layer model with depth slots, proxies, the single action system and ⌘K, and the **new HTTP MCP server** (granular, batch, guide) replacing the relay and SDK |
-| **M3 · Speech & Polish** | WhisperKit transcripts and captions (ported), text-based editing, Polish with propose/review/apply, speech activity and beats (ported) |
+| **M3 · Speech & Polish** | Background-tasks ring (the first background jobs arrive here), WhisperKit transcripts and captions (ported), text-based editing, Polish with propose/review/apply, speech activity and beats (ported) |
 | **M4 · Cut-outs & tracking** | Matting benchmark on Soham's footage → pick engines. Mattes with refinement and caching, depth-slot rendering, auto-reframe, motion tracking |
 | **M5 · Type, motion & plugins** | Text engine, kinetic type from the transcript, keyframes and springs, 3D type and camera, templates, stickers and overlays, **plugin system** with hot reload |
 | **M6 · Color & effects** | Color management, grading, LUTs, scopes, film-look primitives, transitions, shader effects |
 | **M7 · Audio** | Mixer, ducking, loudness, noise reduction (ported), stem separation, SFX |
-| **M8 · Export & performance** | Canvases, batch shorts, frames/GIF/SRT, export queue, render cache, final performance pass. **The taste agent cuts "I Said Yes" in Shades** |
+| **M8 · Export & performance** | Canvases, batch shorts, frames/GIF/SRT, export queue, render cache, final performance pass, full test round. **Ends with a showcase video made in Shades over MCP from playbook footage, using every capability** |
 
 **Rough effort:** about **10–12 weeks** of focused work in total, depending on review speed and what the real edits turn up.
+
+**Build decisions (2026-10-17):** test with footage already in `~/shades-playbook` (read-only). Cut-out and stem models: MIT/Apache only, converted to CoreML on this Mac, benchmarked against Apple Vision, downloaded by Shades on first use (never bundled). Check-ins: a summary with screenshots after each milestone, then keep going.
 
 ### Issues from the playbook
 The taste agent files issues on `sazuyakun/shades` with its `editor-request` skill. The builder agent assesses each one, maps it to core capabilities (often it's a plugin built on existing core, not new core), estimates it, slots it into a milestone, and tells Soham. **Soham approves the order.** An issue closes only with tests plus a real-edit check.
@@ -53,7 +55,7 @@ Problems found but not fixed yet. When one is fixed, delete its row in the same 
 
 | # | Issue | Fix in |
 |---|---|---|
-| 4 | Real iPhone 16 footage (HEVC, rotation) is untested. Needs clips from Soham | Before M2 |
+| 4 | Real iPhone 16 footage (HEVC, rotation) is untested. Test with the clips in `~/shades-playbook` (e.g. `temp/IMG_9046.MOV`) | Before M2 |
 | 5 | Every edit rebuilds the whole playback composition; fine for short projects, slow for long ones | M2 (with the new timeline engine) |
 | 7 | The current `reel9x16` timeline preset contradicts the 4:3 rule: 9:16 is an export canvas, not a timeline. The default timeline must become 2880×2160 @ 24 | M2 |
 | 8 | The relay (`apps/mcp`) and the MCP SDK dependency are replaced by the built-in HTTP server | M2 |
