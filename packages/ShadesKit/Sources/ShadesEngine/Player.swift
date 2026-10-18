@@ -72,8 +72,10 @@ public final class Player {
       item.videoComposition = composition.videoComposition.mutableCopy() as? AVVideoComposition
       return
     }
-    let playhead = cuedTime.map { CMTime(seconds: $0, preferredTimescale: 600) } ?? avPlayer
-      .currentTime()
+    let current = avPlayer.currentTime()
+    // why: with nothing loaded yet the player's time is invalid (NaN seconds); start at zero.
+    let playhead = cuedTime.map { CMTime(seconds: $0, preferredTimescale: 600) }
+      ?? (current.isNumeric ? current : .zero)
     cuedTime = nil
     let built = try await Composition.build(
       project,

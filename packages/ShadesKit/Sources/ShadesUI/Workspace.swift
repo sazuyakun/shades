@@ -162,7 +162,8 @@ public final class Workspace {
       return
     }
     let project = editor.project
-    let session = Session(playhead: player.currentTime, selection: Array(editor.selection))
+    let playhead = player.currentTime.isFinite ? player.currentTime : 0
+    let session = Session(playhead: playhead, selection: Array(editor.selection))
     do {
       try await ProjectFile.write(project, session: session, to: documentURL)
       savedProject = project
