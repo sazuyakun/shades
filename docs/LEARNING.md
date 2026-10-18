@@ -248,3 +248,28 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Looks inside a value at runtime: its type's fields or an enum case's name.
 **JS/TS analogy:** `Object.keys(value)`, roughly.
 **In Shades:** `rejected(_:)` logs just an error's case name (never its payload), keeping user content out of logs.
+
+## `Atomic` (Synchronization)
+**What it is:** A value many threads can read and write safely without a lock, for simple flags and counters.
+**JS/TS analogy:** `Atomics.store` / `Atomics.load` on a `SharedArrayBuffer`.
+**In Shades:** `AudioDecoder` sets an `Atomic<Bool>` when a decode is cancelled, and the decode loop on another thread checks it.
+
+## Calling C APIs from Swift (`ExtAudioFile`)
+**What it is:** Swift calls Apple's C libraries directly: you pass pointers with `&value` and `withUnsafeMutableBytes`, and check returned status codes.
+**JS/TS analogy:** Calling a native addon from Node, or `fetch`-level APIs that hand you raw buffers instead of objects.
+**In Shades:** `AudioDecoder` reads any file's sound with AudioToolbox's ExtAudioFile, which converts to 16 kHz mono as it reads.
+
+## The cooperative thread pool (and why blocking calls stay off it)
+**What it is:** Swift's `async` code shares a small pool, one thread per CPU core. A call that blocks (waits without `await`) holds a thread hostage; enough of them at once and nothing else can run.
+**JS/TS analogy:** Like doing a synchronous `while` loop in Node's event loop: everything else freezes.
+**In Shades:** Blocking audio decoding runs on a separate dispatch queue (`AudioDecoder`); doing it on the pool deadlocked the tests.
+
+## `Layout` (custom SwiftUI layouts)
+**What it is:** A type that measures and places child views itself, when stacks and grids don't fit.
+**JS/TS analogy:** Writing your own CSS layout algorithm, like `flex-wrap`, in code.
+**In Shades:** `WordFlow` wraps transcript words like a paragraph.
+
+## Region-based isolation (`sending`)
+**What it is:** Swift tracks which values could be reached from more than one thread. A value that isn't marked `Sendable` can still move to another thread if nothing else holds onto it; otherwise the compiler stops you.
+**JS/TS analogy:** Transferring an `ArrayBuffer` to a Web Worker: after the transfer, the sender can't touch it.
+**In Shades:** Why caches hold `IOSurface`s (thread-safe) rather than pixel buffers, and why the decoder passes only a URL in and samples out.
