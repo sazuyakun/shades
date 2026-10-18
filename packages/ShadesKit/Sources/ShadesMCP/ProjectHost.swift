@@ -3,6 +3,7 @@ import ShadesCaptions
 import ShadesCommands
 import ShadesCore
 import ShadesDocument
+import ShadesPolish
 
 /// Whoever holds the open project (the app's workspace), so Claude can list, create and open
 /// projects.
@@ -13,6 +14,9 @@ public protocol ProjectHost: AnyObject {
 
   /// Transcripts, speech activity and beats worked out so far.
   var analysis: AnalysisLibrary { get }
+
+  /// The Polish plan waiting for review, if any.
+  var polishPlan: PolishPlan? { get }
 
   /// Saves the open project and opens another.
   func openProject(at url: URL) async throws(DocumentError)
@@ -25,4 +29,11 @@ public protocol ProjectHost: AnyObject {
   func analyzeAudio(_ mediaIDs: [Media.ID]?) -> [String]
   /// Adds captions for what's said (in `range`, or everywhere); returns how many.
   func addCaptions(in range: TimeRange?) throws(CommandError) -> Int
+  /// Proposes Polish for a stretch of a track and keeps the plan for review.
+  @discardableResult
+  func proposePolish(in range: TimeRange, track: String?, options: PolishOptions) -> PolishPlan
+  /// Applies the plan (only `ids` or `kinds` when given) as one undo step; returns what was done.
+  func applyPolish(ids: Set<UUID>?, kinds: Set<PolishKind>?) throws(CommandError) -> String
+  /// Throws the plan away.
+  func discardPolish()
 }

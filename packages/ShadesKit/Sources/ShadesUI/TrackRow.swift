@@ -28,6 +28,10 @@ struct TrackRow: View {
             editor.selection = []
             Task { await player.seek(toSeconds: scale.seconds(atX: location.x)) }
           }
+        if let plan = workspace.polishPlan, plan.track == editor.project.timeline.label(of: track) {
+          PolishOverlay(items: plan.items, scale: scale)
+            .zIndex(2)
+        }
         ForEach(track.clips) { clip in
           TimelineClip(
             clip: clip,
@@ -60,6 +64,7 @@ struct TrackRow: View {
   // MARK: Private
 
   @Environment(Editor.self) private var editor
+  @Environment(Workspace.self) private var workspace
   @Environment(Player.self) private var player
 
 }

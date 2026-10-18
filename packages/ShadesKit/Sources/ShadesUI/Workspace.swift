@@ -9,6 +9,7 @@ import ShadesDocument
 import ShadesEngine
 import ShadesMCP
 import ShadesMedia
+import ShadesPolish
 
 // MARK: - Workspace
 
@@ -21,7 +22,8 @@ public final class Workspace {
 
   // MARK: Lifecycle
 
-  public init(defaults: UserDefaults = .standard) {
+  /// `port` is where Claude connects; tests pass 0 for any free port.
+  public init(defaults: UserDefaults = .standard, port: UInt16 = MCPServer.defaultPort) {
     self.defaults = defaults
     let editor = Editor()
     let player = Player()
@@ -29,7 +31,7 @@ public final class Workspace {
     self.editor = editor
     self.player = player
     self.jobs = jobs
-    server = MCPServer(editor: editor, player: player, jobs: jobs)
+    server = MCPServer(editor: editor, player: player, jobs: jobs, port: port)
     wasRecovered = defaults.bool(forKey: Keys.isOpen) && !defaults.bool(forKey: Keys.quitCleanly)
     defaults.set(false, forKey: Keys.quitCleanly)
     server.beforeEdit = { [weak self] in self?.snapshotBeforeClaude() }
@@ -62,6 +64,8 @@ public final class Workspace {
   public var wasRecovered: Bool
   /// The sheet showing over the editor, if any (menus open them).
   public var sheet: EditorSheet?
+  /// Polish proposed and waiting for review, if any.
+  public private(set) var polishPlan: PolishPlan?
 
   /// The open project's name.
   public var projectName: String {
@@ -137,6 +141,9 @@ public final class Workspace {
   /// proxies for newly imported heavy footage.
   public func projectDidChange() {
     makeMissingProxies()
+    if polishPlan != nil, editor.project != polishBase {
+      polishPlan = nil
+    }
     autosaveTask?.cancel()
     autosaveTask = Task {
       try? await Task.sleep(for: Self.autosaveDelay) // why: cancelled means a newer change saves.
@@ -204,6 +211,8 @@ public final class Workspace {
   @ObservationIgnored private var autosaveTask: Task<Void, Never>?
   @ObservationIgnored private var snapshotTask: Task<Void, Never>?
   @ObservationIgnored private var didRestore = false
+  /// The project as it was when the Polish plan was made; any other change discards the plan.
+  @ObservationIgnored private var polishBase: Project?
   @ObservationIgnored private var queuedProxies = Set<Media.ID>()
   @ObservationIgnored private var lastClaudeSnapshot: ContinuousClock.Instant?
 
@@ -417,6 +426,68 @@ extension Workspace: ProjectHost {
       title: "Add Captions",
     )
     return lines.count
+  }
+
+  /// Proposes Polish for `range` on `track` and keeps the plan for review.
+  @discardableResult
+  public func proposePolish(
+    in range: TimeRange,
+    track: String?,
+    options: PolishOptions,
+  ) -> PolishPlan {
+    let plan = PolishPlanner.plan(
+      editor.project.timeline,
+      analyses: analysis.analyses,
+      range: range,
+      track: track,
+      options: options,
+    )
+    polishPlan = plan
+    polishBase = editor.project
+    return plan
+  }
+
+  /// Switches plan items on or off: those in `ids`, or all of `kind`.
+  public func setPolish(_ isEnabled: Bool, ids: Set<UUID>? = nil, kind: PolishKind? = nil) {
+    guard var plan = polishPlan else {
+      return
+    }
+    for index in plan.items.indices
+      where ids?.contains(plan.items[index].id) ?? (plan.items[index].kind == kind)
+    {
+      plan.items[index].isEnabled = isEnabled
+    }
+    polishPlan = plan
+  }
+
+  /// Applies the plan's switched-on items as one undo step (only `ids` or `kinds` when given),
+  /// then clears it. Returns what was done.
+  public func applyPolish(ids: Set<UUID>?, kinds: Set<PolishKind>?) throws(CommandError) -> String {
+    guard var plan = polishPlan else {
+      throw .invalidArguments("there's no Polish plan; propose one first")
+    }
+    for index in plan.items.indices {
+      let item = plan.items[index]
+      if let ids {
+        plan.items[index].isEnabled = ids.contains(item.id)
+      } else if let kinds {
+        plan.items[index].isEnabled = item.isEnabled && kinds.contains(item.kind)
+      }
+    }
+    let summary = PolishKind.allCases.compactMap { kind in
+      let count = plan.enabledCount(of: kind)
+      return count > 0 ? "\(kind.title.lowercased()): \(count)" : nil
+    }
+    polishPlan = nil
+    try editor.perform(ApplyPolish(plan: plan))
+    return summary.isEmpty
+      ? "Nothing was switched on, so nothing changed."
+      : "Polished — " + summary.joined(separator: ", ") + "."
+  }
+
+  /// Throws the plan away without changing anything.
+  public func discardPolish() {
+    polishPlan = nil
   }
 
   // MARK: Private

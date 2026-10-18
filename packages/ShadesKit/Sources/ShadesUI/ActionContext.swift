@@ -8,6 +8,7 @@ struct ActionContext {
 
   let editor: Editor
   let player: Player
+  let workspace: Workspace
   let settings: Binding<TimelineSettings>
   let mediaSelection: Binding<Media.ID?>
   let sidePane: Binding<SidePane>

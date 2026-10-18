@@ -92,10 +92,15 @@ struct EditorActionTests {
       height: 180,
       hasAudio: false,
     )
-    let editor = Editor(project: Project(media: [media]))
+    let workspace = Workspace(
+      defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
+      port: 0,
+    )
+    let editor = workspace.editor
+    editor.load(Project(media: [media]))
     try editor.perform(AppendClip(mediaID: media.id))
     try editor.perform(AppendClip(mediaID: media.id))
-    let player = Player()
+    let player = workspace.player
     try await player.load(editor.project)
     await player.seek(toSeconds: playhead)
     var chosen: Media.ID? = choosingMedia ? media.id : nil
@@ -107,6 +112,7 @@ struct EditorActionTests {
     let context = ActionContext(
       editor: editor,
       player: player,
+      workspace: workspace,
       settings: Binding(get: { settings }, set: { settings = $0 }),
       mediaSelection: Binding(get: { chosen }, set: { chosen = $0 }),
       sidePane: Binding(get: { sidePane }, set: { sidePane = $0 }),

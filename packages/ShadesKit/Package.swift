@@ -17,6 +17,7 @@ let package = Package(
         "ShadesEngine",
         "ShadesMCP",
         "ShadesPlugins",
+        "ShadesPolish",
         "ShadesUI",
       ],
     )
@@ -29,6 +30,7 @@ let package = Package(
     .target(name: "ShadesCommands", dependencies: ["ShadesCore"]),
     .target(name: "ShadesDocument", dependencies: ["ShadesCore"]),
     .target(name: "ShadesAudio", dependencies: ["ShadesCore", "ShadesMedia"]),
+    .target(name: "ShadesPolish", dependencies: ["ShadesCore", "ShadesCommands"]),
     .target(
       name: "ShadesCaptions",
       dependencies: [
@@ -48,6 +50,7 @@ let package = Package(
       name: "ShadesMCP",
       dependencies: [
         "ShadesCaptions",
+        "ShadesPolish",
         "ShadesCommands",
         "ShadesDocument",
         "ShadesEngine",
@@ -67,6 +70,7 @@ let package = Package(
         "ShadesMCP",
         "ShadesMedia",
         "ShadesPlugins",
+        "ShadesPolish",
       ],
       swiftSettings: [.defaultIsolation(MainActor.self)],
     ),
@@ -88,6 +92,7 @@ let package = Package(
       exclude: ["Golden"],
     ),
     .testTarget(name: "ShadesPluginsTests", dependencies: ["ShadesPlugins"]),
+    .testTarget(name: "ShadesPolishTests", dependencies: ["ShadesPolish"]),
     .testTarget(name: "ShadesUITests", dependencies: ["ShadesUI", "ShadesTestSupport"]),
   ],
 )

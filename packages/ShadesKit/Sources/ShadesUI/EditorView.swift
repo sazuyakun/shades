@@ -36,6 +36,7 @@ public struct EditorView: View {
             case .inspector: InspectorPane(selection: selection, onError: { errorMessage = $0 })
             case .transcript: TranscriptPane(onError: { errorMessage = $0 })
             case .history: HistoryPane()
+            case .polish: PolishPane(onError: { errorMessage = $0 })
             }
           }
           .frame(minWidth: 240, idealWidth: 300, maxWidth: 380)
@@ -73,6 +74,13 @@ public struct EditorView: View {
       }
     }
     .onChange(of: editor.project) { workspace.projectDidChange() }
+    .onChange(of: workspace.polishPlan?.id) { _, id in
+      if id != nil {
+        sidePane = .polish
+      } else if sidePane == .polish {
+        sidePane = .inspector
+      }
+    }
     .onDisappear {
       Task { await workspace.close() }
       openWindow(id: WindowID.welcome)
@@ -129,6 +137,7 @@ public struct EditorView: View {
     ActionContext(
       editor: editor,
       player: player,
+      workspace: workspace,
       settings: $timelineSettings,
       mediaSelection: $selection,
       sidePane: $sidePane,

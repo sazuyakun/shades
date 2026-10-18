@@ -39,6 +39,8 @@ public enum BeatDetector {
   // MARK: Private
 
   private static let sampleRate = 22_050.0
+  /// How strongly the beat must repeat, relative to the onset curve's energy, to count.
+  private static let minimumPulseStrength: Float = 0.2
   private static let frameSize = 1024
   private static let hop = 256
 
@@ -101,7 +103,10 @@ public enum BeatDetector {
     let shortest = Int((60 / 180) / hopDuration)
     let longest = Int((60 / 60) / hopDuration)
     let scores = (shortest - 1 ... longest + 1).map { lag in correlation(onsets, lag: lag) }
-    guard let best = scores.max(), best > 0 else {
+    let energy = correlation(onsets, lag: 0)
+    // why: without a pulse that stands out against the onset curve's own energy, there are no
+    // beats; steady tones and noise would otherwise get a made-up tempo.
+    guard let best = scores.max(), energy > 0, best / energy >= minimumPulseStrength else {
       return nil
     }
     let candidates = (1 ..< scores.count - 1).filter { index in

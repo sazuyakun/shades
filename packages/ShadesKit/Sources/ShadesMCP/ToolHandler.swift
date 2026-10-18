@@ -5,6 +5,7 @@ import ShadesCore
 import ShadesDocument
 import ShadesEngine
 import ShadesMedia
+import ShadesPolish
 
 // MARK: - ToolHandler
 
@@ -236,6 +237,50 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "polish_propose",
+      summary: "Propose Polish for talking-head footage on a stretch of a track: cut silences and "
+        + "fillers (um, uh, matlab…), remove retakes, snap cuts to music beats, punch in on jump "
+        + "cuts. Nothing changes yet: the plan shows on the timeline for review. Transcribe "
+        + "first for the best results (analyze_audio for beats).",
+      parameters: JSONSchema.object(
+        [
+          "start": Fields.time("From"),
+          "end": Fields.time("Up to"),
+          "track": Fields.track,
+          "silences": JSONSchema.boolean("Cut pauses (default true)"),
+          "fillers": JSONSchema.boolean("Cut filler words (default true)"),
+          "retakes": JSONSchema.boolean("Remove restarted lines (default true)"),
+          "beat_snap": JSONSchema.boolean("Move cuts onto music beats (default true)"),
+          "punch_in": JSONSchema.boolean("Zoom every second stretch between cuts (default true)"),
+          "min_silence": JSONSchema.number(
+            "Shortest pause to cut, in seconds (default 0.6)",
+            minimum: 0.1,
+          ),
+        ],
+        required: ["start", "end"],
+      ),
+      kind: .project,
+    ),
+    Tool(
+      name: "polish_apply",
+      summary: "Apply the Polish plan as one undo step: every switched-on item, or only the given "
+        + "item IDs or kinds (silence, filler, retake, beatSnap, punchIn).",
+      parameters: JSONSchema.object([
+        "item_ids": JSONSchema.array("Plan items to apply", items: JSONSchema.string("An item ID")),
+        "kinds": JSONSchema.array(
+          "Kinds of item to apply",
+          items: JSONSchema.string("A kind", values: PolishKind.allCases.map(\.rawValue)),
+        ),
+      ]),
+      kind: .edit,
+    ),
+    Tool(
+      name: "polish_discard",
+      summary: "Throw away the Polish plan without changing anything.",
+      parameters: JSONSchema.object([:]),
+      kind: .project,
+    ),
+    Tool(
       name: "list_projects",
       summary: "List the projects in ~/Shades, newest first, and which one is open.",
       parameters: JSONSchema.object([:]),
@@ -356,6 +401,27 @@ public final class ToolHandler {
         try projectHost.addCaptions(in: request.range)
       }
       return .text("Added \(count) captions on a text track.")
+
+    case "polish_propose":
+      let request = try decode(PolishArguments.self, from: arguments, tool: name)
+      let plan = try host().proposePolish(
+        in: request.range,
+        track: request.track,
+        options: request.options,
+      )
+      return .text(describe(plan))
+
+    case "polish_apply":
+      let request = try decode(PolishApplyArguments.self, from: arguments, tool: name)
+      let projectHost = try host()
+      let kinds = request.kinds.map { Set($0.compactMap(PolishKind.init(rawValue:))) }
+      return .text(try perform { () throws(CommandError) -> String in
+        try projectHost.applyPolish(ids: request.itemIDs.map(Set.init), kinds: kinds)
+      })
+
+    case "polish_discard":
+      try host().discardPolish()
+      return .text("The Polish plan was thrown away.")
 
     case "list_projects":
       return await listProjects()
@@ -572,6 +638,26 @@ public final class ToolHandler {
       : lines.joined(separator: "\n"))
   }
 
+  /// A plan in plain words: counts per kind, then each item with its ID.
+  private func describe(_ plan: PolishPlan) -> String {
+    guard !plan.items.isEmpty else {
+      return "Polish found nothing to change here."
+    }
+    let span = "\(format(plan.range.start))–\(format(plan.range.end)) s"
+    var lines = ["Polish plan for \(plan.track), \(span) (shown on the timeline):"]
+    for kind in PolishKind.allCases {
+      let items = plan.items.filter { $0.kind == kind }
+      guard !items.isEmpty else {
+        continue
+      }
+      lines.append("\(kind.title) (\(items.count)):")
+      lines += items
+        .map { "- \($0.id) \(format($0.range.start))–\(format($0.range.end)) \($0.detail)" }
+    }
+    lines.append("Apply with polish_apply (all, or chosen item_ids / kinds), or polish_discard.")
+    return lines.joined(separator: "\n")
+  }
+
   private func format(_ time: MediaTime) -> String {
     String(format: "%.2f", time.seconds)
   }
@@ -721,6 +807,42 @@ extension TranscriptionModel {
     default: return nil
     }
   }
+}
+
+// MARK: - PolishArguments
+
+private struct PolishArguments: Decodable {
+  let start: MediaTime
+  let end: MediaTime
+  let track: String?
+  let silences: Bool?
+  let fillers: Bool?
+  let retakes: Bool?
+  let beatSnap: Bool?
+  let punchIn: Bool?
+  let minSilence: Double?
+
+  var range: TimeRange {
+    TimeRange(start: start, end: end)
+  }
+
+  var options: PolishOptions {
+    PolishOptions(
+      silences: silences ?? true,
+      fillers: fillers ?? true,
+      retakes: retakes ?? true,
+      beatSnap: beatSnap ?? true,
+      punchIn: punchIn ?? true,
+      minimumSilence: minSilence ?? 0.6,
+    )
+  }
+}
+
+// MARK: - PolishApplyArguments
+
+private struct PolishApplyArguments: Decodable {
+  let itemIDs: [UUID]?
+  let kinds: [String]?
 }
 
 // MARK: - SeekArguments

@@ -4,4 +4,5 @@ enum SidePane {
   case inspector
   case transcript
   case history
+  case polish
 }

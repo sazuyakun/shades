@@ -18,6 +18,12 @@ struct BeatDetectorTests {
   }
 
   @Test
+  func `a steady tone has no beats`() async throws {
+    let url = try AudioFixture.makeTone(seconds: 8, frequency: 220)
+    #expect(try await BeatDetector.detect(in: url).beats.isEmpty)
+  }
+
+  @Test
   func `silence has no beats`() async throws {
     let url = try AudioFixture.makeBursts(seconds: 6, bursts: [])
     #expect(try await BeatDetector.detect(in: url).beats.isEmpty)

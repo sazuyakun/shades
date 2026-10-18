@@ -1,5 +1,6 @@
 import ShadesCommands
 import ShadesCore
+import ShadesPolish
 import SwiftUI
 
 /// Every action a person can take in the editor. The key handler and the ⌘K palette both come
@@ -54,6 +55,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case commandPalette
   case toggleHistory
   case toggleTranscript
+  case polishSelection
 
   // MARK: Internal
 
@@ -112,6 +114,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .commandPalette: "Command Palette"
     case .toggleHistory: "Show / Hide History"
     case .toggleTranscript: "Show / Hide Transcript"
+    case .polishSelection: "Polish Selection"
     }
   }
 
@@ -166,6 +169,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .commandPalette: Shortcut("k", .command)
     case .toggleHistory: Shortcut("l", .command)
     case .toggleTranscript: Shortcut("t", [.command, .option])
+    case .polishSelection: Shortcut("p", .option)
     }
   }
 
@@ -202,6 +206,8 @@ enum EditorAction: CaseIterable, Identifiable {
          .markOut,
          .clearMarks:
       mark(in: context)
+    case .polishSelection:
+      try polish(in: context)
     case .undo:
       try context.editor.undo()
     case .redo:
@@ -309,6 +315,23 @@ enum EditorAction: CaseIterable, Identifiable {
 
     default: break
     }
+  }
+
+  /// Proposes Polish over the selected clips' span, on the first selected clip's track.
+  private func polish(in context: ActionContext) throws(CommandError) {
+    let selected = context.selectedClips
+    guard
+      let first = selected.min(by: { $0.timelineStart < $1.timelineStart }),
+      let last = selected.max(by: { $0.timelineEnd < $1.timelineEnd }),
+      let location = context.timeline.location(ofClip: first.id)
+    else {
+      throw .invalidArguments("select the clips to polish first")
+    }
+    context.workspace.proposePolish(
+      in: TimeRange(start: first.timelineStart, end: last.timelineEnd),
+      track: context.timeline.label(of: context.timeline.tracks[location.track]),
+      options: PolishOptions(),
+    )
   }
 
   /// R, Z, ⌥Z and C: places the chosen media, just its I / O part when marked.
