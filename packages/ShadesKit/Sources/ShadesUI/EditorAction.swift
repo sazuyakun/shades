@@ -1,5 +1,6 @@
 import ShadesCommands
 import ShadesCore
+import ShadesMatting
 import ShadesPolish
 import SwiftUI
 
@@ -56,6 +57,8 @@ enum EditorAction: CaseIterable, Identifiable {
   case toggleHistory
   case toggleTranscript
   case polishSelection
+  case cutOutSubject
+  case reframe
 
   // MARK: Internal
 
@@ -115,6 +118,8 @@ enum EditorAction: CaseIterable, Identifiable {
     case .toggleHistory: "Show / Hide History"
     case .toggleTranscript: "Show / Hide Transcript"
     case .polishSelection: "Polish Selection"
+    case .cutOutSubject: "Cut Out Subject of Selected Clips"
+    case .reframe: "Reframe Selected Clips"
     }
   }
 
@@ -170,6 +175,8 @@ enum EditorAction: CaseIterable, Identifiable {
     case .toggleHistory: Shortcut("l", .command)
     case .toggleTranscript: Shortcut("t", [.command, .option])
     case .polishSelection: Shortcut("p", .option)
+    case .cutOutSubject: Shortcut("u", .option)
+    case .reframe: Shortcut("r", .option)
     }
   }
 
@@ -185,6 +192,7 @@ enum EditorAction: CaseIterable, Identifiable {
          .previousEdit,
          .nextEdit:
       transport(in: context)
+
     case .selectTool,
          .bladeTool,
          .trimTool,
@@ -197,21 +205,37 @@ enum EditorAction: CaseIterable, Identifiable {
          .toggleHistory,
          .toggleTranscript:
       view(in: context)
+
     case .selectAtPlayhead,
          .selectForward,
          .deselect,
          .matchFrame:
       select(in: context)
+
     case .markIn,
          .markOut,
          .clearMarks:
       mark(in: context)
+
     case .polishSelection:
       try polish(in: context)
+
+    case .cutOutSubject:
+      let media = Array(Set(context.selectedClips.compactMap(\.mediaID)))
+      guard !media.isEmpty else {
+        throw .invalidArguments("select the clips to cut out first")
+      }
+      _ = context.workspace.makeCutouts(media, engine: .visionPerson)
+
+    case .reframe:
+      _ = try context.workspace.autoReframe(nil)
+
     case .undo:
       try context.editor.undo()
+
     case .redo:
       try context.editor.redo()
+
     default:
       try edit(in: context)
     }

@@ -1,4 +1,5 @@
 import AVFoundation
+import ShadesCore
 
 // MARK: - MatteMaker
 
@@ -220,5 +221,96 @@ private struct MatteWriter {
   private let height: Int
   private let input: AVAssetWriterInput
   private let adaptor: AVAssetWriterInputPixelBufferAdaptor
+
+}
+
+// MARK: - MatteMaker + Subject
+
+extension MatteMaker {
+
+  // MARK: Public
+
+  /// Where the subject is over time: the centre of the cut-out's white area every `step`
+  /// seconds, as fractions of the picture. Moments with no subject are skipped.
+  @concurrent
+  public static func subjectPath(
+    of matte: URL,
+    every step: Double = 0.5,
+  ) async throws(MattingError) -> [SubjectPoint] {
+    let asset = AVURLAsset(url: matte)
+    let duration: Double
+    do {
+      duration = try await asset.load(.duration).seconds
+    } catch {
+      logger.error("subject.failed reason=unreadable path=\(matte.path, privacy: .private)")
+      throw .unreadable(matte)
+    }
+    let generator = AVAssetImageGenerator(asset: asset)
+    generator.maximumSize = CGSize(width: 160, height: 160)
+    let times = stride(from: 0, to: duration, by: step).map { CMTime(
+      seconds: $0,
+      preferredTimescale: 600,
+    ) }
+    var path = [SubjectPoint]()
+    for await frame in generator.images(for: times) {
+      // why: an unreadable frame just leaves a gap in the path.
+      guard let image = try? frame.image, let center = centroid(of: image) else {
+        continue
+      }
+      path.append(SubjectPoint(
+        time: MediaTime(seconds: frame.requestedTime.seconds, timescale: 1000),
+        x: center.x,
+        y: center.y,
+      ))
+    }
+    return path
+  }
+
+  // MARK: Private
+
+  /// The brightness-weighted centre of a gray picture, or `nil` when it's empty.
+  private static func centroid(of image: CGImage) -> (x: Double, y: Double)? {
+    let width = image.width
+    let height = image.height
+    var gray = [UInt8](repeating: 0, count: width * height)
+    let drawn = gray.withUnsafeMutableBytes { buffer -> Bool in
+      guard
+        let context = CGContext(
+          data: buffer.baseAddress,
+          width: width,
+          height: height,
+          bitsPerComponent: 8,
+          bytesPerRow: width,
+          space: CGColorSpaceCreateDeviceGray(),
+          bitmapInfo: CGImageAlphaInfo.none.rawValue,
+        )
+      else {
+        return false
+      }
+      context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+      return true
+    }
+    guard drawn else {
+      return nil
+    }
+    var total = 0.0
+    var sumX = 0.0
+    var sumY = 0.0
+    for row in 0 ..< height {
+      for column in 0 ..< width {
+        let weight = Double(gray[row * width + column]) / 255
+        guard weight > 0.5 else {
+          continue
+        }
+        total += weight
+        sumX += weight * (Double(column) + 0.5)
+        sumY += weight * (Double(row) + 0.5)
+      }
+    }
+    guard total > Double(width * height) * 0.002 else {
+      return nil
+    }
+    return (sumX / total / Double(width), sumY / total / Double(height))
+  }
 
 }

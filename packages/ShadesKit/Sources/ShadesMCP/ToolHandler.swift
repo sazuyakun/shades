@@ -4,6 +4,7 @@ import ShadesCommands
 import ShadesCore
 import ShadesDocument
 import ShadesEngine
+import ShadesMatting
 import ShadesMedia
 import ShadesPolish
 
@@ -281,6 +282,27 @@ public final class ToolHandler {
       kind: .project,
     ),
     Tool(
+      name: "make_cutout",
+      summary: "Cut out the subject (person or object) of video clips in the background, for text "
+        + "behind people and other depth slots (set_clip depth) and for auto_reframe. By default "
+        + "every video on the timeline without a cut-out.",
+      parameters: JSONSchema.object([
+        "media_ids": JSONSchema.array("Media to cut out", items: Fields.mediaID),
+        "engine": JSONSchema.string(
+          "visionPerson (people, default) or visionForeground (any subject)",
+          values: MatteEngine.allCases.map(\.rawValue),
+        ),
+      ]),
+      kind: .project,
+    ),
+    Tool(
+      name: "auto_reframe",
+      summary: "Zoom clips to fill the 4:3 frame (no black bars), keeping their subject in view "
+        + "using the cut-out's subject path. Default: the selected clips.",
+      parameters: JSONSchema.object(["clip_ids": Fields.clipIDs]),
+      kind: .edit,
+    ),
+    Tool(
       name: "list_projects",
       summary: "List the projects in ~/Shades, newest first, and which one is open.",
       parameters: JSONSchema.object([:]),
@@ -423,6 +445,24 @@ public final class ToolHandler {
       try host().discardPolish()
       return .text("The Polish plan was thrown away.")
 
+    case "make_cutout":
+      let request = try decode(CutoutArguments.self, from: arguments, tool: name)
+      let engine = request.engine.flatMap(MatteEngine.init(rawValue:)) ?? .visionPerson
+      return queued(
+        try host().makeCutouts(request.mediaIDs, engine: engine),
+        nothingLeft: "Every video on the timeline already has a cut-out.",
+      )
+
+    case "auto_reframe":
+      let request = try decode(ClipListArguments.self, from: arguments, tool: name)
+      let projectHost = try host()
+      let count = try perform { () throws(CommandError) -> Int in
+        try projectHost.autoReframe(request.clipIDs)
+      }
+      return .text(
+        "Reframed \(count) clip\(count == 1 ? "" : "s") to fill the frame around the subject."
+      )
+
     case "list_projects":
       return await listProjects()
 
@@ -497,6 +537,8 @@ public final class ToolHandler {
         of: editor.project,
         atSeconds: seconds,
         maxSide: maxSide,
+        context: player.renderContext(),
+        mattes: player.mattes,
       )
       return ToolResult(content: [.png(png)])
     } catch {
@@ -843,6 +885,19 @@ private struct PolishArguments: Decodable {
 private struct PolishApplyArguments: Decodable {
   let itemIDs: [UUID]?
   let kinds: [String]?
+}
+
+// MARK: - CutoutArguments
+
+private struct CutoutArguments: Decodable {
+  let mediaIDs: [UUID]?
+  let engine: String?
+}
+
+// MARK: - ClipListArguments
+
+private struct ClipListArguments: Decodable {
+  let clipIDs: [UUID]?
 }
 
 // MARK: - SeekArguments

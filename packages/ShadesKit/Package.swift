@@ -32,7 +32,7 @@ let package = Package(
     .target(name: "ShadesDocument", dependencies: ["ShadesCore"]),
     .target(name: "ShadesAudio", dependencies: ["ShadesCore", "ShadesMedia"]),
     .target(name: "ShadesPolish", dependencies: ["ShadesCore", "ShadesCommands"]),
-    .target(name: "ShadesMatting"),
+    .target(name: "ShadesMatting", dependencies: ["ShadesCore"]),
     .target(
       name: "ShadesCaptions",
       dependencies: [
@@ -52,6 +52,7 @@ let package = Package(
       name: "ShadesMCP",
       dependencies: [
         "ShadesCaptions",
+        "ShadesMatting",
         "ShadesPolish",
         "ShadesCommands",
         "ShadesDocument",
@@ -71,6 +72,7 @@ let package = Package(
         "ShadesEngine",
         "ShadesMCP",
         "ShadesMedia",
+        "ShadesMatting",
         "ShadesPlugins",
         "ShadesPolish",
       ],

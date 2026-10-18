@@ -62,8 +62,14 @@ struct ClipVideoInspector: View {
         Text("Replace background").tag(DepthSlot.replaceBackground)
       }
       .help("Where this layer sits relative to the person cut out of the clips below it")
-      Button("Reset Transform") {
-        set(SetClip(clipID: clip.id, x: 0, y: 0, scale: 1, rotation: 0, opacity: 1), nil)
+      HStack {
+        Button("Reset Transform") {
+          set(SetClip(clipID: clip.id, x: 0, y: 0, scale: 1, rotation: 0, opacity: 1), nil)
+        }
+        Button("Reframe") { reframe() }
+          .help("Zoom to fill the 4:3 frame, keeping the subject in view")
+        Button(hasCutout ? "Cut Out Again" : "Cut Out Subject") { cutOut() }
+          .help("Find the subject so layers can go behind or inside it")
       }
       .buttonStyle(CapsuleButtonStyle())
     }
@@ -72,6 +78,26 @@ struct ClipVideoInspector: View {
   // MARK: Private
 
   @Environment(Editor.self) private var editor
+  @Environment(Workspace.self) private var workspace
+
+  private var hasCutout: Bool {
+    clip.mediaID.flatMap { workspace.analysis.analyses[$0]?.matte } != nil
+  }
+
+  private func reframe() {
+    do {
+      _ = try workspace.autoReframe([clip.id])
+    } catch {
+      onError(error.errorDescription ?? "The clip couldn't be reframed.")
+    }
+  }
+
+  private func cutOut() {
+    guard let mediaID = clip.mediaID else {
+      return
+    }
+    _ = workspace.makeCutouts([mediaID], engine: .visionPerson)
+  }
 
   private func percent(_ value: Double) -> String {
     "\(Int((value * 100).rounded()))%"

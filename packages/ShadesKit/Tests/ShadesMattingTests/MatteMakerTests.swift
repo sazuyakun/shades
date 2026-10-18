@@ -26,6 +26,9 @@ struct MatteMakerTests {
     )).image
     #expect(try brightness(of: image, x: 0.5, y: 0.5) > 200)
     #expect(try brightness(of: image, x: 0.05, y: 0.05) < 40)
+    let path = try await MatteMaker.subjectPath(of: matte, every: 0.25)
+    #expect(!path.isEmpty)
+    #expect(path.allSatisfy { abs($0.x - 0.5) < 0.05 && abs($0.y - 0.5) < 0.05 })
   }
 
   // MARK: Private

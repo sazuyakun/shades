@@ -3,6 +3,7 @@ import ShadesCaptions
 import ShadesCommands
 import ShadesCore
 import ShadesDocument
+import ShadesMatting
 import ShadesPolish
 
 /// Whoever holds the open project (the app's workspace), so Claude can list, create and open
@@ -36,4 +37,8 @@ public protocol ProjectHost: AnyObject {
   func applyPolish(ids: Set<UUID>?, kinds: Set<PolishKind>?) throws(CommandError) -> String
   /// Throws the plan away.
   func discardPolish()
+  /// Queues cut-outs (default: video on the timeline without one); returns what was queued.
+  func makeCutouts(_ mediaIDs: [Media.ID]?, engine: MatteEngine) -> [String]
+  /// Reframes clips (default: the selection) around their subject; returns how many.
+  func autoReframe(_ clipIDs: [Clip.ID]?) throws(CommandError) -> Int
 }

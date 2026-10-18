@@ -7,6 +7,7 @@ import ShadesCommands
 import ShadesCore
 import ShadesDocument
 import ShadesEngine
+import ShadesMatting
 import ShadesMCP
 import ShadesMedia
 import ShadesPolish
@@ -132,6 +133,7 @@ public final class Workspace {
     player.pause()
     queuedProxies.removeAll()
     player.proxies = [:]
+    player.mattes = [:]
     analysis.clear()
     documentURL = nil
     defaults.set(false, forKey: Keys.isOpen)
@@ -332,6 +334,9 @@ extension Workspace: ProjectHost {
     // why: the editor view loads playback when the project changes; it starts at the cue.
     player.cue(toSeconds: session.playhead)
     await analysis.load(from: url)
+    player.mattes = analysis.analyses.compactMapValues { record in
+      record.matte.map { url.appending(path: "cache/mattes/\($0)") }
+    }
     editor.load(project)
     editor.selection = Set(session.selection)
     server.activity.clear()
@@ -490,6 +495,62 @@ extension Workspace: ProjectHost {
     polishPlan = nil
   }
 
+  /// Queues cut-outs for `mediaIDs` (default: video on the timeline without one) and returns
+  /// what was queued.
+  public func makeCutouts(_ mediaIDs: [Media.ID]?, engine: MatteEngine) -> [String] {
+    guard let package = documentURL else {
+      return []
+    }
+    let used = Set(editor.project.timeline.allClips.compactMap(\.mediaID))
+    let wanted = editor.project.media.filter { media in
+      media
+        .hasVideo &&
+        (mediaIDs
+          .map { $0.contains(media.id) } ??
+          (used.contains(media.id) && analysis.analyses[media.id]?.matte == nil))
+    }
+    return wanted.map { media in
+      let title = "Cutting out the subject of \(media.name)"
+      let file = "\(media.id.uuidString)-\(engine.rawValue).mov"
+      let url = package.appending(path: "cache/mattes/\(file)")
+      jobs.enqueue(title) { [weak self] progress throws(JobError) in
+        let path: [SubjectPoint]
+        do throws(MattingError) {
+          try await MatteMaker
+            .make(from: media.url, to: url, engine: engine) { progress($0 * 0.95) }
+          path = try await MatteMaker.subjectPath(of: url)
+        } catch {
+          throw error == .cancelled
+            ? .cancelled
+            : .failed(error.errorDescription ?? "The cut-out couldn't be made.")
+        }
+        try await self?.store(media.id, in: package) { analysis in
+          analysis.matte = file
+          analysis.subjectPath = path
+        }
+        await self?.useMatte(url, for: media.id)
+      }
+      return title
+    }
+  }
+
+  /// Reframes clips (default: the selected ones) to fill the frame around their subject, from
+  /// the cut-out's subject path when there is one. Returns how many were reframed.
+  public func autoReframe(_ clipIDs: [Clip.ID]?) throws(CommandError) -> Int {
+    let timeline = editor.project.timeline
+    let ids = clipIDs ?? Array(editor.selection)
+    let clips = ids.compactMap(timeline.clip(withID:)).filter { $0.mediaID != nil }
+    guard !clips.isEmpty else {
+      throw .invalidArguments("pick video clips to reframe")
+    }
+    let commands = clips.map { clip in
+      let center = subjectCenter(of: clip)
+      return ReframeClip(clipID: clip.id, centerX: center?.x, centerY: center?.y)
+    }
+    try editor.perform(commands, title: ReframeClip.title)
+    return commands.count
+  }
+
   // MARK: Private
 
   /// Saves an analysis result, if its project is still the open one.
@@ -506,6 +567,27 @@ extension Workspace: ProjectHost {
     } catch {
       throw .failed(error.errorDescription ?? "The result couldn't be saved.")
     }
+  }
+
+  /// The subject's typical position while `clip` plays: the median of its path in that stretch.
+  private func subjectCenter(of clip: Clip) -> (x: Double, y: Double)? {
+    guard let mediaID = clip.mediaID, let path = analysis.analyses[mediaID]?.subjectPath else {
+      return nil
+    }
+    let end = clip.sourceStart + clip.duration
+    let inside = path.filter { clip.sourceStart <= $0.time && $0.time < end }
+    guard !inside.isEmpty else {
+      return nil
+    }
+    let xs = inside.map(\.x).sorted()
+    let ys = inside.map(\.y).sorted()
+    return (xs[xs.count / 2], ys[ys.count / 2])
+  }
+
+  /// Starts using a finished cut-out in playback.
+  private func useMatte(_ url: URL, for mediaID: Media.ID) async {
+    player.mattes[mediaID] = url
+    try? await player.load(editor.project) // why: the editor shows playback errors.
   }
 
 }
