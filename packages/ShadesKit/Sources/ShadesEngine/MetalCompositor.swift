@@ -7,12 +7,23 @@ import AVFoundation
 /// itself, so the shared GPU setup arrives with each frame's instruction.
 final class MetalCompositor: NSObject, AVVideoCompositing {
 
+  // MARK: Internal
+
   let sourcePixelBufferAttributes: [String: any Sendable]? = pixelBufferAttributes
   let requiredPixelBufferAttributesForRenderContext: [String: any Sendable] = pixelBufferAttributes
 
   func renderContextChanged(_: AVVideoCompositionRenderContext) { }
 
   func startRequest(_ request: AVAsynchronousVideoCompositionRequest) {
+    // why: AVFoundation's render threads may not drain autorelease pools between frames, so the
+    // textures and command buffers each frame makes are released here, per frame.
+    autoreleasepool { render(request) }
+  }
+
+  // MARK: Private
+
+  /// Draws one frame of the composition.
+  private func render(_ request: AVAsynchronousVideoCompositionRequest) {
     guard
       let instruction = request.videoCompositionInstruction as? CompositionInstruction,
       let output = request.renderContext.newPixelBuffer()
