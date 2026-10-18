@@ -16,6 +16,13 @@ struct CaptionLayoutTests {
   }
 
   @Test
+  func `a line holds until the next one across short gaps`() {
+    let lines = CaptionLayout.lines(for: words([("One.", 0), ("Two.", 0.6), ("Far.", 5)]))
+    #expect(lines[0].end == lines[1].start)
+    #expect(lines[1].end == MediaTime(seconds: 0.9))
+  }
+
+  @Test
   func `sentences and pauses start new lines`() {
     let lines = CaptionLayout.lines(for: words([
       ("Hi.", 0),

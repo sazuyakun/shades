@@ -44,7 +44,8 @@ enum TextRenderer {
     }
     context.clear(CGRect(x: 0, y: 0, width: width, height: height))
     let fontSize = CGFloat(height) * 0.075
-    let font = CTFontCreateWithName("SFProDisplay-Bold" as CFString, fontSize, nil)
+    let font = CTFontCreateUIFontForLanguage(.emphasizedSystem, fontSize, nil)
+      ?? CTFontCreateWithName("Helvetica-Bold" as CFString, fontSize, nil)
     var alignment = CTTextAlignment.center
     let paragraph = withUnsafeBytes(of: &alignment) { pointer -> CTParagraphStyle in
       guard let base = pointer.baseAddress else {

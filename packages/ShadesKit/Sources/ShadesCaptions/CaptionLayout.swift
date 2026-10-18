@@ -9,10 +9,30 @@ public enum CaptionLayout {
 
   // MARK: Public
 
-  /// Caption lines for `words` (in time order).
+  /// Caption lines for `words` (in time order). A line stays up until the next one when the gap
+  /// is shorter than a second, so captions don't flicker between lines.
   public static func lines(for words: [SpokenWord], maxCharacters: Int = 42) -> [CaptionLine] {
-    let limit = max(1, maxCharacters)
-    return runs(of: words).flatMap { pack($0, limit: limit) }.compactMap { line in
+    let lines = packedLines(for: words, limit: max(1, maxCharacters))
+    return lines.enumerated().map { index, line in
+      guard index + 1 < lines.count, (lines[index + 1].start - line.end).seconds < holdGap else {
+        return line
+      }
+      return CaptionLine(text: line.text, start: line.start, end: lines[index + 1].start)
+    }
+  }
+
+  // MARK: Private
+
+  /// Gaps shorter than this between lines are bridged by holding the earlier line.
+  private static let holdGap = 1.0
+
+  /// Longest a line stays up, in seconds.
+  private static let maxLineDuration = 7.0
+  /// A pause at least this long between words starts a new line.
+  private static let pauseBreak = 0.8
+
+  private static func packedLines(for words: [SpokenWord], limit: Int) -> [CaptionLine] {
+    runs(of: words).flatMap { pack($0, limit: limit) }.compactMap { line in
       guard let first = line.first, let last = line.last else {
         return nil
       }
@@ -23,13 +43,6 @@ public enum CaptionLayout {
       )
     }
   }
-
-  // MARK: Private
-
-  /// Longest a line stays up, in seconds.
-  private static let maxLineDuration = 7.0
-  /// A pause at least this long between words starts a new line.
-  private static let pauseBreak = 0.8
 
   /// Splits words into runs that never share a line: after sentence ends and long pauses.
   private static func runs(of words: [SpokenWord]) -> [[SpokenWord]] {
