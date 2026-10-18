@@ -15,6 +15,7 @@ let package = Package(
         "ShadesDocument",
         "ShadesMedia",
         "ShadesEngine",
+        "ShadesMatting",
         "ShadesMCP",
         "ShadesPlugins",
         "ShadesPolish",
@@ -31,6 +32,7 @@ let package = Package(
     .target(name: "ShadesDocument", dependencies: ["ShadesCore"]),
     .target(name: "ShadesAudio", dependencies: ["ShadesCore", "ShadesMedia"]),
     .target(name: "ShadesPolish", dependencies: ["ShadesCore", "ShadesCommands"]),
+    .target(name: "ShadesMatting"),
     .target(
       name: "ShadesCaptions",
       dependencies: [
@@ -93,6 +95,7 @@ let package = Package(
     ),
     .testTarget(name: "ShadesPluginsTests", dependencies: ["ShadesPlugins"]),
     .testTarget(name: "ShadesPolishTests", dependencies: ["ShadesPolish"]),
+    .testTarget(name: "ShadesMattingTests", dependencies: ["ShadesMatting", "ShadesTestSupport"]),
     .testTarget(name: "ShadesUITests", dependencies: ["ShadesUI", "ShadesTestSupport"]),
   ],
 )

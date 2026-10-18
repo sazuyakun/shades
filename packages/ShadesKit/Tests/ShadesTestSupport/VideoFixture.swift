@@ -30,8 +30,71 @@ public enum VideoFixture {
     transform: CGAffineTransform = .identity,
     codec: AVVideoCodecType = .proRes4444,
   ) async throws(FixtureError) -> URL {
-    let url = FileManager.default.temporaryDirectory
-      .appendingPathComponent(UUID().uuidString)
+    let frame = try splitFrame(left: left, right: right, width: width, height: height)
+    return try await write(
+      frame,
+      seconds: seconds,
+      width: width,
+      height: height,
+      transform: transform,
+      codec: codec,
+    )
+  }
+
+  /// Writes a `.mov` of a bright orange disc in the middle of a dark frame: an obvious subject
+  /// for cut-out tests.
+  public static func makeDisc(
+    seconds: Int = 1,
+    width: Int = 640,
+    height: Int = 360,
+  ) async throws(FixtureError) -> URL {
+    var buffer: CVPixelBuffer?
+    CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, nil, &buffer)
+    guard let frame = buffer else {
+      throw .writerFailed
+    }
+    CVPixelBufferLockBaseAddress(frame, [])
+    guard
+      let context = CGContext(
+        data: CVPixelBufferGetBaseAddress(frame),
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: CVPixelBufferGetBytesPerRow(frame),
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little
+          .rawValue,
+      )
+    else {
+      CVPixelBufferUnlockBaseAddress(frame, [])
+      throw .writerFailed
+    }
+    context.setFillColor(CGColor(red: 0.08, green: 0.09, blue: 0.12, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    context.setFillColor(CGColor(red: 1, green: 0.55, blue: 0.1, alpha: 1))
+    let radius = Double(height) * 0.32
+    context.fillEllipse(in: CGRect(
+      x: Double(width) / 2 - radius,
+      y: Double(height) / 2 - radius,
+      width: radius * 2,
+      height: radius * 2,
+    ))
+    CVPixelBufferUnlockBaseAddress(frame, [])
+    return try await write(frame, seconds: seconds, width: width, height: height)
+  }
+
+  // MARK: Private
+
+  /// Writes `frame` repeated for `seconds` at 30 fps.
+  private static func write(
+    _ frame: CVPixelBuffer,
+    seconds: Int,
+    width: Int,
+    height: Int,
+    transform: CGAffineTransform = .identity,
+    codec: AVVideoCodecType = .proRes4444,
+  ) async throws(FixtureError) -> URL {
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
       .appendingPathExtension("mov")
     let writer: AVAssetWriter
     do {
@@ -39,14 +102,11 @@ public enum VideoFixture {
     } catch {
       throw .writerFailed
     }
-    let input = AVAssetWriterInput(
-      mediaType: .video,
-      outputSettings: [
-        AVVideoCodecKey: codec,
-        AVVideoWidthKey: width,
-        AVVideoHeightKey: height,
-      ],
-    )
+    let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+      AVVideoCodecKey: codec,
+      AVVideoWidthKey: width,
+      AVVideoHeightKey: height,
+    ])
     input.transform = transform
     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
       assetWriterInput: input,
@@ -57,7 +117,6 @@ public enum VideoFixture {
       throw .writerFailed
     }
     writer.startSession(atSourceTime: .zero)
-    let frame = try splitFrame(left: left, right: right, width: width, height: height)
     for index in 0 ..< seconds * 30 {
       while !input.isReadyForMoreMediaData {
         try? await Task.sleep(for: .milliseconds(5)) // why: a cancelled sleep just polls again.
@@ -76,8 +135,6 @@ public enum VideoFixture {
     }
     return url
   }
-
-  // MARK: Private
 
   private static func splitFrame(
     left: FixtureColor,
