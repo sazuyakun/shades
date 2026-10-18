@@ -24,6 +24,7 @@ public final class RenderState: Sendable {
           opacity: clip.opacity,
           isVisible: !track.isHidden,
           text: clip.text?.text,
+          depth: clip.depth,
         )
       }
     }
@@ -50,4 +51,6 @@ struct LayerStyle: Sendable {
   let isVisible: Bool
   /// The words, for a text clip.
   let text: String?
+  /// Where the layer sits relative to the subject.
+  let depth: DepthSlot
 }

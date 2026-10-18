@@ -20,6 +20,7 @@ struct FrameUniforms {
 struct VertexOut {
   float4 position [[position]];
   float2 uv;
+  float2 screen;     // where in the frame, 0…1 from the top left
   float opacity;
 };
 
@@ -40,6 +41,7 @@ vertex VertexOut layerVertex(uint id [[vertex_id]], constant FrameUniforms &u [[
     u.matrix.x * upright.x + u.matrix.z * upright.y + u.offset.x,
     u.matrix.y * upright.x + u.matrix.w * upright.y + u.offset.y
   );
+  out.screen = float2(pixel.x / u.frameSize.x + 0.5, 0.5 - pixel.y / u.frameSize.y);
   out.opacity = u.opacity;
   return out;
 }
@@ -48,4 +50,19 @@ fragment half4 layerFragment(VertexOut in [[stage_in]], texture2d<half> source [
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
   half4 color = source.sample(linearSampler, in.uv);
   return half4(color.rgb, color.a * half(in.opacity));
+}
+
+// The layer drawn only where the subject's mask (the base clip's cut-out, drawn into a frame-sized
+// mask first) is, for the cut-out subject and inside-subject layers.
+fragment half4 maskedLayerFragment(VertexOut in [[stage_in]], texture2d<half> source [[texture(0)]], texture2d<half> mask [[texture(1)]]) {
+  constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
+  half4 color = source.sample(linearSampler, in.uv);
+  half subject = mask.sample(linearSampler, in.screen).r;
+  return half4(color.rgb, color.a * half(in.opacity) * subject);
+}
+
+// A cut-out's gray value, written into the one-channel mask.
+fragment half4 matteFragment(VertexOut in [[stage_in]], texture2d<half> source [[texture(0)]]) {
+  constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
+  return half4(source.sample(linearSampler, in.uv).r, 0, 0, 1);
 }

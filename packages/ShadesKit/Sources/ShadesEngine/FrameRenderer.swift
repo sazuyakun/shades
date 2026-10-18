@@ -8,14 +8,16 @@ public enum FrameRenderer {
 
   // MARK: Public
 
-  /// Renders the frame at `seconds` as PNG data, no wider or taller than `maxSide` pixels.
-  /// Pass a long-lived `context` when rendering often; a new one compiles the shaders again.
+  /// Renders the frame at `seconds` as PNG data, no wider or taller than `maxSide` pixels, with
+  /// cut-outs from `mattes` for depth slots. Pass a long-lived `context` when rendering often; a
+  /// new one compiles the shaders again.
   @MainActor
   public static func png(
     of project: Project,
     atSeconds seconds: Double,
     maxSide: Int,
     context: RenderContext? = nil,
+    mattes: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> Data {
     let renderState = RenderState()
     renderState.update(from: project.timeline)
@@ -31,6 +33,7 @@ public enum FrameRenderer {
       renderState: renderState,
       renderContext: renderContext,
       frameCounter: FrameCounter(),
+      mattes: mattes,
     )
     let generator = AVAssetImageGenerator(asset: composition.asset)
     generator.videoComposition = composition.videoComposition

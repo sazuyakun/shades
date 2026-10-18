@@ -55,12 +55,16 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         picture = texture.map(LayerPicture.surface)
         rotation = .identity
       }
+      let matte = layer.matteTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
+        .map(LayerPicture.frame)
       return picture.map { picture in
         RenderLayer(
           source: picture,
           rotation: rotation,
           transform: style.transform,
           opacity: style.opacity,
+          depth: style.depth,
+          matte: matte,
         )
       }
     }

@@ -42,6 +42,8 @@ public final class Player {
   public private(set) var isPlaying = false
   /// Light editing copies to play instead of heavy originals, by media. Set them, then `load`.
   public var proxies = [Media.ID: URL]()
+  /// Cut-outs by media, for depth slots (text behind a person). Set them, then `load`.
+  public var mattes = [Media.ID: URL]()
   /// Whether what's playing now uses any proxy, for the viewer's "Proxy" badge.
   public private(set) var isUsingProxies = false
 
@@ -80,6 +82,7 @@ public final class Player {
       renderContext: renderContext(),
       frameCounter: frameCounter,
       sources: proxies,
+      mattes: mattes,
     )
     // why: a newer edit started its own load while this one was building; it wins.
     guard !Task.isCancelled else {
@@ -92,6 +95,7 @@ public final class Player {
     composition = built
     self.structure = structure
     loadedProxies = proxies
+    loadedMattes = mattes
     isUsingProxies = timeline.allClips.contains { $0.mediaID.flatMap { proxies[$0] } != nil }
     await avPlayer.seek(to: playhead, toleranceBefore: .zero, toleranceAfter: .zero)
     currentTime = playhead.seconds
@@ -152,6 +156,7 @@ public final class Player {
   @ObservationIgnored private var structure: Composition.Structure?
   @ObservationIgnored private var cuedTime: Double?
   @ObservationIgnored private var loadedProxies = [Media.ID: URL]()
+  @ObservationIgnored private var loadedMattes = [Media.ID: URL]()
   @ObservationIgnored private var sharedContext: RenderContext?
 
 }

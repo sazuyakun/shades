@@ -34,11 +34,11 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
   let frameCounter: FrameCounter
 
   var requiredSourceTrackIDs: [NSValue]? {
-    let trackIDs = layers.compactMap { layer -> NSNumber? in
-      if case .video(let trackID, _) = layer.source {
-        return NSNumber(value: trackID)
+    let trackIDs = layers.flatMap { layer -> [NSNumber] in
+      guard case .video(let trackID, _) = layer.source else {
+        return []
       }
-      return nil
+      return [trackID, layer.matteTrackID].compactMap { $0.map { NSNumber(value: $0) } }
     }
     return trackIDs.isEmpty ? nil : trackIDs
   }
@@ -51,6 +51,8 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
 struct CompositionLayer: Sendable {
   let clipID: UUID
   let source: LayerSource
+  /// Where the clip's cut-out frames come from, when it has one.
+  let matteTrackID: CMPersistentTrackID?
 }
 
 // MARK: - LayerSource

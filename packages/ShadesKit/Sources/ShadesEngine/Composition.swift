@@ -34,7 +34,8 @@ extension Composition {
   }
 
   /// Builds the playable form of the project's timeline, reading each media file from
-  /// `sources` (its proxy) when given there.
+  /// `sources` (its proxy) when given there. Clips whose media has a cut-out in `mattes` get it
+  /// as a matching track, for depth slots.
   @MainActor
   static func build(
     _ project: Project,
@@ -43,6 +44,7 @@ extension Composition {
     renderContext: RenderContext,
     frameCounter: FrameCounter,
     sources: [Media.ID: URL] = [:],
+    mattes: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> Composition {
     let timeline = project.timeline
     guard timeline.duration > .zero else {
@@ -50,12 +52,13 @@ extension Composition {
       throw .timelineEmpty
     }
     let asset = AVMutableComposition()
-    var videoLayers = [(trackID: CMPersistentTrackID, clips: [(Clip, CGAffineTransform)])]()
+    var videoLayers = [VideoLayer]()
     var audioTrackIDs = [Track.ID: CMPersistentTrackID]()
     for track in timeline.tracks where !track.clips.isEmpty && track.kind != .text {
       let videoTrack = track.kind == .video ? try addTrack(.video, to: asset) : nil
       var audioTrack: AVMutableCompositionTrack?
-      var placed = [(Clip, CGAffineTransform)]()
+      var matteTrack: AVMutableCompositionTrack?
+      var placed = [PlacedClip]()
       for clip in track.clips {
         guard let mediaID = clip.mediaID else {
           continue
@@ -66,7 +69,26 @@ extension Composition {
         do {
           if let videoTrack, let video = source.video {
             try videoTrack.insertTimeRange(range, of: video, at: clip.timelineStart.cmTime)
-            placed.append((clip, source.rotation))
+            var hasMatte = false
+            if
+              let matteURL = mattes[media.id],
+              let matte = try await library.tracks(at: matteURL).video
+            {
+              let target = try matteTrack ?? addTrack(.video, to: asset)
+              matteTrack = target
+              // why: a matte can end a frame early; only the part it covers is used.
+              let available = try await matte.load(.timeRange).end
+              let end = min(range.end, available)
+              if end > range.start {
+                try target.insertTimeRange(
+                  CMTimeRange(start: range.start, end: end),
+                  of: matte,
+                  at: clip.timelineStart.cmTime,
+                )
+                hasMatte = true
+              }
+            }
+            placed.append(PlacedClip(clip: clip, rotation: source.rotation, hasMatte: hasMatte))
           }
           if let audio = source.audio {
             let target = try audioTrack ?? addTrack(.audio, to: asset)
@@ -80,7 +102,11 @@ extension Composition {
         }
       }
       if let videoTrack {
-        videoLayers.append((videoTrack.trackID, placed))
+        videoLayers.append(VideoLayer(
+          trackID: videoTrack.trackID,
+          matteTrackID: matteTrack?.trackID,
+          clips: placed,
+        ))
       }
     }
     let textLayers = timeline.tracks.filter { $0.kind == .text }.map(\.clips)
@@ -150,7 +176,7 @@ extension Composition {
   /// One instruction for every stretch between clip edges, listing the clips showing there
   /// bottom to top, covering the whole timeline without overlaps as AVFoundation requires.
   private static func instructions(
-    for layers: [(trackID: CMPersistentTrackID, clips: [(Clip, CGAffineTransform)])],
+    for layers: [VideoLayer],
     text: [[Clip]],
     duration: MediaTime,
     renderState: RenderState,
@@ -158,23 +184,28 @@ extension Composition {
     frameCounter: FrameCounter,
   ) -> [CompositionInstruction] {
     var edges: Set = [MediaTime.zero, duration]
-    for clip in layers.flatMap({ $0.clips.map(\.0) }) + text.flatMap(\.self) {
+    for clip in layers.flatMap({ $0.clips.map(\.clip) }) + text.flatMap(\.self) {
       edges.insert(clip.timelineStart)
       edges.insert(clip.timelineEnd)
     }
     let sorted = edges.sorted()
     return zip(sorted, sorted.dropFirst()).map { start, end in
       let video = layers.compactMap { layer -> CompositionLayer? in
-        guard let (clip, rotation) = layer.clips.first(where: { $0.0.contains(start) }) else {
+        guard let placed = layer.clips.first(where: { $0.clip.contains(start) }) else {
           return nil
         }
         return CompositionLayer(
-          clipID: clip.id,
-          source: .video(trackID: layer.trackID, rotation: rotation),
+          clipID: placed.clip.id,
+          source: .video(trackID: layer.trackID, rotation: placed.rotation),
+          matteTrackID: placed.hasMatte ? layer.matteTrackID : nil,
         )
       }
       let words = text.compactMap { clips in
-        clips.first { $0.contains(start) }.map { CompositionLayer(clipID: $0.id, source: .text) }
+        clips.first { $0.contains(start) }.map { CompositionLayer(
+          clipID: $0.id,
+          source: .text,
+          matteTrackID: nil,
+        ) }
       }
       let showing = video + words
       return CompositionInstruction(
@@ -187,6 +218,24 @@ extension Composition {
     }
   }
 
+}
+
+// MARK: - VideoLayer
+
+/// A timeline track's video in the composition, and its cut-outs' track if any.
+private struct VideoLayer {
+  let trackID: CMPersistentTrackID
+  let matteTrackID: CMPersistentTrackID?
+  let clips: [PlacedClip]
+}
+
+// MARK: - PlacedClip
+
+/// A clip placed in the composition: its rotation, and whether its cut-out came with it.
+private struct PlacedClip {
+  let clip: Clip
+  let rotation: CGAffineTransform
+  let hasMatte: Bool
 }
 
 // MARK: - TrackStructure
