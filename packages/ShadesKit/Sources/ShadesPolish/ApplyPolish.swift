@@ -18,10 +18,13 @@ public struct ApplyPolish: Command {
   public let plan: PolishPlan
 
   public func apply(to project: inout Project) throws(CommandError) {
+    let fps = project.timeline.format.framesPerSecond
     let enabled = plan.items.filter(\.isEnabled)
     let snaps = enabled.filter { $0.kind == .beatSnap }
+    // why: cuts and stretches go onto frames once, here, so the punch-ins below line up exactly
+    // with the clip edges the cuts leave.
     let cuts = enabled.filter(\.kind.isCut).map { cut in
-      snaps.first { $0.range.end == cut.range.end }?.range ?? cut.range
+      onFrames(snaps.first { $0.range.end == cut.range.end }?.range ?? cut.range, fps: fps)
     }
     if !cuts.isEmpty {
       try RemoveRanges(ranges: cuts, track: plan.track, ripple: true).apply(to: &project)
@@ -41,7 +44,8 @@ public struct ApplyPolish: Command {
     }
     for index in project.timeline.tracks[track].clips.indices {
       let clip = project.timeline.tracks[track].clips[index]
-      if zooms.contains(where: { $0.start <= clip.timelineStart && clip.timelineEnd <= $0.end }) {
+      let middle = clip.timelineStart + MediaTime(seconds: clip.duration.seconds / 2)
+      if zooms.contains(where: { $0.start <= middle && middle < $0.end }) {
         project.timeline.tracks[track].clips[index].transform.scale = clip.transform
           .scale * PolishPlanner.punchInScale
       }
@@ -49,6 +53,10 @@ public struct ApplyPolish: Command {
   }
 
   // MARK: Private
+
+  private func onFrames(_ range: TimeRange, fps: Int) -> TimeRange {
+    TimeRange(start: range.start.roundedToFrame(at: fps), end: range.end.roundedToFrame(at: fps))
+  }
 
   /// Where `time` lands once `cuts` are removed and the track closes up.
   private func closedUp(_ time: MediaTime, cuts: [TimeRange]) -> MediaTime {

@@ -129,6 +129,24 @@ struct PolishPlannerTests {
   }
 
   @Test
+  func `punch-ins land on their stretch even when cuts fall between frames`() throws {
+    let words = [("One.", 0.21), ("Two.", 1.63), ("Three.", 3.07)]
+    let (project, analyses) = talking(words, length: 4)
+    var options = only(silences: true)
+    options.punchIn = true
+    let plan = PolishPlanner.plan(
+      project.timeline,
+      analyses: analyses,
+      range: whole(4),
+      options: options,
+    )
+    var edited = project
+    try ApplyPolish(plan: plan).apply(to: &edited)
+    let zoomed = edited.timeline.tracks[0].clips.filter { abs($0.transform.scale - 1.15) < 0.001 }
+    #expect(zoomed.count == plan.items.count { $0.kind == .punchIn })
+  }
+
+  @Test
   func `a cut near a music beat moves onto it`() throws {
     var (project, analyses) = talking(
       [("Hello", 0.2), ("world.", 0.6), ("Again", 2.6), ("here.", 3.0)],
