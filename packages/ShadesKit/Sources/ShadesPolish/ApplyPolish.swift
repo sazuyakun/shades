@@ -2,7 +2,8 @@ import ShadesCommands
 import ShadesCore
 
 /// Applies the switched-on items of a Polish plan as one edit: the cuts (moved onto beats where
-/// a snap is on) close up the track, then punch-ins zoom every second stretch.
+/// a snap is on) close up the timeline, B-roll and captions included (music keeps playing), then
+/// punch-ins zoom every second stretch.
 public struct ApplyPolish: Command {
 
   // MARK: Lifecycle
@@ -27,7 +28,8 @@ public struct ApplyPolish: Command {
       onFrames(snaps.first { $0.range.end == cut.range.end }?.range ?? cut.range, fps: fps)
     }
     if !cuts.isEmpty {
-      try RemoveRanges(ranges: cuts, track: plan.track, ripple: true).apply(to: &project)
+      try RemoveRanges(ranges: cuts, track: plan.track, ripple: true, allTracks: true)
+        .apply(to: &project)
     }
     let zooms = enabled.filter { $0.kind == .punchIn }.map { stretch in
       TimeRange(

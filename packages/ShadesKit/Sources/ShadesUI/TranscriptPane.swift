@@ -113,6 +113,7 @@ struct TranscriptPane: View {
       try editor.perform(RemoveRanges(
         ranges: chosen.map { TimeRange(start: $0.start, end: $0.end) },
         track: track,
+        allTracks: true,
       ))
       selection = []
     } catch {

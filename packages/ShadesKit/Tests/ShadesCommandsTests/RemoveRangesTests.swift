@@ -42,6 +42,19 @@ struct RemoveRangesTests {
   }
 
   @Test
+  func `all tracks keeps captions and b-roll in sync but leaves music playing`() throws {
+    var project = try oneLongClip()
+    let music = makeMedia(seconds: 10, hasVideo: false)
+    project.media.append(music)
+    try AppendClip(mediaID: music.id).apply(to: &project)
+    try AddText(text: "late line", at: seconds(5), duration: seconds(1)).apply(to: &project)
+    try RemoveRanges(ranges: [range(1, 3)], allTracks: true).apply(to: &project)
+    #expect(project.timeline.tracks.first { $0.kind == .text }?.clips.first?
+      .timelineStart == seconds(3))
+    #expect(project.timeline.tracks.first { $0.kind == .audio }?.end == seconds(10))
+  }
+
+  @Test
   func `empty ranges are refused`() throws {
     var project = try oneLongClip()
     #expect(throws: CommandError.self) {

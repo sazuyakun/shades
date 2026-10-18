@@ -6,19 +6,25 @@ public struct RemoveRanges: ToolCommand {
 
   // MARK: Lifecycle
 
-  public init(ranges: [TimeRange], track: String? = nil, ripple: Bool? = nil) {
+  public init(
+    ranges: [TimeRange],
+    track: String? = nil,
+    ripple: Bool? = nil,
+    allTracks: Bool? = nil,
+  ) {
     self.ranges = ranges
     self.track = track
     self.ripple = ripple
+    self.allTracks = allTracks
   }
 
   // MARK: Public
 
   public static let title = "Remove Ranges"
   public static let name = "remove_ranges"
-  public static let summary = "Cut stretches of time out of one track (V1 by default), like "
+  public static let summary = "Cut stretches of time out of a track (V1 by default), like "
     + "silences or unwanted words from get_transcript. With ripple (default true) the track closes "
-    + "up; other tracks don't move."
+    + "up. Other tracks only follow with all_tracks."
   public static let parameters = JSONSchema.object(
     [
       "ranges": JSONSchema.array(
@@ -33,6 +39,10 @@ public struct RemoveRanges: ToolCommand {
       ),
       "track": Fields.track,
       "ripple": Fields.ripple,
+      "all_tracks": JSONSchema.boolean(
+        "Cut the same time from every video and text track too, keeping B-roll and captions in "
+          + "sync (music on audio tracks keeps playing). Default false"
+      ),
     ],
     required: ["ranges"],
   )
@@ -40,10 +50,15 @@ public struct RemoveRanges: ToolCommand {
   public let ranges: [TimeRange]
   public let track: String?
   public let ripple: Bool?
+  public let allTracks: Bool?
 
   public func apply(to project: inout Project) throws(CommandError) {
-    let index = try track.map(project.requireTrack) ?? project.timeline.tracks
+    let main = try track.map(project.requireTrack) ?? project.timeline.tracks
       .firstIndex { $0.kind == .video } ?? 0
+    let indices = allTracks == true
+      ? project.timeline.tracks.indices
+        .filter { $0 == main || project.timeline.tracks[$0].kind != .audio }
+      : [main]
     let cuts = merged(ranges.map { TimeRange(
       start: project.onFrame($0.start),
       end: project.onFrame($0.end),
@@ -53,9 +68,11 @@ public struct RemoveRanges: ToolCommand {
     }
     // why: cutting from the end backwards keeps earlier ranges' times valid as the track closes.
     for cut in cuts.reversed() {
-      project.timeline.tracks[index].clear(from: cut.start, to: cut.end)
-      if ripple ?? true {
-        project.timeline.tracks[index].shift(from: cut.end, by: .zero - cut.duration)
+      for index in indices {
+        project.timeline.tracks[index].clear(from: cut.start, to: cut.end)
+        if ripple ?? true {
+          project.timeline.tracks[index].shift(from: cut.end, by: .zero - cut.duration)
+        }
       }
     }
   }
