@@ -18,6 +18,25 @@ struct ProjectFormatTests {
   }
 
   @Test
+  func `a timeline saved before the camera and 3D loads flat, tracks following by kind`() throws {
+    let json = """
+      {"name":"Main","format":{"width":2880,"height":2160,"framesPerSecond":24},"markers":[],
+       "tracks":[{"id":"6A1F2B4C-0000-4000-8000-000000000003","kind":"video","clips":[],
+                  "isMuted":false,"isHidden":false},
+                 {"id":"6A1F2B4C-0000-4000-8000-000000000004","kind":"text","clips":[],
+                  "isMuted":false,"isHidden":false}]}
+      """
+    let timeline = try JSONDecoder().decode(Timeline.self, from: Data(json.utf8))
+    #expect(timeline.camera.isEmpty)
+    #expect(timeline.tracks.map(\.followsCamera) == [true, false])
+    let transform = try JSONDecoder().decode(
+      ClipTransform.self,
+      from: Data(#"{"x":0.1,"y":0,"scale":1,"rotation":0}"#.utf8),
+    )
+    #expect(transform == ClipTransform(x: 0.1))
+  }
+
+  @Test
   func `media and text clips round-trip`() throws {
     let media = Clip(
       mediaID: UUID(),

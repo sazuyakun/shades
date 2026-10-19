@@ -110,7 +110,7 @@ struct ClipEditTests {
   func `set clip changes only the given fields and checks ranges`() throws {
     var project = try twoClips()
     let first = project.timeline.tracks[0].clips[0]
-    try SetClip(clipID: first.id, scale: 1.5, opacity: 0.5, depth: .behindSubject)
+    try SetClip(clipID: first.id, scale: 1.5, opacity: 0.5, depthSlot: .behindSubject)
       .apply(to: &project)
     let changed = project.timeline.tracks[0].clips[0]
     #expect(changed.transform.scale == 1.5)

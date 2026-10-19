@@ -19,6 +19,7 @@ public enum CommandRegistry {
     ReframeClip.self,
     SetKeyframes.self,
     RemoveKeyframes.self,
+    SetCamera.self,
     AddText.self,
     SetText.self,
     DetachAudio.self,

@@ -6,12 +6,7 @@ extension Clip {
 
   /// The clip's placement at `time` on the timeline, with its keyframes applied.
   public func transform(at time: MediaTime) -> ClipTransform {
-    ClipTransform(
-      x: value(of: .x, at: time),
-      y: value(of: .y, at: time),
-      scale: value(of: .scale, at: time),
-      rotation: value(of: .rotation, at: time),
-    )
+    keyframes.transform(at: sourceTime(at: time), fixed: transform)
   }
 
   /// The clip's opacity at `time` on the timeline, with its keyframes applied.
@@ -22,21 +17,7 @@ extension Clip {
   /// A property's value at `time` on the timeline: from its keyframes when it has any,
   /// otherwise the clip's fixed value.
   public func value(of property: AnimatedProperty, at time: MediaTime) -> Double {
-    let keys = keyframes.filter { $0.property == property }.sorted { $0.time < $1.time }
-    guard let first = keys.first, let last = keys.last else {
-      return fixedValue(of: property)
-    }
-    let source = sourceTime(at: time).seconds
-    guard source > first.time.seconds else {
-      return first.value
-    }
-    guard let next = keys.firstIndex(where: { $0.time.seconds > source }) else {
-      return last.value
-    }
-    let from = keys[next - 1]
-    let to = keys[next]
-    let fraction = (source - from.time.seconds) / (to.time.seconds - from.time.seconds)
-    return from.value + (to.value - from.value) * from.easing.progress(fraction)
+    keyframes.value(of: property, at: sourceTime(at: time), fixed: fixedValue(of: property))
   }
 
   /// The moment of the clip's source shown at `time` on the timeline.
@@ -57,6 +38,9 @@ extension Clip {
     case .y: transform.y
     case .scale: transform.scale
     case .rotation: transform.rotation
+    case .tiltX: transform.tiltX
+    case .tiltY: transform.tiltY
+    case .depth: transform.depth
     case .opacity: opacity
     }
   }

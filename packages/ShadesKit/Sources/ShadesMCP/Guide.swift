@@ -13,7 +13,8 @@ enum Guide {
     - All times are seconds on the timeline and snap to whole frames. Clips on one track never \
     overlap; gaps are allowed and show black.
     - Each layer has a depth slot: inFront (default), behindSubject, insideSubject or \
-    replaceBackground, relative to the person cut out of the clips below.
+    replaceBackground (set_clip depth_slot), relative to the person cut out of the clips below. \
+    Layers can also tilt in 3D and move in depth (tilt_x, tilt_y, depth).
 
     Working well
     1. Start with get_project to see media, tracks, clip IDs and the playhead.
@@ -37,6 +38,8 @@ enum Guide {
     - set_keyframes animates x, y, scale, rotation or opacity: values at moments inside the \
     clip. Each keyframe's easing (linear, easeIn, easeOut, easeInOut, hold, spring, bouncy) \
     shapes the move to the next one. remove_keyframes takes them away.
+    - set_camera moves a camera over the whole picture (zoom, pan, rotate, tilt, dolly) with \
+    keyframes; video tracks follow it, captions stay put.
     - track_motion follows a box through a video clip (a background job) and saves a named \
     path; follow then makes any layer move with it, or with the cut-out's subject.
 

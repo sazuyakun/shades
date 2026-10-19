@@ -11,8 +11,11 @@ public struct SetClip: ToolCommand {
     y: Double? = nil,
     scale: Double? = nil,
     rotation: Double? = nil,
+    tiltX: Double? = nil,
+    tiltY: Double? = nil,
+    depth: Double? = nil,
     opacity: Double? = nil,
-    depth: DepthSlot? = nil,
+    depthSlot: DepthSlot? = nil,
     volume: Double? = nil,
     audioEnabled: Bool? = nil,
   ) {
@@ -21,8 +24,11 @@ public struct SetClip: ToolCommand {
     self.y = y
     self.scale = scale
     self.rotation = rotation
-    self.opacity = opacity
+    self.tiltX = tiltX
+    self.tiltY = tiltY
     self.depth = depth
+    self.opacity = opacity
+    self.depthSlot = depthSlot
     self.volume = volume
     self.audioEnabled = audioEnabled
   }
@@ -31,8 +37,8 @@ public struct SetClip: ToolCommand {
 
   public static let title = "Change Clip"
   public static let name = "set_clip"
-  public static let summary = "Change a clip's position, size, rotation, opacity, depth slot or "
-    + "volume. Leave out what shouldn't change."
+  public static let summary = "Change a clip's position, size, rotation, 3D tilt and depth, "
+    + "opacity, depth slot or volume. Leave out what shouldn't change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -40,8 +46,24 @@ public struct SetClip: ToolCommand {
       "y": JSONSchema.number("Vertical offset as a fraction of the frame height; positive is down"),
       "scale": JSONSchema.number("Size; 1 fits the frame", minimum: 0.01, maximum: 20),
       "rotation": JSONSchema.number("Clockwise rotation in degrees"),
+      "tilt_x": JSONSchema.number(
+        "Tilt back in degrees with perspective (the top leans away); negative leans forward",
+        minimum: -89,
+        maximum: 89,
+      ),
+      "tilt_y": JSONSchema.number(
+        "Turn to the side in degrees with perspective (the right edge leans away)",
+        minimum: -89,
+        maximum: 89,
+      ),
+      "depth": JSONSchema.number(
+        "Distance towards the viewer as a fraction of the frame height, with perspective; "
+          + "negative is further away (default 0)",
+        minimum: -10,
+        maximum: 1.5,
+      ),
       "opacity": JSONSchema.number("0 is invisible, 1 is solid", minimum: 0, maximum: 1),
-      "depth": JSONSchema.string(
+      "depth_slot": JSONSchema.string(
         "Where the layer sits relative to the person cut out of the clips below it",
         values: DepthSlot.allCases.map(\.rawValue),
       ),
@@ -60,8 +82,11 @@ public struct SetClip: ToolCommand {
   public let y: Double?
   public let scale: Double?
   public let rotation: Double?
+  public let tiltX: Double?
+  public let tiltY: Double?
+  public let depth: Double?
   public let opacity: Double?
-  public let depth: DepthSlot?
+  public let depthSlot: DepthSlot?
   public let volume: Double?
   public let audioEnabled: Bool?
 
@@ -73,6 +98,12 @@ public struct SetClip: ToolCommand {
     if let scale, !(0.01 ... 20).contains(scale) {
       throw rejected(.invalidValue("scale goes from 0.01 to 20"))
     }
+    if [tiltX, tiltY].contains(where: { $0.map { !(-89 ... 89).contains($0) } ?? false }) {
+      throw rejected(.invalidValue("tilt goes from -89 to 89 degrees"))
+    }
+    if let depth, !(-10 ... 1.5).contains(depth) {
+      throw rejected(.invalidValue("depth goes from -10 (far away) to 1.5 (close)"))
+    }
     if let volume, !(0 ... 4).contains(volume) {
       throw rejected(.invalidValue("volume goes from 0 to 4"))
     }
@@ -81,8 +112,11 @@ public struct SetClip: ToolCommand {
     clip.transform.y = y ?? clip.transform.y
     clip.transform.scale = scale ?? clip.transform.scale
     clip.transform.rotation = rotation ?? clip.transform.rotation
+    clip.transform.tiltX = tiltX ?? clip.transform.tiltX
+    clip.transform.tiltY = tiltY ?? clip.transform.tiltY
+    clip.transform.depth = depth ?? clip.transform.depth
     clip.opacity = opacity ?? clip.opacity
-    clip.depth = depth ?? clip.depth
+    clip.depth = depthSlot ?? clip.depth
     clip.volume = volume ?? clip.volume
     clip.isAudioEnabled = audioEnabled ?? clip.isAudioEnabled
     project.timeline.tracks[location.track].clips[location.clip] = clip

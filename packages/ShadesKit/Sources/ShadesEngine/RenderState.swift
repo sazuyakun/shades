@@ -20,10 +20,20 @@ public final class RenderState: Sendable {
     var styles = [Clip.ID: LayerStyle]()
     for track in timeline.tracks where track.kind != .audio {
       for clip in track.clips {
-        styles[clip.id] = LayerStyle(clip: clip, isVisible: !track.isHidden)
+        styles[clip.id] = LayerStyle(
+          clip: clip,
+          isVisible: !track.isHidden,
+          followsCamera: track.followsCamera,
+        )
       }
     }
     self.styles.withLock { $0 = styles }
+    camera.withLock { $0 = timeline.camera }
+  }
+
+  /// Where the timeline's camera is at `time`.
+  func camera(at time: MediaTime) -> ClipTransform {
+    camera.withLock { $0 }.transform(at: time, fixed: .identity)
   }
 
   /// How the clip is drawn, if it's on the timeline.
@@ -34,13 +44,16 @@ public final class RenderState: Sendable {
   // MARK: Private
 
   private let styles = Mutex<[Clip.ID: LayerStyle]>([:])
+  private let camera = Mutex<[Keyframe]>([])
 
 }
 
 // MARK: - LayerStyle
 
-/// The look of one clip in the frame: the clip as it is now, and whether its track shows.
+/// The look of one clip in the frame: the clip as it is now, whether its track shows, and
+/// whether the camera moves it.
 struct LayerStyle: Sendable {
   let clip: Clip
   let isVisible: Bool
+  let followsCamera: Bool
 }

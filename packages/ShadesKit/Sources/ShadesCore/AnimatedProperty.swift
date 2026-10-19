@@ -4,5 +4,8 @@ public enum AnimatedProperty: String, Codable, CaseIterable, Sendable {
   case y
   case scale
   case rotation
+  case tiltX
+  case tiltY
+  case depth
   case opacity
 }

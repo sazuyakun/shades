@@ -303,3 +303,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A string where `\` and `"` are literal; more `#`s on each side let the text itself contain `"#`.
 **JS/TS analogy:** `String.raw` template literals.
 **In Shades:** JSON snippets in tests, like a style with `"#FFD84A"` inside `##"…"##`.
+
+## `simd` matrices (`simd_float4x4`)
+**What it is:** Apple's small fixed-size vector and matrix types, matching the GPU's. A 4×4 matrix can scale, rotate, move and add perspective in one multiply; multiplying matrices chains those steps.
+**JS/TS analogy:** Like CSS `transform: perspective() rotateY() translate()`, or a `DOMMatrix`, as one value.
+**In Shades:** `FrameUniforms` builds each layer's model × camera × perspective matrix for the shader.

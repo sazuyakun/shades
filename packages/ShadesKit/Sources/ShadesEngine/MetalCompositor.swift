@@ -36,6 +36,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     let width = CVPixelBufferGetWidth(output)
     let height = CVPixelBufferGetHeight(output)
     let time = MediaTime(seconds: request.compositionTime.seconds)
+    let camera = instruction.renderState.camera(at: time)
     let layers = instruction.layers.compactMap { layer -> RenderLayer? in
       guard let style = instruction.renderState.style(of: layer.clipID), style.isVisible else {
         return nil
@@ -77,6 +78,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           source: picture,
           rotation: rotation,
           transform: transform,
+          camera: style.followsCamera ? camera : .identity,
           opacity: opacity,
           depth: clip.depth,
           matte: matte,

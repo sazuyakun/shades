@@ -290,8 +290,8 @@ public final class ToolHandler {
     Tool(
       name: "make_cutout",
       summary: "Cut out the subject (person or object) of video clips in the background, for text "
-        + "behind people and other depth slots (set_clip depth) and for auto_reframe. By default "
-        + "every video on the timeline without a cut-out.",
+        + "behind people and other depth slots (set_clip depth_slot) and for auto_reframe. By "
+        + "default every video on the timeline without a cut-out.",
       parameters: JSONSchema.object([
         "media_ids": JSONSchema.array("Media to cut out", items: Fields.mediaID),
         "engine": JSONSchema.string(

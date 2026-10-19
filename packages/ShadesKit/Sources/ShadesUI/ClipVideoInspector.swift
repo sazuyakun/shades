@@ -22,7 +22,7 @@ struct ClipVideoInspector: View {
       }
       Picker("Depth", selection: Binding(
         get: { clip.depth },
-        set: { perform([SetClip(clipID: clip.id, depth: $0)], title: SetClip.title) },
+        set: { perform([SetClip(clipID: clip.id, depthSlot: $0)], title: SetClip.title) },
       )) {
         Text("In front").tag(DepthSlot.inFront)
         Text("Behind subject").tag(DepthSlot.behindSubject)

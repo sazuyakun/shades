@@ -184,6 +184,7 @@ final class MetalRenderer: Sendable {
       source: matte,
       rotation: .identity,
       transform: layer.transform,
+      camera: layer.camera,
       opacity: 1,
       depth: .inFront,
       matte: nil,
@@ -209,10 +210,11 @@ final class MetalRenderer: Sendable {
       rotation: layer.rotation,
       output: size,
       transform: layer.transform,
+      camera: layer.camera,
       opacity: layer.opacity,
       isNaturalSize: layer.isNaturalSize,
     )
-    encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.size, index: 0)
+    encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
     encoder.setFragmentTexture(sourceTexture, index: 0)
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
   }
@@ -243,6 +245,8 @@ struct RenderLayer {
   let source: LayerPicture
   let rotation: CGAffineTransform
   let transform: ClipTransform
+  /// The timeline camera's move this frame, or identity for layers that don't follow it.
+  let camera: ClipTransform
   let opacity: Double
   let depth: DepthSlot
   /// The layer's cut-out for this frame (upright), when it has one.

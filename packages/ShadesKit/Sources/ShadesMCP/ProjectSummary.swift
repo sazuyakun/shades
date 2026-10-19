@@ -18,6 +18,14 @@ enum ProjectSummary {
         "height": .number(Double(timeline.format.height)),
         "fps": .number(Double(timeline.format.framesPerSecond)),
         "duration": seconds(timeline.duration),
+        "camera": .array(timeline.camera.map { keyframe in
+          [
+            "property": .string(keyframe.property.rawValue),
+            "at": seconds(keyframe.time),
+            "value": rounded(keyframe.value),
+            "easing": .string(keyframe.easing.rawValue),
+          ]
+        }),
       ],
       "playhead": rounded(playhead),
       "selection": .array(selection.map { .string($0.uuidString) }),
@@ -28,6 +36,7 @@ enum ProjectSummary {
           "kind": .string(track.kind.rawValue),
           "muted": .bool(track.isMuted),
           "hidden": .bool(track.isHidden),
+          "follows_camera": .bool(track.followsCamera),
           "clips": .array(track.clips
             .map { json(of: $0, media: $0.mediaID.flatMap { mediaByID[$0] }) }),
         ]
@@ -75,7 +84,10 @@ enum ProjectSummary {
       "scale": rounded(clip.transform.scale),
       "rotation": rounded(clip.transform.rotation),
       "opacity": rounded(clip.opacity),
-      "depth": .string(clip.depth.rawValue),
+      "tilt_x": rounded(clip.transform.tiltX),
+      "tilt_y": rounded(clip.transform.tiltY),
+      "depth": rounded(clip.transform.depth),
+      "depth_slot": .string(clip.depth.rawValue),
       "volume": rounded(clip.volume),
       "audio_enabled": .bool(clip.isAudioEnabled),
     ]
