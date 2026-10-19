@@ -15,6 +15,7 @@ public struct TextStyle: Codable, Hashable, Sendable {
     align: TextAlign = .center,
     anchor: TextAnchor = .bottom,
     highlight: HexColor? = nil,
+    arc: Double = 0,
   ) {
     self.font = font
     self.size = size
@@ -25,6 +26,7 @@ public struct TextStyle: Codable, Hashable, Sendable {
     self.align = align
     self.anchor = anchor
     self.highlight = highlight
+    self.arc = arc
   }
 
   // MARK: Public
@@ -46,6 +48,9 @@ public struct TextStyle: Codable, Hashable, Sendable {
   public var anchor: TextAnchor
   /// The colour of the word being said, for the highlight reveal (default yellow).
   public var highlight: HexColor?
+  /// How far the line bends along a circle, in degrees: positive arches up like a rainbow,
+  /// negative dips like a smile, 0 is straight.
+  public var arc: Double
 
 }
 
@@ -71,6 +76,7 @@ extension TextStyle {
       align: container.decodeIfPresent(TextAlign.self, forKey: .align) ?? base.align,
       anchor: container.decodeIfPresent(TextAnchor.self, forKey: .anchor) ?? base.anchor,
       highlight: container.decodeIfPresent(HexColor.self, forKey: .highlight),
+      arc: container.decodeIfPresent(Double.self, forKey: .arc) ?? 0,
     )
   }
 
@@ -86,6 +92,7 @@ extension TextStyle {
     case align
     case anchor
     case highlight
+    case arc
   }
 
 }

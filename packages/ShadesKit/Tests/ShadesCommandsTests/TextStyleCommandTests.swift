@@ -34,5 +34,8 @@ struct TextStyleCommandTests {
     #expect(throws: CommandError.self) {
       try SetText(clipID: clip.id, style: TextStyle(outline: 1)).apply(to: &project)
     }
+    #expect(throws: CommandError.self) {
+      try SetText(clipID: clip.id, style: TextStyle(arc: 400)).apply(to: &project)
+    }
   }
 }

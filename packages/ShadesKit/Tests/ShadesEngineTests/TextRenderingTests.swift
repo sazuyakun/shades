@@ -69,6 +69,31 @@ struct TextRenderingTests {
   }
 
   @Test
+  func `an arched title bends its middle up above its ends`() async throws {
+    var style = TextStyle(
+      size: 0.12,
+      color: HexColor("#FFD84A") ?? .white,
+      outline: 0,
+      anchor: .center,
+    )
+    style.shadow = false
+    style.arc = 120
+    let png = try await frame(TextContent(text: "SHADES SHADES", style: style), at: 0.5)
+    /// The highest row with a letter in it, among columns `from` to `to`.
+    let top = { (from: Double, to: Double) throws -> Double in
+      try stride(from: 0.0, to: 1, by: 0.01).first { y in
+        try stride(from: from, through: to, by: 0.01).contains { x in
+          try PixelProbe.color(of: png, x: x, y: y).green > 150
+        }
+      } ?? 1
+    }
+    let middleTop = try top(0.4, 0.6)
+    let sideTop = try top(0.15, 0.25)
+    #expect(middleTop < sideTop - 0.05, "the middle sits higher than the side")
+    #expect(try GoldenFrame.matches(png, named: "title-arched", in: golden))
+  }
+
+  @Test
   func `kinetic words render mid-reveal`() async throws {
     let style = TextStyle(size: 0.14, anchor: .center)
     let png = try await frame(

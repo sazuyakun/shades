@@ -57,7 +57,6 @@ Problems found but not fixed yet. When one is fixed, delete its row in the same 
 
 | # | Issue | Fix in |
 |---|---|---|
-| 10 | Text can't follow a curved path or bend yet (scope: "text on paths") | M6 |
 
 ## 3. Constraints & setup notes
 - Dev machine: **M1, 8 GB RAM, macOS 26**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.

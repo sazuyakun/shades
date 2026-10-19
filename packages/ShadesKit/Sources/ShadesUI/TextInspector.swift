@@ -61,6 +61,14 @@ struct TextInspector: View {
         onChange: change { $0.outline = $1 },
         onEnd: editor.endCoalescing,
       )
+      InspectorSlider(
+        label: "Bend",
+        value: content.style.arc,
+        range: -180 ... 180,
+        format: { "\(Int($0.rounded()))°" },
+        onChange: change { $0.arc = $1.rounded() },
+        onEnd: editor.endCoalescing,
+      )
       Text("Align").foregroundStyle(Theme.secondaryText)
       Picker("Align", selection: style(\.align)) {
         ForEach(TextAlign.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }

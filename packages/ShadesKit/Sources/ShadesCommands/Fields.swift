@@ -34,6 +34,9 @@ public enum Fields {
       values: TextAnchor.allCases.map(\.rawValue),
     ),
     "highlight": JSONSchema.string("The spoken word's colour for the highlight reveal"),
+    "arc": JSONSchema.number(
+      "Bend the text along a circle, in degrees: positive arches up, negative dips (default 0)"
+    ),
   ])
   public static let reveal = JSONSchema.string(
     "How the words come on: none, pop (each pops in as it's said), highlight (the spoken word "
