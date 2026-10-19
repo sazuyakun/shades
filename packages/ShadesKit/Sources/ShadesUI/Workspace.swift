@@ -243,13 +243,15 @@ public final class Workspace {
       }
       queuedProxies.insert(media.id)
       let url = ProxyMaker.proxyURL(for: media, in: cache)
+      guard !FileManager.default.fileExists(atPath: url.path) else {
+        Task { await useProxy(url, for: media.id, in: documentURL) }
+        continue
+      }
       jobs.enqueue("Making an editing copy of \(media.name)") { [weak self] _ throws(JobError) in
-        if !FileManager.default.fileExists(atPath: url.path) {
-          do throws(MediaError) {
-            try await ProxyMaker.makeProxy(of: media, at: url)
-          } catch {
-            throw .failed(error.errorDescription ?? "The editing copy couldn't be made.")
-          }
+        do throws(MediaError) {
+          try await ProxyMaker.makeProxy(of: media, at: url)
+        } catch {
+          throw .failed(error.errorDescription ?? "The editing copy couldn't be made.")
         }
         await self?.useProxy(url, for: media.id, in: documentURL)
       }
