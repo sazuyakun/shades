@@ -26,7 +26,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 
 | Key | Action |
 |---|---|
-| A · B · T | Select tool · Blade tool · Trim tool |
+| A · B · T · P | Select tool · Blade tool · Trim tool · Draw tool (drag in the viewer to draw lines over the picture) |
 | S · ⌘B | Split at playhead |
 | Q · W | Ripple trim start / end to playhead |
 | ⇧Q · ⇧W | Trim start / end to playhead (no ripple) |

@@ -65,4 +65,6 @@ enum LayerSource: Sendable {
   case text
   /// A still picture (PNG, photo), drawn from its file.
   case still(URL)
+  /// Hand-drawn lines, from the clip's drawing in `RenderState`.
+  case drawing
 }

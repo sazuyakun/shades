@@ -38,6 +38,8 @@ enum Guide {
     - import_media takes pictures too (PNG, JPEG). add_sticker drops one on top with a die-cut \
     border, a motion preset and a sound; cutout_from_frame turns a frame's subject into one.
     - apply_motion gives layers ready-made moves (pop, slideIn, float, orbit, scatter, stack).
+    - add_drawing draws hand-drawn lines (points or SVG path data) that boil like hand \
+    animation and can write themselves on; set_drawing changes them.
 
     Animation
     - set_keyframes animates x, y, scale, rotation or opacity: values at moments inside the \

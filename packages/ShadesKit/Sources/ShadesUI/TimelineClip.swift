@@ -23,7 +23,7 @@ struct TimelineClip: View {
     let width = scale.x(at: clip.duration) + endDelta - startDelta
     TimelineClipView(
       media: clip.mediaID.flatMap(editor.project.media(withID:)),
-      text: clip.text?.text,
+      text: clip.text?.text ?? clip.drawing.map { _ in "Drawing" },
       kind: track.kind,
       isSelected: editor.selection.contains(clip.id),
       isRecentlyChanged: server.activity.recentlyChangedClipIDs.contains(clip.id),

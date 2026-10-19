@@ -17,6 +17,10 @@ struct ClipVideoInspector: View {
         TextInspector(clip: clip, content: content, onError: onError)
         Hairline()
       }
+      if let drawing = clip.drawing {
+        DrawingInspector(clip: clip, drawing: drawing, onError: onError)
+        Hairline()
+      }
       ForEach(AnimatedProperty.allCases, id: \.self) { property in
         AnimatedSlider(clip: clip, property: property, onError: onError)
       }

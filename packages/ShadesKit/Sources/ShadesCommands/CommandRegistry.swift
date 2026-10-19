@@ -22,6 +22,8 @@ public enum CommandRegistry {
     SetCamera.self,
     ApplyMotion.self,
     AddSticker.self,
+    AddDrawing.self,
+    SetDrawing.self,
     AddText.self,
     SetText.self,
     DetachAudio.self,

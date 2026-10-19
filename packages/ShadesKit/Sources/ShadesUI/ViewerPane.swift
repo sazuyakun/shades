@@ -7,10 +7,18 @@ struct ViewerPane: View {
 
   // MARK: Internal
 
+  let isDrawing: Bool
+  let onError: (String) -> Void
+
   var body: some View {
     VStack(spacing: 0) {
       PlayerSurface(player: player.avPlayer)
         .aspectRatio(aspectRatio, contentMode: .fit)
+        .overlay {
+          if isDrawing {
+            DrawingCanvas(onError: onError)
+          }
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(18)
         .overlay(alignment: .topLeading) {

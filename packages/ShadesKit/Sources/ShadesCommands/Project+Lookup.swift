@@ -47,6 +47,13 @@ extension Project {
     return addTrack(kind)
   }
 
+  /// The lowest track of `kind` above the first (V2 up, A2 up) with nothing from `start` to
+  /// `end`, added if none is free.
+  mutating func freeUpperTrack(_ kind: TrackKind, from start: MediaTime, to end: MediaTime) -> Int {
+    let upper = timeline.tracks.indices.filter { timeline.tracks[$0].kind == kind }.dropFirst()
+    return upper.first { timeline.tracks[$0].isClear(from: start, to: end) } ?? addTrack(kind)
+  }
+
   /// Places part of `media` at `start` on the lowest upper track of its kind that's free then
   /// (above V1 or A1, added if none is), and returns the new clip's ID.
   @discardableResult
@@ -55,11 +62,11 @@ extension Project {
     range: (start: MediaTime, duration: MediaTime),
     at start: MediaTime,
   ) -> Clip.ID {
-    let kind: TrackKind = media.hasVideo ? .video : .audio
-    let end = start + range.duration
-    let upper = timeline.tracks.indices.filter { timeline.tracks[$0].kind == kind }.dropFirst()
-    let index = upper.first { timeline.tracks[$0].isClear(from: start, to: end) }
-      ?? addTrack(kind)
+    let index = freeUpperTrack(
+      media.hasVideo ? .video : .audio,
+      from: start,
+      to: start + range.duration,
+    )
     let clip = Clip(
       mediaID: media.id,
       sourceStart: range.start,

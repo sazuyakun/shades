@@ -18,6 +18,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case selectTool
   case bladeTool
   case trimTool
+  case drawTool
   case toggleSnapping
   case split
   case rippleTrimStart
@@ -79,6 +80,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .selectTool: "Select Tool"
     case .bladeTool: "Blade Tool"
     case .trimTool: "Trim Tool"
+    case .drawTool: "Draw Tool"
     case .toggleSnapping: "Snapping On / Off"
     case .split: "Split at Playhead"
     case .rippleTrimStart: "Ripple Trim Start to Playhead"
@@ -136,6 +138,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .selectTool: Shortcut("a")
     case .bladeTool: Shortcut("b")
     case .trimTool: Shortcut("t")
+    case .drawTool: Shortcut("p")
     case .toggleSnapping: Shortcut("n")
     case .split: Shortcut("s")
     case .rippleTrimStart: Shortcut("q")
@@ -196,6 +199,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .selectTool,
          .bladeTool,
          .trimTool,
+         .drawTool,
          .toggleSnapping,
          .zoomIn,
          .zoomOut,
@@ -280,11 +284,19 @@ enum EditorAction: CaseIterable, Identifiable {
   private func view(in context: ActionContext) {
     let settings = context.settings
     switch self {
-    case .selectTool: settings.wrappedValue.tool = .select
+    case .selectTool:
+      settings.wrappedValue.tool = .select
+      settings.wrappedValue.isDrawing = false
 
-    case .bladeTool: settings.wrappedValue.tool = .blade
+    case .bladeTool:
+      settings.wrappedValue.tool = .blade
+      settings.wrappedValue.isDrawing = false
 
-    case .trimTool: settings.wrappedValue.tool = .trim
+    case .trimTool:
+      settings.wrappedValue.tool = .trim
+      settings.wrappedValue.isDrawing = false
+
+    case .drawTool: settings.wrappedValue.isDrawing.toggle()
 
     case .toggleSnapping: settings.wrappedValue.isSnapping.toggle()
 

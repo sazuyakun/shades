@@ -61,6 +61,14 @@ extension Composition {
       var placed = [PlacedClip]()
       for clip in track.clips {
         guard let mediaID = clip.mediaID else {
+          if clip.drawing != nil {
+            placed.append(PlacedClip(
+              clip: clip,
+              rotation: .identity,
+              hasMatte: false,
+              drawn: .drawing,
+            ))
+          }
           continue
         }
         let media = try project.mediaForPlayback(mediaID)
@@ -69,7 +77,7 @@ extension Composition {
             clip: clip,
             rotation: .identity,
             hasMatte: false,
-            still: media.url,
+            drawn: .still(media.url),
           ))
           continue
         }
@@ -103,7 +111,7 @@ extension Composition {
               clip: clip,
               rotation: source.rotation,
               hasMatte: hasMatte,
-              still: nil,
+              drawn: nil,
             ))
           }
           if let audio = source.audio {
@@ -222,7 +230,7 @@ extension Composition {
           return nil
         }
         guard
-          let source = placed.still.map(LayerSource.still)
+          let source = placed.drawn
           ?? layer.trackID.map({ LayerSource.video(trackID: $0, rotation: placed.rotation) })
         else {
           return nil
@@ -265,13 +273,13 @@ private struct VideoLayer {
 
 // MARK: - PlacedClip
 
-/// A clip placed in the composition: its rotation, whether its cut-out came with it, and the
-/// picture file when it's a still.
+/// A clip placed in the composition: its rotation, whether its cut-out came with it, and how
+/// it's drawn when it isn't video (a still or a drawing).
 private struct PlacedClip {
   let clip: Clip
   let rotation: CGAffineTransform
   let hasMatte: Bool
-  let still: URL?
+  let drawn: LayerSource?
 }
 
 // MARK: - TrackStructure

@@ -64,6 +64,17 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         ).map(LayerPicture.surface)
         rotation = .identity
 
+      case .drawing:
+        picture = clip.drawing.flatMap { drawing in
+          instruction.renderContext.drawing(
+            drawing,
+            at: clip.sourceTime(at: time).seconds,
+            width: width,
+            height: height,
+          )
+        }.map(LayerPicture.surface)
+        rotation = .identity
+
       case .text:
         let drawn = clip.text.flatMap { content in
           instruction.renderContext.text(

@@ -84,6 +84,30 @@ public final class RenderContext: Sendable {
     return surface
   }
 
+  /// A drawing as it looks at `time` (seconds into its clip) on a frame-sized surface; from the
+  /// cache when that moment's wobble and write-on were drawn recently.
+  func drawing(_ drawing: Drawing, at time: Double, width: Int, height: Int) -> IOSurface? {
+    let moment = DrawingRenderer.moment(of: drawing, at: time)
+    let key = DrawingKey(drawing: drawing, width: width, height: height, moment: moment)
+    if let cached = drawings.withLock({ $0[key] }) {
+      return cached
+    }
+    guard
+      let buffer = DrawingRenderer.render(drawing, moment: moment, width: width, height: height),
+      let surface = CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue()
+    else {
+      logger.error("drawing.renderFailed width=\(width, privacy: .public)")
+      return nil
+    }
+    drawings.withLock { cache in
+      if cache.count >= Self.drawingCacheLimit {
+        cache.removeAll()
+      }
+      cache[key] = surface
+    }
+    return surface
+  }
+
   // MARK: Private
 
   /// Drawn texts kept at most; the cache empties when full. Popping words draw a new picture each
@@ -93,9 +117,14 @@ public final class RenderContext: Sendable {
   /// Pictures kept at most; full-frame stills are large, so only a timeline's worth.
   private static let stillCacheLimit = 32
 
+  /// Drawn moments kept at most: a boiling drawing makes a dozen a second, so a few seconds.
+  private static let drawingCacheLimit = 48
+
   private let texts = Mutex<[TextKey: DrawnText]>([:])
 
   private let stills = Mutex<[StillKey: IOSurface]>([:])
+
+  private let drawings = Mutex<[DrawingKey: IOSurface]>([:])
 
 }
 
@@ -126,4 +155,14 @@ private struct StillKey: Hashable {
   let url: URL
   let look: StickerLook?
   let maxSide: Int
+}
+
+// MARK: - DrawingKey
+
+/// What a drawn moment depends on.
+private struct DrawingKey: Hashable {
+  let drawing: Drawing
+  let width: Int
+  let height: Int
+  let moment: DrawingMoment
 }

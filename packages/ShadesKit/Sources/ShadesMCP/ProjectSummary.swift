@@ -98,6 +98,18 @@ enum ProjectSummary {
 
     case .text(let content):
       fields["text"] = .string(content.text)
+      fields["style"] = .string(content.style.font ?? "system bold")
+      fields["reveal"] = .string(content.reveal.rawValue)
+
+    case .drawing(let drawing):
+      fields["drawing"] = [
+        "strokes": .number(Double(drawing.strokes.count)),
+        "color": .string(drawing.color.hex),
+        "width": rounded(drawing.width),
+        "glow": rounded(drawing.glow),
+        "boil": rounded(drawing.boil),
+        "write_on": rounded(drawing.writeOn),
+      ]
     }
     if !clip.keyframes.isEmpty {
       fields["keyframes"] = .array(clip.keyframes.map { keyframe in

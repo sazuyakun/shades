@@ -105,6 +105,14 @@ public struct Clip: Hashable, Sendable, Identifiable {
     return nil
   }
 
+  /// The lines a drawing clip shows.
+  public var drawing: Drawing? {
+    if case .drawing(let drawing) = source {
+      return drawing
+    }
+    return nil
+  }
+
   /// Where on the timeline the clip ends.
   public var timelineEnd: MediaTime {
     timelineStart + duration

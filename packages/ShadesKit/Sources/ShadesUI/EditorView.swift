@@ -28,7 +28,7 @@ public struct EditorView: View {
             onAppend: { run(.append) },
           )
           .frame(minWidth: 220, idealWidth: 280, maxWidth: 420)
-          ViewerPane()
+          ViewerPane(isDrawing: timelineSettings.isDrawing, onError: { errorMessage = $0 })
             .frame(minWidth: 400, maxWidth: .infinity)
             .layoutPriority(1)
           Group {
