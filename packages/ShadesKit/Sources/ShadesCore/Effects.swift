@@ -11,12 +11,16 @@ public struct Effects: Hashable, Sendable {
     halation: Double = 0,
     blur: Double = 0,
     key: ChromaKey? = nil,
+    shader: String? = nil,
+    shaderAmount: Double = 1,
   ) {
     self.grain = grain
     self.vignette = vignette
     self.halation = halation
     self.blur = blur
     self.key = key
+    self.shader = shader
+    self.shaderAmount = shaderAmount
   }
 
   // MARK: Public
@@ -31,6 +35,10 @@ public struct Effects: Hashable, Sendable {
   public var blur: Double
   /// Removes a background colour (green screen).
   public var key: ChromaKey?
+  /// A Metal shader effect: a `.metal` file's path, or a plugin's shader by name.
+  public var shader: String?
+  /// How strongly the shader effect applies, 0 to 1 (it reads this as `amount`).
+  public var shaderAmount: Double
 
 }
 
@@ -49,6 +57,8 @@ extension Effects: Codable {
       halation: container.decodeIfPresent(Double.self, forKey: .halation) ?? 0,
       blur: container.decodeIfPresent(Double.self, forKey: .blur) ?? 0,
       key: container.decodeIfPresent(ChromaKey.self, forKey: .key),
+      shader: container.decodeIfPresent(String.self, forKey: .shader),
+      shaderAmount: container.decodeIfPresent(Double.self, forKey: .shaderAmount) ?? 1,
     )
   }
 
@@ -60,6 +70,8 @@ extension Effects: Codable {
     case halation
     case blur
     case key
+    case shader
+    case shaderAmount
   }
 
 }

@@ -125,6 +125,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           } ?? clip.effects,
           blend: clip.blend,
           transition: transition,
+          clipTime: clip.sourceTime(at: time).seconds,
         )
       }
     }

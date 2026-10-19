@@ -86,7 +86,9 @@ Rule-based tools (no AI) that write ordinary, editable timeline items, starting 
 - Over MCP, Claude can list plugins, use them, and write new ones as files.
 - **Format (M5):** a plugin folder holds any of:
   - `plugin.json`: `name`, `description`, `styles` (named text styles: font, size, color, outline_color, outline, shadow, align, anchor, highlight; fields left out keep the caption look) and `templates` (named; `duration` and `layers`, each layer text with `{field}` placeholders or a `sticker`, plus `style`, `reveal`, `start`, `duration`, `transform`, `look`, `motion`, `keyframes`, `depth_slot`, `sound`). Keys may be snake_case or camelCase.
-  - `stickers/` (pictures), `sounds/` (audio), `fonts/` (registered while loaded). `luts/` and `shaders/` arrive with M6.
+  - `stickers/` (pictures), `sounds/` (audio), `fonts/` (registered while loaded), `luts/` (`.cube`), `shaders/` (`.metal` effects).
+  - `plugin.json` may also hold `looks`: named grades with effects and a blend mode (a grade recipe).
+  - **Shader effects** define `float4 effect(float4 color, float2 uv, float time, float amount, texture2d<half> source, sampler s)`: `color` is the layer's straight (not premultiplied) colour after its grade, `uv` where in its picture, `time` seconds into the clip, `amount` the effect's strength. Shades compiles it with the layer shader at runtime; an edited file recompiles, and compile errors go back to Claude.
   - A folder in Settings is a plugin itself, or holds plugins one level down. Changes reload by themselves; a broken manifest is reported (where and what) in Settings and `list_plugins`.
 
 ## 9. Storage

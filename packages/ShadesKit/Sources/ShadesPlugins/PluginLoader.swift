@@ -40,7 +40,7 @@ public enum PluginLoader {
   }
 
   private static func isPlugin(_ folder: URL) -> Bool {
-    ["plugin.json", "stickers", "sounds", "fonts", "luts"].contains { item in
+    ["plugin.json", "stickers", "sounds", "fonts", "luts", "shaders"].contains { item in
       FileManager.default.fileExists(atPath: folder.appending(path: item).path)
     }
   }
@@ -69,6 +69,7 @@ public enum PluginLoader {
       stickers: files(in: folder.appending(path: "stickers"), conformingTo: .image),
       sounds: files(in: folder.appending(path: "sounds"), conformingTo: .audio),
       luts: files(in: folder.appending(path: "luts"), withExtension: "cube"),
+      shaders: files(in: folder.appending(path: "shaders"), withExtension: "metal"),
       fonts: Array(files(in: folder.appending(path: "fonts"), conformingTo: .font).values)
         .sorted { $0.path < $1.path },
       problem: problem,

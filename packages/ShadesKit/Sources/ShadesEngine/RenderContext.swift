@@ -1,4 +1,5 @@
 import CoreVideo
+import Foundation
 import IOSurface
 import ShadesCore
 import Synchronization
@@ -15,6 +16,13 @@ public final class RenderContext: Sendable {
   /// Opens the GPU and compiles the shaders.
   public init() throws(EngineError) {
     renderer = try MetalRenderer()
+  }
+
+  // MARK: Public
+
+  /// Why the shader effect at `url` can't be used (its compiler errors), or `nil` if it compiles.
+  public func shaderProblem(at url: URL) -> String? {
+    renderer.shaderProblem(at: url)
   }
 
   // MARK: Internal

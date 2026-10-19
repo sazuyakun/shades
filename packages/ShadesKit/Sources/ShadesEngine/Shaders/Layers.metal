@@ -69,6 +69,8 @@ struct LayerLook {
   float wipeProgress; // how far a transition's wipe has revealed the layer, 0 … 1
   int dipToWhite;
   int wipe;           // 0 none, 1 slices, 2 tiles, 3 iris
+  float effectTime;   // seconds into the clip, for a plugin effect
+  float effectAmount; // a plugin effect's strength, 0 … 1
 };
 
 static float hash(float2 p) {
@@ -151,6 +153,54 @@ static float3 blendWith(float3 base, float3 top, int mode) {
   }
 }
 
+// The layer's picture keyed, graded and given its effects: straight colour and alpha, before
+// it's masked, wiped or mixed with what's under it.
+static float4 shade(VertexOut in, texture2d<half> picture, float2 uv, texture3d<float> lut, texture2d<float> curves, constant LayerLook &look, sampler s) {
+  float4 color = sampleSoft(picture, s, uv, look);
+  float alpha = color.a;
+  float3 rgb = alpha > 0 ? color.rgb / alpha : color.rgb;
+  if (look.keyTolerance > 0) {
+    float distance = length(rgb - float3(look.keyRed, look.keyGreen, look.keyBlue));
+    alpha *= smoothstep(look.keyTolerance, look.keyTolerance + max(look.keySoftness, 0.001), distance);
+  }
+  rgb = grade(rgb, look, lut, curves, s);
+  if (look.halation > 0) {
+    float3 glow = float3(0);
+    for (int i = 0; i < 8; i++) {
+      float angle = float(i) * 0.7853982;
+      float2 offset = float2(cos(angle), sin(angle)) * look.texel * 18.0;
+      float3 tap = float3(picture.sample(s, uv + offset).rgb);
+      glow += max(tap - 0.75, 0.0);
+    }
+    rgb += float3(1.0, 0.35, 0.15) * luma(glow / 8.0) * look.halation * 3.0;
+  }
+  if (look.vignette > 0) {
+    float2 centered = in.screen - 0.5;
+    rgb *= 1 - look.vignette * smoothstep(0.3, 0.75, length(centered * float2(1.0, 0.85)));
+  }
+  if (look.grain > 0) {
+    float noise = hash(in.position.xy + look.seed * 61.7) - 0.5;
+    rgb += noise * look.grain * 0.18 * (1.0 - abs(luma(rgb) - 0.5));
+  }
+  return float4(rgb, alpha);
+}
+
+// The shaded colour faded by a transition's dip, masked and wiped, then mixed with what's under
+// it by the blend mode (or, for an adjustment clip, written in place).
+static float4 composite(float4 shaded, VertexOut in, texture2d<half> mask, texture2d<half> backdrop, constant LayerLook &look, sampler s) {
+  float3 rgb = mix(shaded.rgb, look.dipToWhite != 0 ? float3(1) : float3(0), look.dip);
+  rgb = saturate(rgb);
+  float alpha = shaded.a * in.opacity * wipeMask(in.screen, look.wipe, look.wipeProgress);
+  if (look.masked != 0) {
+    alpha *= float(mask.sample(s, in.screen).r);
+  }
+  if (look.blend == 0 && look.isAdjustment == 0) {
+    return float4(rgb, alpha);
+  }
+  float3 under = float3(backdrop.sample(s, in.screen).rgb);
+  return float4(mix(under, blendWith(under, rgb, look.blend), alpha), 1);
+}
+
 // Draws one layer: its picture keyed, graded and given its effects, then mixed with what's under
 // it by its blend mode (or, for an adjustment clip, the frame so far, graded in place).
 fragment float4 layerFragment(
@@ -165,43 +215,8 @@ fragment float4 layerFragment(
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
   float2 uv = look.isAdjustment != 0 ? in.screen : in.uv;
   texture2d<half> picture = look.isAdjustment != 0 ? backdrop : source;
-  float4 color = sampleSoft(picture, linearSampler, uv, look);
-  float alpha = color.a;
-  float3 rgb = alpha > 0 ? color.rgb / alpha : color.rgb;
-  if (look.keyTolerance > 0) {
-    float distance = length(rgb - float3(look.keyRed, look.keyGreen, look.keyBlue));
-    alpha *= smoothstep(look.keyTolerance, look.keyTolerance + max(look.keySoftness, 0.001), distance);
-  }
-  rgb = grade(rgb, look, lut, curves, linearSampler);
-  if (look.halation > 0) {
-    float3 glow = float3(0);
-    for (int i = 0; i < 8; i++) {
-      float angle = float(i) * 0.7853982;
-      float2 offset = float2(cos(angle), sin(angle)) * look.texel * 18.0;
-      float3 tap = float3(picture.sample(linearSampler, uv + offset).rgb);
-      glow += max(tap - 0.75, 0.0);
-    }
-    rgb += float3(1.0, 0.35, 0.15) * luma(glow / 8.0) * look.halation * 3.0;
-  }
-  if (look.vignette > 0) {
-    float2 centered = in.screen - 0.5;
-    rgb *= 1 - look.vignette * smoothstep(0.3, 0.75, length(centered * float2(1.0, 0.85)));
-  }
-  if (look.grain > 0) {
-    float noise = hash(in.position.xy + look.seed * 61.7) - 0.5;
-    rgb += noise * look.grain * 0.18 * (1.0 - abs(luma(rgb) - 0.5));
-  }
-  rgb = mix(rgb, look.dipToWhite != 0 ? float3(1) : float3(0), look.dip);
-  rgb = saturate(rgb);
-  alpha *= in.opacity * wipeMask(in.screen, look.wipe, look.wipeProgress);
-  if (look.masked != 0) {
-    alpha *= float(mask.sample(linearSampler, in.screen).r);
-  }
-  if (look.blend == 0 && look.isAdjustment == 0) {
-    return float4(rgb, alpha);
-  }
-  float3 under = float3(backdrop.sample(linearSampler, in.screen).rgb);
-  return float4(mix(under, blendWith(under, rgb, look.blend), alpha), 1);
+  float4 shaded = shade(in, picture, uv, lut, curves, look, linearSampler);
+  return composite(shaded, in, mask, backdrop, look, linearSampler);
 }
 
 // A cut-out's gray value, written into the one-channel mask.

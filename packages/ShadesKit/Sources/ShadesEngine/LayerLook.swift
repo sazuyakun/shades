@@ -21,6 +21,7 @@ struct LayerLook {
     hasCurves: Bool,
     seed: Double,
     transition: TransitionStyle?,
+    clipTime: Double,
   ) {
     let grade = grade ?? Grade()
     let effects = effects ?? Effects()
@@ -51,6 +52,8 @@ struct LayerLook {
     dip = Float(transition?.dip ?? 0)
     wipeProgress = Float(transition?.wipeProgress ?? 0)
     dipToWhite = transition?.dipsToWhite == true ? 1 : 0
+    effectTime = Float(clipTime)
+    effectAmount = Float(effects.shaderAmount)
     wipe =
       switch transition?.wipe {
       case .slices: 1
@@ -90,5 +93,7 @@ struct LayerLook {
   let wipeProgress: Float
   let dipToWhite: Int32
   let wipe: Int32
+  let effectTime: Float
+  let effectAmount: Float
 
 }

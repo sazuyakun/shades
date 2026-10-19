@@ -688,24 +688,48 @@ public final class ToolHandler {
     return .text(report(since: before))
   }
 
-  /// The arguments with a grade's LUT given by plugin name turned into its file's path.
+  /// The arguments with a grade's LUT and an effect's shader given by plugin name turned into
+  /// their files' paths, and a shader that doesn't compile refused with its errors.
   private func resolvingLUT(in arguments: JSONValue) throws(ToolError) -> JSONValue {
-    guard
-      case .object(var fields) = arguments,
-      case .object(var grade) = fields["grade"],
-      let lut = grade["lut"]?.stringValue,
-      !lut.hasPrefix("/"), !lut.hasPrefix("~")
-    else {
+    guard case .object(var fields) = arguments else {
       return arguments
     }
-    guard let path = try host().plugins.lutPath(named: lut) else {
+    if case .object(var grade) = fields["grade"], let lut = grade["lut"]?.stringValue {
+      grade["lut"] = try .string(pluginFile(lut, kind: "LUT") { $0.lutPath(named: lut) })
+      fields["grade"] = .object(grade)
+    }
+    if case .object(var effects) = fields["effects"], let shader = effects["shader"]?.stringValue {
+      let path = try pluginFile(shader, kind: "shader") { $0.shaderPath(named: shader) }
+      let context: RenderContext
+      do {
+        context = try player.renderContext()
+      } catch {
+        throw .engineFailed(error)
+      }
+      if let problem = context.shaderProblem(at: URL(filePath: path)) {
+        throw .commandFailed(.invalidArguments("the shader doesn't compile: \(problem)"))
+      }
+      effects["shader"] = .string(path)
+      fields["effects"] = .object(effects)
+    }
+    return .object(fields)
+  }
+
+  /// A file given by path, or a plugin's file of `kind` by name.
+  private func pluginFile(
+    _ name: String,
+    kind: String,
+    find: (PluginLibrary) -> String?,
+  ) throws(ToolError) -> String {
+    if name.hasPrefix("/") || name.hasPrefix("~") {
+      return (name as NSString).expandingTildeInPath
+    }
+    guard let path = try find(host().plugins) else {
       throw .commandFailed(.invalidArguments(
-        "there's no LUT called \(lut); give a .cube file's path or a LUT from list_plugins"
+        "there's no \(kind) called \(name); give a file's path or a \(kind) from list_plugins"
       ))
     }
-    grade["lut"] = .string(path)
-    fields["grade"] = .object(grade)
-    return .object(fields)
+    return path
   }
 
   /// Runs several registry commands as one undo step.
@@ -988,6 +1012,9 @@ public final class ToolHandler {
       }
       if !plugin.looks.isEmpty {
         lines.append("  looks: " + plugin.looks.keys.sorted().joined(separator: ", "))
+      }
+      if !plugin.shaders.isEmpty {
+        lines.append("  shaders: " + plugin.shaders.keys.sorted().joined(separator: ", "))
       }
       if !plugin.luts.isEmpty {
         lines.append("  luts: " + plugin.luts.keys.sorted().joined(separator: ", "))

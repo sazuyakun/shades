@@ -44,10 +44,19 @@ public final class PluginLibrary {
         let lut = look.grade?.lut
           .map { name in plugin.luts[name]?.path ?? lutPath(named: name) ?? name }
         look.grade?.lut = lut
+        let shader = look.effects?.shader.map { name in
+          plugin.shaders[name]?.path ?? shaderPath(named: name) ?? name
+        }
+        look.effects?.shader = shader
         return look
       }
     }
     return nil
+  }
+
+  /// A shader effect's file path by name, `plugin/name` or just `name`.
+  public func shaderPath(named name: String) -> String? {
+    find(name) { $0.shaders }?.path
   }
 
   /// A LUT's file path by name, `plugin/name` or just `name`.

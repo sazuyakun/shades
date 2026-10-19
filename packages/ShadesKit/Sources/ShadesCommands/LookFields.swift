@@ -23,6 +23,12 @@ enum LookFields {
     "vignette": JSONSchema.number("Darkened corners, 0 to 1", minimum: 0, maximum: 1),
     "halation": JSONSchema.number("Red glow around highlights, 0 to 1", minimum: 0, maximum: 1),
     "blur": JSONSchema.number("Softness, 0 to 1", minimum: 0, maximum: 1),
+    "shader": JSONSchema.string(
+      "A Metal shader effect: a .metal file's path or a plugin's shader. The file defines "
+        + "float4 effect(float4 color, float2 uv, float time, float amount, texture2d<half> "
+        + "source, sampler s), returning the new straight (not premultiplied) colour"
+    ),
+    "shader_amount": JSONSchema.number("The effect's strength, 0 to 1 (default 1)"),
     "key": JSONSchema.object([
       "color": JSONSchema.string("The background colour to remove (default green #00FF00)"),
       "tolerance": JSONSchema.number("How far from it counts as background, 0 to 1"),

@@ -21,7 +21,8 @@ final class MetalRenderer: Sendable {
     }
     self.device = device
     self.queue = queue
-    let library = try Self.makeLibrary(device: device)
+    layersSource = try Self.layersSource()
+    let library = try Self.makeLibrary(device: device, source: layersSource)
     pipeline = try Self.makePipeline(
       device: device,
       library: library,
@@ -103,7 +104,10 @@ final class MetalRenderer: Sendable {
         try copy(outputTexture, to: backdrop, commands: commands)
         encoder = try startPass(on: outputTexture, clearing: false, commands: commands)
       }
-      encoder.setRenderPipelineState(layer.needsBackdrop ? replacingPipeline : pipeline)
+      let effect = layer.effects?.shader.flatMap { effectPipelines(at: URL(filePath: $0)) }
+      encoder.setRenderPipelineState(layer.needsBackdrop
+        ? effect?.replacing ?? replacingPipeline
+        : effect?.blending ?? pipeline)
       encoder.setFragmentTexture(isMasked ? mask : blank, index: 1)
       encoder.setFragmentTexture(backdrop ?? blank, index: 2)
       try encode(
@@ -120,6 +124,13 @@ final class MetalRenderer: Sendable {
     commands.waitUntilCompleted()
   }
 
+  /// Why the shader effect at `url` can't be used (its compiler errors, or that it can't be
+  /// read), or `nil` when it compiles.
+  func shaderProblem(at url: URL) -> String? {
+    _ = effectPipelines(at: url)
+    return effectProblems.withLock { $0[ShaderFile(url)] }
+  }
+
   /// Wraps a pixel buffer's IOSurface as a Metal texture: the GPU uses the same memory directly.
   func texture(for buffer: CVPixelBuffer) throws(EngineError) -> any MTLTexture {
     guard let surface = CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue() else {
@@ -134,6 +145,31 @@ final class MetalRenderer: Sendable {
   /// LUTs and curves kept at most; a LUT is up to a few megabytes on the GPU.
   private static let lookCacheLimit = 16
 
+  /// The fragment that runs a plugin's or Claude's `effect` function between shading and
+  /// compositing a layer (its signature is in docs/SYSTEM.md, Plugins).
+  private static let effectWrapper = """
+
+    fragment float4 effectFragment(
+      VertexOut in [[stage_in]],
+      texture2d<half> source [[texture(0)]],
+      texture2d<half> mask [[texture(1)]],
+      texture2d<half> backdrop [[texture(2)]],
+      texture3d<float> lut [[texture(3)]],
+      texture2d<float> curves [[texture(4)]],
+      constant LayerLook &look [[buffer(0)]]
+    ) {
+      constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
+      float2 uv = look.isAdjustment != 0 ? in.screen : in.uv;
+      texture2d<half> picture = look.isAdjustment != 0 ? backdrop : source;
+      float4 shaded = shade(in, picture, uv, lut, curves, look, linearSampler);
+      float4 changed = effect(
+        shaded, uv, look.effectTime, look.effectAmount, picture, linearSampler
+      );
+      return composite(changed, in, mask, backdrop, look, linearSampler);
+    }
+    """
+
+  private let layersSource: String
   private let device: any MTLDevice
   private let queue: any MTLCommandQueue
   private let pipeline: any MTLRenderPipelineState
@@ -146,20 +182,31 @@ final class MetalRenderer: Sendable {
   /// LUTs that couldn't be read, so they're tried (and logged) once, not every frame.
   private let unreadableLUTs = Mutex<Set<URL>>([])
   private let curves = Mutex<[Curves: any MTLTexture]>([:])
+  /// Compiled shader effects by file, and why the ones that failed didn't compile.
+  private let effects = Mutex<[ShaderFile: EffectPipelines]>([:])
+  private let effectProblems = Mutex<[ShaderFile: String]>([:])
 
-  private static func makeLibrary(device: any MTLDevice) throws(EngineError) -> any MTLLibrary {
+  private static func layersSource() throws(EngineError) -> String {
     guard
       let url = Bundle.module.url(
         forResource: "Layers",
         withExtension: "metal",
         subdirectory: "Shaders",
-      )
+      ),
+      let source = try? String(contentsOf: url, encoding: .utf8)
     else {
       logger.fault("metal.setupFailed reason=shaderMissing")
       throw .metalUnavailable
     }
+    return source
+  }
+
+  private static func makeLibrary(
+    device: any MTLDevice,
+    source: String,
+  ) throws(EngineError) -> any MTLLibrary {
     do {
-      return try device.makeLibrary(source: String(contentsOf: url, encoding: .utf8), options: nil)
+      return try device.makeLibrary(source: source, options: nil)
     } catch {
       logger.fault("metal.setupFailed reason=shaderCompile")
       throw .metalUnavailable
@@ -396,6 +443,7 @@ final class MetalRenderer: Sendable {
       hasCurves: curveTexture != nil,
       seed: seed,
       transition: layer.transition,
+      clipTime: layer.clipTime,
     )
     let neutral = defaults.withLock { ($0.lut, $0.curves) }
     encoder.setFragmentTexture(lut ?? neutral.0, index: 3)
@@ -470,6 +518,49 @@ final class MetalRenderer: Sendable {
     return self.curves.withLock { $0[curves] }
   }
 
+  /// The pipelines for the shader effect at `url`, compiled the first time; `nil` when it
+  /// doesn't compile (the reason is kept for `shaderProblem`).
+  private func effectPipelines(at url: URL) -> EffectPipelines? {
+    let file = ShaderFile(url)
+    if let compiled = effects.withLock({ $0[file] }) {
+      return compiled
+    }
+    guard effectProblems.withLock({ $0[file] }) == nil else {
+      return nil
+    }
+    // why: an unreadable file is reported to whoever set the effect, like a compile error.
+    guard let effect = try? String(contentsOf: url, encoding: .utf8) else {
+      effectProblems.withLock { $0[file] = "the shader file can't be read" }
+      return nil
+    }
+    do {
+      let library = try device.makeLibrary(
+        source: layersSource + "\n" + effect + "\n" + Self.effectWrapper,
+        options: nil,
+      )
+      let pipelines = try EffectPipelines(
+        blending: Self.makePipeline(
+          device: device,
+          library: library,
+          fragment: "effectFragment",
+          blending: true,
+        ),
+        replacing: Self.makePipeline(
+          device: device,
+          library: library,
+          fragment: "effectFragment",
+          blending: false,
+        ),
+      )
+      effects.withLock { $0[file] = pipelines }
+      return pipelines
+    } catch {
+      logger.error("effect.compileFailed path=\(url.path, privacy: .private)")
+      effectProblems.withLock { $0[file] = error.localizedDescription }
+      return nil
+    }
+  }
+
   /// Wraps a BGRA IOSurface as a Metal texture without copying.
   private func texture(for surface: IOSurface) throws(EngineError) -> any MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -509,6 +600,7 @@ struct RenderLayer {
     effects: Effects? = nil,
     blend: BlendMode = .normal,
     transition: TransitionStyle? = nil,
+    clipTime: Double = 0,
   ) {
     self.source = source
     self.rotation = rotation
@@ -522,6 +614,7 @@ struct RenderLayer {
     self.effects = effects
     self.blend = blend
     self.transition = transition
+    self.clipTime = clipTime
   }
 
   // MARK: Internal
@@ -542,6 +635,8 @@ struct RenderLayer {
   let blend: BlendMode
   /// How a transition it's part of shapes it this frame.
   let transition: TransitionStyle?
+  /// Seconds into the clip, for shader effects that move.
+  let clipTime: Double
 
   /// Whether this is an adjustment clip, working on the frame drawn so far.
   var isAdjustment: Bool {
@@ -576,4 +671,27 @@ private struct DefaultTextures {
   let lut: any MTLTexture
   let curves: any MTLTexture
   let blank: any MTLTexture
+}
+
+// MARK: - EffectPipelines
+
+/// A shader effect compiled both ways: mixed over by alpha, or written as is.
+private struct EffectPipelines {
+  let blending: any MTLRenderPipelineState
+  let replacing: any MTLRenderPipelineState
+}
+
+// MARK: - ShaderFile
+
+/// A shader effect's file as it is now: edited files are compiled again.
+private struct ShaderFile: Hashable {
+  init(_ url: URL) {
+    self.url = url
+    // why: a missing file has no date; reading it then reports it can't be read.
+    modified = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate]
+      as? Date
+  }
+
+  let url: URL
+  let modified: Date?
 }
