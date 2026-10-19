@@ -28,16 +28,20 @@ struct PerformanceTests {
   func `rendering many frames doesn't leak memory`() async throws {
     let project = try await oneClipProject(width: 320, height: 180)
     let context = try RenderContext()
-    _ = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320, context: context)
-    let before = Benchmark.memoryFootprint()
-    for index in 0 ..< 30 {
-      _ = try await FrameRenderer.png(
-        of: project,
-        atSeconds: Double(index) / 30,
-        maxSide: 320,
-        context: context,
-      )
+    let renderSecond = {
+      for index in 0 ..< 30 {
+        _ = try await FrameRenderer.png(
+          of: project,
+          atSeconds: Double(index) / 30,
+          maxSide: 320,
+          context: context,
+        )
+      }
     }
+    // why: the CI runner's virtual GPU grows its pools over the first frames; a leak keeps growing.
+    try await renderSecond()
+    let before = Benchmark.memoryFootprint()
+    try await renderSecond()
     #expect(Benchmark.memoryFootprint() - before < 40_000_000)
   }
 
