@@ -38,7 +38,7 @@ Each milestone ends with all four quality gates green ([SYSTEM.md §11](SYSTEM.m
 | ~~**M2 · Timeline core + MCP**~~ | ✅ First the quality-gate harnesses (golden frames, MCP scenarios, performance benchmarks), then Project library and save/load, New Project (2880×2160 @ 24 by default), multi-track timeline with all core edits and undo, the layer model with depth slots, proxies, the single action system and ⌘K, and the **new HTTP MCP server** (granular, batch, guide) replacing the relay and SDK |
 | ~~**M3 · Speech & Polish**~~ | ✅ Background-tasks ring (the first background jobs arrive here), WhisperKit transcripts and captions (ported), text-based editing, Polish with propose/review/apply, speech activity and beats (ported) |
 | ~~**M4 · Cut-outs & tracking**~~ | ✅ Matting benchmark on playbook footage → Apple Vision. Smoothed, cached mattes, depth-slot rendering, the subject's path and auto-reframe. Motion tracking moved to M5, where following needs keyframes |
-| **M5 · Type, motion & plugins** | Motion tracking (a layer follows a tracked point), text engine, kinetic type from the transcript, keyframes and springs, 3D type and camera, templates, stickers and overlays, **plugin system** with hot reload |
+| ~~**M5 · Type, motion & plugins**~~ | ✅ Keyframes with easing and springs, motion tracking and follow, the text engine (styles, kinetic reveals from the transcript), 3D layers and a camera, stickers (die-cut look, motion presets, cut-outs from a frame), hand-drawn boiling drawings, and the **plugin system** (styles, templates, stickers, sounds, fonts) with hot reload |
 | **M6 · Color & effects** | Color management, grading, LUTs, scopes, film-look primitives, transitions, shader effects |
 | **M7 · Audio** | Mixer, ducking, loudness, noise reduction (ported), stem separation, SFX |
 | **M8 · Export & performance** | Canvases, batch shorts, frames/GIF/SRT, export queue, render cache, final performance pass, full test round. **Ends with a showcase video made in Shades over MCP from playbook footage, using every capability** |
@@ -57,6 +57,8 @@ Problems found but not fixed yet. When one is fixed, delete its row in the same 
 
 | # | Issue | Fix in |
 |---|---|---|
+| 9 | Templates and plugin styles can only be applied over MCP; the editor needs a way to place them by hand (⌘K entries) | M6 |
+| 10 | Text can't follow a curved path or bend yet (scope: "text on paths") | M6 |
 
 ## 3. Constraints & setup notes
 - Dev machine: **M1, 8 GB RAM, macOS 26**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.
