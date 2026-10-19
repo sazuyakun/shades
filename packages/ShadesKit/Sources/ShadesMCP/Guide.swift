@@ -64,7 +64,8 @@ enum Guide {
 
     Sound
     - set_clip fade_in / fade_out and volume; set_keyframes property volume for rides; set_track \
-    volume for the mix; duck_music dips music under speech.
+    volume for the mix; duck_music dips music under speech; reduce_noise cleans background \
+    noise; normalize_loudness sets the final level (-14 LUFS for YouTube).
 
     Plugins (taste lives here)
     - list_plugins shows text styles, templates, stickers and sounds. apply_template places a \

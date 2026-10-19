@@ -10,6 +10,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     matte: String? = nil,
     subjectPath: [SubjectPoint]? = nil,
     tracks: [String: [SubjectPoint]]? = nil,
+    cleanSound: String? = nil,
   ) {
     self.transcript = transcript
     self.speech = speech
@@ -17,6 +18,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     self.matte = matte
     self.subjectPath = subjectPath
     self.tracks = tracks
+    self.cleanSound = cleanSound
   }
 
   // MARK: Public
@@ -33,5 +35,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   public var subjectPath: [SubjectPoint]?
   /// Things followed through the picture with `track_motion`, by the name they were given.
   public var tracks: [String: [SubjectPoint]]?
+  /// The noise-reduced sound's file name in the project's `cache/sound` folder.
+  public var cleanSound: String?
 
 }

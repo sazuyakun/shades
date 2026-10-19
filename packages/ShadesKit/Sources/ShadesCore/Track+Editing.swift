@@ -100,6 +100,7 @@ extension Clip {
       transitionIn: nil,
       fadeIn: fadeIn,
       fadeOut: fadeOut,
+      cleanSound: cleanSound,
     )
   }
 

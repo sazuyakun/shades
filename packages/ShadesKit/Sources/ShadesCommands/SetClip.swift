@@ -21,6 +21,7 @@ public struct SetClip: ToolCommand {
     sticker: StickerLook? = nil,
     fadeIn: MediaTime? = nil,
     fadeOut: MediaTime? = nil,
+    cleanSound: Bool? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -37,6 +38,7 @@ public struct SetClip: ToolCommand {
     self.sticker = sticker
     self.fadeIn = fadeIn
     self.fadeOut = fadeOut
+    self.cleanSound = cleanSound
   }
 
   // MARK: Public
@@ -81,6 +83,9 @@ public struct SetClip: ToolCommand {
       "audio_enabled": JSONSchema.boolean("Whether a video clip plays its own sound"),
       "fade_in": JSONSchema.number("Seconds the sound takes to rise from silence", minimum: 0),
       "fade_out": JSONSchema.number("Seconds the sound takes to fall to silence", minimum: 0),
+      "clean_sound": JSONSchema.boolean(
+        "Play the noise-reduced sound (made by reduce_noise) instead of the original"
+      ),
       "sticker": JSONSchema.object([
         "border": JSONSchema.number(
           "White die-cut border as a fraction of the picture; with shadow false and border 0 "
@@ -107,6 +112,7 @@ public struct SetClip: ToolCommand {
   public let sticker: StickerLook?
   public let fadeIn: MediaTime?
   public let fadeOut: MediaTime?
+  public let cleanSound: Bool?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -137,6 +143,7 @@ public struct SetClip: ToolCommand {
     }
     clip.fadeIn = fadeIn.map(project.onFrame) ?? clip.fadeIn
     clip.fadeOut = fadeOut.map(project.onFrame) ?? clip.fadeOut
+    clip.cleanSound = cleanSound ?? clip.cleanSound
     clip.transform.x = x ?? clip.transform.x
     clip.transform.y = y ?? clip.transform.y
     clip.transform.scale = scale ?? clip.transform.scale

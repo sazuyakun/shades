@@ -142,6 +142,7 @@ public final class Workspace {
     queuedProxies.removeAll()
     player.proxies = [:]
     player.mattes = [:]
+    player.cleanSound = [:]
     analysis.clear()
     documentURL = nil
     defaults.set(false, forKey: Keys.isOpen)
@@ -345,6 +346,9 @@ extension Workspace: ProjectHost {
     await analysis.load(from: url)
     player.mattes = analysis.analyses.compactMapValues { record in
       record.matte.map { url.appending(path: "cache/mattes/\($0)") }
+    }
+    player.cleanSound = analysis.analyses.compactMapValues { record in
+      record.cleanSound.map { url.appending(path: "cache/sound/\($0)") }
     }
     editor.load(project)
     editor.selection = Set(session.selection)
@@ -720,7 +724,7 @@ extension Workspace: ProjectHost {
   /// Measures the mix's loudness and sets the master level so it plays at `target` LUFS,
   /// keeping peaks below -1 dBFS. Returns what was measured and done.
   public func normalizeLoudness(target: Double) async throws(ToolError) -> String {
-    let reader = MixReader(project: editor.project)
+    let reader = MixReader(project: editor.project, cleanSound: player.cleanSound)
     let loudness: Loudness
     do {
       loudness = try await LoudnessMeter
@@ -754,6 +758,53 @@ extension Workspace: ProjectHost {
     )
   }
 
+  /// Sets clips to play noise-reduced sound, queuing the cleaning of media that hasn't been
+  /// cleaned at `strength` yet. Returns what was done.
+  public func reduceNoise(_ clipIDs: [Clip.ID], strength: Double) throws(CommandError) -> String {
+    guard let package = documentURL else {
+      throw .invalidArguments("open a project first")
+    }
+    let clips = clipIDs.compactMap(editor.project.timeline.clip(withID:))
+    let media = Set(clips.compactMap(\.mediaID)).compactMap(editor.project.media(withID:))
+      .filter(\.hasAudio)
+    guard !media.isEmpty else {
+      throw .invalidArguments("pick clips with sound")
+    }
+    try editor.perform(
+      clips.map { SetClip(clipID: $0.id, cleanSound: strength > 0) },
+      title: "Clean Sound",
+    )
+    guard strength > 0 else {
+      return "Those clips play their original sound again."
+    }
+    let percent = Int((strength * 100).rounded())
+    let queued = media
+      .filter { analysis.analyses[$0.id]?.cleanSound != "\($0.id.uuidString)-\(percent).m4a" }
+    for item in queued {
+      let file = "\(item.id.uuidString)-\(percent).m4a"
+      let destination = package.appending(path: "cache/sound/\(file)")
+      jobs.enqueue("Cleaning the sound of \(item.name)") { [weak self] progress throws(JobError) in
+        do {
+          let samples = try await AudioDecoder.mono(from: item.url, sampleRate: 48000)
+          progress(0.3)
+          let cleaned = await NoiseReducer.reduce(samples, sampleRate: 48000, strength: strength)
+          progress(0.9)
+          try await AudioWriter.writeM4A(cleaned, sampleRate: 48000, to: destination)
+        } catch let error as AudioError {
+          throw .failed(error.errorDescription ?? "The sound couldn't be cleaned.")
+        } catch {
+          throw .failed(error.localizedDescription)
+        }
+        try await self?.store(item.id, in: package) { $0.cleanSound = file }
+        await self?.useCleanSound(destination, for: item.id)
+      }
+    }
+    return queued.isEmpty
+      ? "Those clips now play their cleaned sound."
+      : "Cleaning \(queued.count) file\(queued.count == 1 ? "" : "s") in the background; the "
+        + "clips switch over when done."
+  }
+
   // MARK: Internal
 
   /// Makes a layer follow the subject of the topmost video under it that has a cut-out.
@@ -779,6 +830,12 @@ extension Workspace: ProjectHost {
   }
 
   // MARK: Private
+
+  /// Starts using a finished noise-reduced sound in playback.
+  private func useCleanSound(_ url: URL, for mediaID: Media.ID) async {
+    player.cleanSound[mediaID] = url
+    try? await player.load(editor.project) // why: the editor shows playback errors.
+  }
 
   /// Saves an analysis result, if its project is still the open one.
   private func store(

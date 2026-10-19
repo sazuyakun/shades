@@ -35,7 +35,7 @@ extension Composition {
 
   /// Builds the playable form of the project's timeline, reading each media file from
   /// `sources` (its proxy) when given there. Clips whose media has a cut-out in `mattes` get it
-  /// as a matching track, for depth slots.
+  /// as a matching track, for depth slots, and clips set to clean sound play `cleanSound`.
   @MainActor
   static func build(
     _ project: Project,
@@ -45,6 +45,7 @@ extension Composition {
     frameCounter: FrameCounter,
     sources: [Media.ID: URL] = [:],
     mattes: [Media.ID: URL] = [:],
+    cleanSound: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> Composition {
     let timeline = project.timeline
     guard timeline.duration > .zero else {
@@ -121,7 +122,11 @@ extension Composition {
               drawn: nil,
             ))
           }
-          if let audio = source.audio {
+          var sound = source.audio
+          if clip.cleanSound, let cleaned = cleanSound[media.id] {
+            sound = try await library.tracks(at: cleaned).audio
+          }
+          if let audio = sound {
             let target = try audioTrack ?? addTrack(.audio, to: asset)
             audioTrack = target
             audioTrackIDs[track.id] = target.trackID
@@ -511,6 +516,7 @@ struct ClipTiming: Hashable {
     duration = clip.duration
     timelineStart = clip.timelineStart
     transitionLength = clip.transitionIn?.duration
+    cleanSound = clip.cleanSound
   }
 
   let id: Clip.ID
@@ -520,6 +526,8 @@ struct ClipTiming: Hashable {
   let timelineStart: MediaTime
   /// How long its incoming transition lasts: it decides the handles.
   let transitionLength: MediaTime?
+  /// Whether it plays its media's noise-reduced sound: a different source file.
+  let cleanSound: Bool
 }
 
 extension Project {

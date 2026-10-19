@@ -27,6 +27,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     transitionIn: Transition? = nil,
     fadeIn: MediaTime = .zero,
     fadeOut: MediaTime = .zero,
+    cleanSound: Bool = false,
   ) {
     self.init(
       id: id,
@@ -47,6 +48,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       transitionIn: transitionIn,
       fadeIn: fadeIn,
       fadeOut: fadeOut,
+      cleanSound: cleanSound,
     )
   }
 
@@ -70,6 +72,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     transitionIn: Transition? = nil,
     fadeIn: MediaTime = .zero,
     fadeOut: MediaTime = .zero,
+    cleanSound: Bool = false,
   ) {
     self.id = id
     self.source = source
@@ -89,6 +92,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.transitionIn = transitionIn
     self.fadeIn = fadeIn
     self.fadeOut = fadeOut
+    self.cleanSound = cleanSound
   }
 
   // MARK: Public
@@ -124,6 +128,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var fadeIn: MediaTime
   /// How long the sound takes to fall to silence at the end.
   public var fadeOut: MediaTime
+  /// Plays its media's noise-reduced sound, once it's been made.
+  public var cleanSound: Bool
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -191,6 +197,7 @@ extension Clip: Codable {
       transitionIn: container.decodeIfPresent(Transition.self, forKey: .transitionIn),
       fadeIn: container.decodeIfPresent(MediaTime.self, forKey: .fadeIn) ?? .zero,
       fadeOut: container.decodeIfPresent(MediaTime.self, forKey: .fadeOut) ?? .zero,
+      cleanSound: container.decodeIfPresent(Bool.self, forKey: .cleanSound) ?? false,
     )
   }
 
@@ -216,6 +223,7 @@ extension Clip: Codable {
     try container.encodeIfPresent(transitionIn, forKey: .transitionIn)
     try container.encode(fadeIn, forKey: .fadeIn)
     try container.encode(fadeOut, forKey: .fadeOut)
+    try container.encode(cleanSound, forKey: .cleanSound)
   }
 
   // MARK: Private
@@ -241,6 +249,7 @@ extension Clip: Codable {
     case transitionIn
     case fadeIn
     case fadeOut
+    case cleanSound
   }
 
 }

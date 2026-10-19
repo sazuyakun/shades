@@ -60,6 +60,9 @@ public protocol ProjectHost: AnyObject {
   ) async throws(ToolError) -> String
   /// Sets the master level so the mix plays at `target` LUFS; returns what was measured.
   func normalizeLoudness(target: Double) async throws(ToolError) -> String
+  /// Sets clips to play noise-reduced sound (strength 0 restores the original); returns what
+  /// was done.
+  func reduceNoise(_ clipIDs: [Clip.ID], strength: Double) throws(CommandError) -> String
   /// Ducks a music track under the speech on the timeline; returns what was done.
   func duckMusic(track: String?, level: Double) throws(CommandError) -> String
   /// Queues following what's inside `box` (fractions of the picture) of a video clip from `time`

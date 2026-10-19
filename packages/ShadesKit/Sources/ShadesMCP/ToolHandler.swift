@@ -430,6 +430,24 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "reduce_noise",
+      summary: "Take steady background noise (hiss, hum, fans, traffic rumble) out of clips' "
+        + "sound, keeping the voice. Cleaning runs in the background (get_jobs); the clips "
+        + "switch over when it's done. Strength 0 goes back to the original.",
+      parameters: JSONSchema.object(
+        [
+          "clip_ids": Fields.clipIDs,
+          "strength": JSONSchema.number(
+            "0 to 1 (default 0.7); higher removes more",
+            minimum: 0,
+            maximum: 1,
+          ),
+        ],
+        required: ["clip_ids"],
+      ),
+      kind: .edit,
+    ),
+    Tool(
       name: "duck_music",
       summary: "Lower the music while anyone speaks, coming back up between: volume keyframes on "
         + "the music track's clips (the audio track with beats, or the longest without speech, "
@@ -696,6 +714,13 @@ public final class ToolHandler {
     case "normalize_loudness":
       let request = try decode(LoudnessArguments.self, from: arguments, tool: name)
       return try await .text(host().normalizeLoudness(target: request.target ?? -14))
+
+    case "reduce_noise":
+      let request = try decode(NoiseArguments.self, from: arguments, tool: name)
+      let projectHost = try host()
+      return .text(try perform { () throws(CommandError) -> String in
+        try projectHost.reduceNoise(request.clipIDs, strength: request.strength ?? 0.7)
+      })
 
     case "duck_music":
       let request = try decode(DuckArguments.self, from: arguments, tool: name)
@@ -1334,6 +1359,13 @@ private struct TemplateArguments: Decodable {
 
 private struct LoudnessArguments: Decodable {
   let target: Double?
+}
+
+// MARK: - NoiseArguments
+
+private struct NoiseArguments: Decodable {
+  let clipIDs: [UUID]
+  let strength: Double?
 }
 
 // MARK: - DuckArguments
