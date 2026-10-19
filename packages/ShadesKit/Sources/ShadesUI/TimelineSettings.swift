@@ -3,6 +3,8 @@ struct TimelineSettings {
   var tool = TimelineTool.select
   /// Dragging in the viewer draws lines (the Draw tool, P).
   var isDrawing = false
+  /// The scopes show beside the viewer.
+  var showsScopes = false
   var isSnapping = true
   /// Zoom in points per second, or `nil` to fit the whole timeline.
   var pointsPerSecond: Double?

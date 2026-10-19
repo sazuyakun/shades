@@ -31,6 +31,10 @@ public struct EditorView: View {
           ViewerPane(isDrawing: timelineSettings.isDrawing, onError: { errorMessage = $0 })
             .frame(minWidth: 400, maxWidth: .infinity)
             .layoutPriority(1)
+          if timelineSettings.showsScopes {
+            ScopesPanel()
+              .frame(minWidth: 240, idealWidth: 300, maxWidth: 360)
+          }
           Group {
             switch sidePane {
             case .inspector: InspectorPane(selection: selection, onError: { errorMessage = $0 })

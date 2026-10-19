@@ -6,8 +6,6 @@ import UniformTypeIdentifiers
 /// Renders single frames of the timeline through the same compositor that plays it.
 public enum FrameRenderer {
 
-  // MARK: Public
-
   /// Renders the frame at `seconds` as PNG data, no wider or taller than `maxSide` pixels, with
   /// cut-outs from `mattes` for depth slots. Pass a long-lived `context` when rendering often; a
   /// new one compiles the shaders again.
@@ -19,6 +17,24 @@ public enum FrameRenderer {
     context: RenderContext? = nil,
     mattes: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> Data {
+    try await pngData(from: image(
+      of: project,
+      atSeconds: seconds,
+      maxSide: maxSide,
+      context: context,
+      mattes: mattes,
+    ))
+  }
+
+  /// Renders the frame at `seconds` as an image, like `png`.
+  @MainActor
+  public static func image(
+    of project: Project,
+    atSeconds seconds: Double,
+    maxSide: Int,
+    context: RenderContext? = nil,
+    mattes: [Media.ID: URL] = [:],
+  ) async throws(EngineError) -> CGImage {
     let renderState = RenderState()
     renderState.update(from: project.timeline)
     let renderContext =
@@ -54,12 +70,11 @@ public enum FrameRenderer {
       logger.error("frame.renderFailed reason=noFrame seconds=\(seconds, privacy: .public)")
       throw .frameUnavailable(seconds: seconds)
     }
-    return try pngData(from: image)
+    return image
   }
 
-  // MARK: Private
-
-  private static func pngData(from image: CGImage) throws(EngineError) -> Data {
+  /// `image` encoded as PNG.
+  public static func pngData(from image: CGImage) throws(EngineError) -> Data {
     let data = NSMutableData()
     guard
       let destination = CGImageDestinationCreateWithData(

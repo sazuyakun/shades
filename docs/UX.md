@@ -48,6 +48,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | ⌘S · ⌘E | Named checkpoint · Export |
 | ⌘K | Command palette: every action by name |
 | ⌘L | Show or hide the History pane |
+| ⌥⌘S | Show or hide the scopes (waveform, vectorscope, histogram) beside the viewer |
 | Esc | Close a sheet or palette |
 
 All shortcuts are remappable.

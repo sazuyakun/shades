@@ -56,6 +56,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case importMedia
   case commandPalette
   case toggleHistory
+  case toggleScopes
   case toggleTranscript
   case polishSelection
   case cutOutSubject
@@ -118,6 +119,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .importMedia: "Import Media…"
     case .commandPalette: "Command Palette"
     case .toggleHistory: "Show / Hide History"
+    case .toggleScopes: "Show / Hide Scopes"
     case .toggleTranscript: "Show / Hide Transcript"
     case .polishSelection: "Polish Selection"
     case .cutOutSubject: "Cut Out Subject of Selected Clips"
@@ -176,6 +178,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .importMedia: Shortcut("i", .command)
     case .commandPalette: Shortcut("k", .command)
     case .toggleHistory: Shortcut("l", .command)
+    case .toggleScopes: Shortcut("s", [.option, .command])
     case .toggleTranscript: Shortcut("t", [.command, .option])
     case .polishSelection: Shortcut("p", .option)
     case .cutOutSubject: Shortcut("u", .option)
@@ -207,6 +210,7 @@ enum EditorAction: CaseIterable, Identifiable {
          .importMedia,
          .commandPalette,
          .toggleHistory,
+         .toggleScopes,
          .toggleTranscript:
       view(in: context)
 
@@ -297,6 +301,8 @@ enum EditorAction: CaseIterable, Identifiable {
       settings.wrappedValue.isDrawing = false
 
     case .drawTool: settings.wrappedValue.isDrawing.toggle()
+
+    case .toggleScopes: settings.wrappedValue.showsScopes.toggle()
 
     case .toggleSnapping: settings.wrappedValue.isSnapping.toggle()
 

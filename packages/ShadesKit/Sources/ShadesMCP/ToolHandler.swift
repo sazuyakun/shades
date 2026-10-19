@@ -115,6 +115,17 @@ public final class ToolHandler {
       kind: .read,
     ),
     Tool(
+      name: "get_scopes",
+      summary: "See the colour of a frame like a colourist: waveform, vectorscope and RGB "
+        + "histogram, plus average brightness, clipped highlights, crushed shadows and "
+        + "saturation. Use it to check a grade.",
+      parameters: JSONSchema.object(
+        ["seconds": Fields.time("Which frame")],
+        required: ["seconds"],
+      ),
+      kind: .read,
+    ),
+    Tool(
       name: "get_jobs",
       summary: "List background jobs (proxies, transcripts, analysis): running, waiting and just "
         + "finished, with progress.",
@@ -462,6 +473,10 @@ public final class ToolHandler {
       let frame = try decode(FrameArguments.self, from: arguments, tool: name)
       return try await renderFrame(atSeconds: frame.seconds, maxSide: frame.maxSide ?? 768)
 
+    case "get_scopes":
+      let frame = try decode(FrameArguments.self, from: arguments, tool: name)
+      return try await scopes(atSeconds: frame.seconds)
+
     case "get_jobs":
       return .text(jobsReport())
 
@@ -786,6 +801,29 @@ public final class ToolHandler {
         mattes: player.mattes,
       )
       return ToolResult(content: [.png(png)])
+    } catch {
+      throw .engineFailed(error)
+    }
+  }
+
+  /// The scopes of the frame at `seconds`, as a picture and in numbers.
+  private func scopes(atSeconds seconds: Double) async throws(ToolError) -> ToolResult {
+    do {
+      let frame = try await FrameRenderer.image(
+        of: editor.project,
+        atSeconds: seconds,
+        maxSide: 720,
+        context: player.renderContext(),
+        mattes: player.mattes,
+      )
+      let (picture, reading) = try Scopes.measure(frame)
+      let percent = { (value: Double) in "\(Int((value * 100).rounded()))%" }
+      let summary = "Scopes at \(seconds) s (waveform left, vectorscope right, RGB histogram "
+        + "below). Average brightness \(percent(reading.averageBrightness)), highlights "
+        + "clipped \(percent(reading.clippedHighlights)), shadows crushed "
+        + "\(percent(reading.crushedShadows)), average saturation "
+        + "\(percent(reading.averageSaturation))."
+      return try ToolResult(content: [.text(summary), .png(FrameRenderer.pngData(from: picture))])
     } catch {
       throw .engineFailed(error)
     }
