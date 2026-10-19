@@ -39,7 +39,7 @@ Each milestone ends with all four quality gates green ([SYSTEM.md §11](SYSTEM.m
 | ~~**M3 · Speech & Polish**~~ | ✅ Background-tasks ring (the first background jobs arrive here), WhisperKit transcripts and captions (ported), text-based editing, Polish with propose/review/apply, speech activity and beats (ported) |
 | ~~**M4 · Cut-outs & tracking**~~ | ✅ Matting benchmark on playbook footage → Apple Vision. Smoothed, cached mattes, depth-slot rendering, the subject's path and auto-reframe. Motion tracking moved to M5, where following needs keyframes |
 | ~~**M5 · Type, motion & plugins**~~ | ✅ Keyframes with easing and springs, motion tracking and follow, the text engine (styles, kinetic reveals from the transcript), 3D layers and a camera, stickers (die-cut look, motion presets, cut-outs from a frame), hand-drawn boiling drawings, and the **plugin system** (styles, templates, stickers, sounds, fonts) with hot reload |
-| **M6 · Color & effects** | Color management, grading, LUTs, scopes, film-look primitives, transitions, shader effects |
+| ~~**M6 · Color & effects**~~ | ✅ Grading (primaries, curves, LUTs, qualifiers, windows), blend modes, film-look primitives (grain, vignette, halation, blur), green-screen keys, adjustment clips, scopes, transitions (dissolve, dip, flash, whip, push, slices, tiles, iris portal), Metal shader effects from plugins and Claude, grade recipes (looks), bent text |
 | **M7 · Audio** | Mixer, ducking, loudness, noise reduction (ported), stem separation, SFX |
 | **M8 · Export & performance** | Canvases, batch shorts, frames/GIF/SRT, export queue, render cache, final performance pass, full test round. **Ends with a showcase video made in Shades over MCP from playbook footage, using every capability** |
 
@@ -48,6 +48,8 @@ Each milestone ends with all four quality gates green ([SYSTEM.md §11](SYSTEM.m
 **Build decisions (2026-10-17):** test with footage already in `~/shades-playbook` (read-only). Cut-out and stem models: MIT/Apache only, converted to CoreML on this Mac, benchmarked against Apple Vision, downloaded by Shades on first use (never bundled). Check-ins: a summary with screenshots after each milestone, then keep going.
 
 **Matting engine (2026-10-19):** Apple Vision, nothing to download. Benchmarked on playbook frames (M1, per frame): Vision person (accurate) 60–130 ms, Vision foreground 25–35 ms, BiRefNet-lite (MIT, converted to CoreML) 830–890 ms on the GPU. Vision is as clean as BiRefNet on talking heads; BiRefNet alone found the riders in a busy street shot, but at 10× the time, a ~100 MB hosted download and a graph the Neural Engine can't compile, so it doesn't ship. Revisit if the playbook asks for cut-outs of non-people in cluttered shots.
+
+**Colour management (2026-10-19):** footage is SDR Rec.709 (iPhone 16, HDR off), so Shades grades in display-referred Rec.709/sRGB: frames are decoded as 8-bit BGRA, graded in the layer shader and exported in Rec.709. HDR and wide-gamut grading aren't in scope.
 
 ### Issues from the playbook
 The taste agent files issues on `sazuyakun/shades` with its `editor-request` skill. The builder agent assesses each one, maps it to core capabilities (often it's a plugin built on existing core, not new core), estimates it, slots it into a milestone, and tells Soham. **Soham approves the order.** An issue closes only with tests plus a real-edit check.

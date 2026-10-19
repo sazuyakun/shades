@@ -52,6 +52,23 @@ struct LayerLook {
     dip = Float(transition?.dip ?? 0)
     wipeProgress = Float(transition?.wipeProgress ?? 0)
     dipToWhite = transition?.dipsToWhite == true ? 1 : 0
+    let qualifier = grade.qualifier
+    qualifierHue = Float(qualifier?.hue ?? 0)
+    qualifierHueWidth = Float(qualifier?.hueWidth ?? 0)
+    qualifierSaturation = Float(qualifier?.minSaturation ?? 0)
+    qualifierLow = Float(qualifier?.brightness.first ?? 0)
+    qualifierHigh = Float(qualifier?.brightness.last ?? 1)
+    qualifierSoftness = Float(qualifier?.softness ?? 0)
+    let window = grade.window
+    windowX = Float(window?.x ?? 0.5)
+    windowY = Float(window?.y ?? 0.5)
+    windowWidth = Float(window?.width ?? 1)
+    windowHeight = Float(window?.height ?? 1)
+    windowSoftness = Float(window?.softness ?? 0)
+    hasQualifier = qualifier == nil ? 0 : 1
+    hasWindow = window == nil ? 0 : 1
+    windowIsEllipse = window?.isEllipse == false ? 0 : 1
+    windowInverted = window?.inverted == true ? 1 : 0
     effectTime = Float(clipTime)
     effectAmount = Float(effects.shaderAmount)
     wipe =
@@ -95,5 +112,20 @@ struct LayerLook {
   let wipe: Int32
   let effectTime: Float
   let effectAmount: Float
+  let qualifierHue: Float
+  let qualifierHueWidth: Float
+  let qualifierSaturation: Float
+  let qualifierLow: Float
+  let qualifierHigh: Float
+  let qualifierSoftness: Float
+  let windowX: Float
+  let windowY: Float
+  let windowWidth: Float
+  let windowHeight: Float
+  let windowSoftness: Float
+  let hasQualifier: Int32
+  let hasWindow: Int32
+  let windowIsEllipse: Int32
+  let windowInverted: Int32
 
 }

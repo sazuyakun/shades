@@ -17,6 +17,28 @@ enum LookFields {
     ]),
     "lut": JSONSchema.string("A .cube LUT: a file path, or a plugin's LUT by name"),
     "lut_amount": JSONSchema.number("How much of the LUT shows, 0 to 1", minimum: 0, maximum: 1),
+    "qualifier": JSONSchema.object([
+      "hue": JSONSchema.number("Hue to change, 0–1 (0 red, 0.08 skin, 0.33 green, 0.6 sky)"),
+      "hue_width": JSONSchema.number("How far either side counts, 0 to 0.5 (default 0.08)"),
+      "min_saturation": JSONSchema.number("Greyer colours aren't picked (default 0.15)"),
+      "brightness": JSONSchema.array(
+        "Brightness range picked, [from, to]",
+        items: JSONSchema.number("0 to 1"),
+      ),
+      "softness": JSONSchema.number("Edge softness (default 0.05)"),
+    ]),
+    "window": JSONSchema.object([
+      "shape": JSONSchema.string(
+        "ellipse (default) or rectangle",
+        values: ["ellipse", "rectangle"],
+      ),
+      "x": JSONSchema.number("Centre across the frame, 0–1"),
+      "y": JSONSchema.number("Centre down the frame, 0–1"),
+      "width": JSONSchema.number("Width as a fraction of the frame"),
+      "height": JSONSchema.number("Height as a fraction of the frame"),
+      "softness": JSONSchema.number("Edge softness, 0–1 (default 0.2)"),
+      "inverted": JSONSchema.boolean("Grade outside the shape instead"),
+    ]),
   ])
   static let effects = JSONSchema.object([
     "grain": JSONSchema.number("Film grain, 0 to 1", minimum: 0, maximum: 1),

@@ -67,6 +67,21 @@ struct LookRenderingTests {
   }
 
   @Test
+  func `a qualifier grades only the picked colour`() async throws {
+    let png = try await splitFrame(grade: Grade(exposure: -4, qualifier: Qualifier(hue: 0)))
+    #expect(try PixelProbe.color(of: png, x: 0.3, y: 0.5).red < 40, "red is picked and darkened")
+    #expect(try PixelProbe.color(of: png, x: 0.7, y: 0.5).blue > 200, "blue is left alone")
+  }
+
+  @Test
+  func `a window grades only inside its shape`() async throws {
+    let window = GradeWindow(x: 0.5, y: 0.5, width: 0.3, height: 0.3, softness: 0.05)
+    let png = try await splitFrame(grade: Grade(exposure: -4, window: window))
+    #expect(try PixelProbe.color(of: png, x: 0.45, y: 0.5).red < 40, "inside is darkened")
+    #expect(try PixelProbe.color(of: png, x: 0.1, y: 0.5).red > 200, "outside is untouched")
+  }
+
+  @Test
   func `grain is the same for the same frame`() async throws {
     let first = try await frame(top: nil) { $0.effects = Effects(grain: 1) }
     let again = try await frame(top: nil) { $0.effects = Effects(grain: 1) }
@@ -104,6 +119,30 @@ struct LookRenderingTests {
       tracks.append(Track(kind: .video, clips: [adjustment]))
     }
     let project = Project(media: allMedia, timeline: Timeline(format: .half, tracks: tracks))
+    return try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+  }
+
+  /// A clip red on its left half and blue on its right, graded by `grade`.
+  private func splitFrame(grade: Grade) async throws -> Data {
+    let url = try await VideoFixture.make(
+      left: FixtureColor(red: 255, green: 0, blue: 0),
+      right: FixtureColor(red: 0, green: 0, blue: 255),
+      width: 320,
+      height: 240,
+    )
+    let media = Media(
+      url: url,
+      duration: MediaTime(seconds: 1),
+      width: 320,
+      height: 240,
+      hasAudio: false,
+    )
+    var clip = clip(of: media)
+    clip.grade = grade
+    let project = Project(
+      media: [media],
+      timeline: Timeline(format: .half, tracks: [Track(kind: .video, clips: [clip])]),
+    )
     return try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
   }
 

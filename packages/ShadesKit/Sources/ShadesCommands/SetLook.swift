@@ -91,6 +91,20 @@ extension Grade {
     if let failed = checks.first(where: { !$0.1.contains($0.0) }) {
       throw rejected(.invalidValue(failed.2))
     }
+    if let qualifier {
+      guard
+        (0 ... 1).contains(qualifier.hue), (0 ... 0.5).contains(qualifier.hueWidth),
+        qualifier.brightness.count == 2, qualifier.brightness.allSatisfy({ (0 ... 1).contains($0) })
+      else {
+        throw rejected(.invalidValue(
+          "a qualifier's hue goes from 0 to 1, hue_width to 0.5, and brightness is "
+            + "[from, to] in 0–1"
+        ))
+      }
+    }
+    if let window, window.width <= 0 || window.height <= 0 {
+      throw rejected(.invalidValue("a window needs a width and height above 0"))
+    }
   }
 }
 

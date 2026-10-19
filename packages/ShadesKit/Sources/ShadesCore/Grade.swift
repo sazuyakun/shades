@@ -1,7 +1,8 @@
 // MARK: - Grade
 
-/// A clip's colour grade: primaries, curves and an optional LUT. Every field starts neutral, so a
-/// grade only changes what it sets.
+/// A clip's colour grade: primaries, curves and an optional LUT, optionally limited to some
+/// colours (a qualifier) or a shape (a window). Every field starts neutral, so a grade only
+/// changes what it sets.
 public struct Grade: Hashable, Sendable {
 
   // MARK: Lifecycle
@@ -18,6 +19,8 @@ public struct Grade: Hashable, Sendable {
     curves: Curves? = nil,
     lut: String? = nil,
     lutAmount: Double = 1,
+    qualifier: Qualifier? = nil,
+    window: GradeWindow? = nil,
   ) {
     self.exposure = exposure
     self.contrast = contrast
@@ -30,6 +33,8 @@ public struct Grade: Hashable, Sendable {
     self.curves = curves
     self.lut = lut
     self.lutAmount = lutAmount
+    self.qualifier = qualifier
+    self.window = window
   }
 
   // MARK: Public
@@ -55,6 +60,10 @@ public struct Grade: Hashable, Sendable {
   public var lut: String?
   /// How much of the LUT shows, 0 to 1.
   public var lutAmount: Double
+  /// Limits the grade to some colours (a secondary correction).
+  public var qualifier: Qualifier?
+  /// Limits the grade to a soft shape.
+  public var window: GradeWindow?
 
 }
 
@@ -79,6 +88,8 @@ extension Grade: Codable {
       curves: container.decodeIfPresent(Curves.self, forKey: .curves),
       lut: container.decodeIfPresent(String.self, forKey: .lut),
       lutAmount: container.decodeIfPresent(Double.self, forKey: .lutAmount) ?? 1,
+      qualifier: container.decodeIfPresent(Qualifier.self, forKey: .qualifier),
+      window: container.decodeIfPresent(GradeWindow.self, forKey: .window),
     )
   }
 
@@ -96,6 +107,8 @@ extension Grade: Codable {
     case curves
     case lut
     case lutAmount
+    case qualifier
+    case window
   }
 
 }

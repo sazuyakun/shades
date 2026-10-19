@@ -71,6 +71,21 @@ struct LayerLook {
   int wipe;           // 0 none, 1 slices, 2 tiles, 3 iris
   float effectTime;   // seconds into the clip, for a plugin effect
   float effectAmount; // a plugin effect's strength, 0 … 1
+  float qualifierHue;        // the grade's qualifier: hue picked (0 … 1)
+  float qualifierHueWidth;
+  float qualifierSaturation; // greyer colours aren't picked
+  float qualifierLow;        // brightness range picked
+  float qualifierHigh;
+  float qualifierSoftness;
+  float windowX;             // the grade's window: centre and size in the frame
+  float windowY;
+  float windowWidth;
+  float windowHeight;
+  float windowSoftness;
+  int hasQualifier;
+  int hasWindow;
+  int windowIsEllipse;
+  int windowInverted;
 };
 
 static float hash(float2 p) {
@@ -119,6 +134,40 @@ static float3 grade(float3 c, constant LayerLook &look, texture3d<float> lut, te
   return c;
 }
 
+// How much of the grade shows at a pixel: everywhere, or only in the qualifier's colours and
+// inside (or outside) the window, with soft edges.
+static float gradeMask(float3 c, float2 screen, constant LayerLook &look) {
+  float amount = 1.0;
+  if (look.hasQualifier != 0) {
+    float high = max(c.r, max(c.g, c.b));
+    float low = min(c.r, min(c.g, c.b));
+    float chroma = high - low;
+    float hue = 0.0;
+    if (chroma > 0.0001) {
+      if (high == c.r) { hue = fmod((c.g - c.b) / chroma + 6.0, 6.0); }
+      else if (high == c.g) { hue = (c.b - c.r) / chroma + 2.0; }
+      else { hue = (c.r - c.g) / chroma + 4.0; }
+      hue /= 6.0;
+    }
+    float saturation = high > 0 ? chroma / high : 0.0;
+    float distance = abs(hue - look.qualifierHue);
+    distance = min(distance, 1.0 - distance);
+    float soft = max(look.qualifierSoftness, 0.001);
+    amount *= 1.0 - smoothstep(look.qualifierHueWidth, look.qualifierHueWidth + soft, distance);
+    amount *= smoothstep(look.qualifierSaturation - soft, look.qualifierSaturation, saturation);
+    float bright = luma(c);
+    amount *= smoothstep(look.qualifierLow - soft, look.qualifierLow, bright);
+    amount *= 1.0 - smoothstep(look.qualifierHigh, look.qualifierHigh + soft, bright);
+  }
+  if (look.hasWindow != 0) {
+    float2 offset = (screen - float2(look.windowX, look.windowY)) / max(float2(look.windowWidth, look.windowHeight) * 0.5, 0.001);
+    float edge = look.windowIsEllipse != 0 ? length(offset) : max(abs(offset.x), abs(offset.y));
+    float inside = 1.0 - smoothstep(1.0 - look.windowSoftness, 1.0 + look.windowSoftness, edge);
+    amount *= look.windowInverted != 0 ? 1.0 - inside : inside;
+  }
+  return amount;
+}
+
 // How much of a layer a transition's wipe shows at `screen` (0 hidden … 1 shown).
 static float wipeMask(float2 screen, int wipe, float progress) {
   switch (wipe) {
@@ -163,7 +212,7 @@ static float4 shade(VertexOut in, texture2d<half> picture, float2 uv, texture3d<
     float distance = length(rgb - float3(look.keyRed, look.keyGreen, look.keyBlue));
     alpha *= smoothstep(look.keyTolerance, look.keyTolerance + max(look.keySoftness, 0.001), distance);
   }
-  rgb = grade(rgb, look, lut, curves, s);
+  rgb = mix(rgb, grade(rgb, look, lut, curves, s), gradeMask(rgb, in.screen, look));
   if (look.halation > 0) {
     float3 glow = float3(0);
     for (int i = 0; i < 8; i++) {
