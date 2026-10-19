@@ -388,6 +388,15 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "use_look",
+      summary: "Give clips (or an adjustment clip) a plugin's look: its grade, effects and blend.",
+      parameters: JSONSchema.object(
+        ["clip_ids": Fields.clipIDs, "look": JSONSchema.string("The look's name")],
+        required: ["clip_ids", "look"],
+      ),
+      kind: .edit,
+    ),
+    Tool(
       name: "use_style",
       summary: "Give text clips a plugin's text style (by plugin/name or name).",
       parameters: JSONSchema.object(
@@ -607,6 +616,24 @@ public final class ToolHandler {
         fields: request.fields ?? [:],
       ))
 
+    case "use_look":
+      let request = try decode(LookArguments.self, from: arguments, tool: name)
+      guard let look = try host().plugins.look(named: request.look) else {
+        throw .commandFailed(.invalidArguments(
+          "there's no look called \(request.look); list_plugins shows the looks"
+        ))
+      }
+      try perform { () throws(CommandError) in
+        try editor.perform(SetLook(
+          clipIDs: request.clipIDs,
+          grade: look.grade,
+          effects: look.effects,
+          blend: look.blend,
+          clear: true,
+        ))
+      }
+      return .text("Gave \(request.clipIDs.count) clips the \(request.look) look.")
+
     case "use_style":
       let request = try decode(StyleArguments.self, from: arguments, tool: name)
       guard let style = try host().plugins.style(named: request.style) else {
@@ -639,10 +666,31 @@ public final class ToolHandler {
   /// Runs one registry command as its own undo step.
   private func edit(_ name: String, arguments: JSONValue) throws(ToolError) -> ToolResult {
     let before = editor.project
+    let arguments = try resolvingLUT(in: arguments)
     try perform { () throws(CommandError) in
       try editor.perform(CommandRegistry.command(named: name, arguments: arguments))
     }
     return .text(report(since: before))
+  }
+
+  /// The arguments with a grade's LUT given by plugin name turned into its file's path.
+  private func resolvingLUT(in arguments: JSONValue) throws(ToolError) -> JSONValue {
+    guard
+      case .object(var fields) = arguments,
+      case .object(var grade) = fields["grade"],
+      let lut = grade["lut"]?.stringValue,
+      !lut.hasPrefix("/"), !lut.hasPrefix("~")
+    else {
+      return arguments
+    }
+    guard let path = try host().plugins.lutPath(named: lut) else {
+      throw .commandFailed(.invalidArguments(
+        "there's no LUT called \(lut); give a .cube file's path or a LUT from list_plugins"
+      ))
+    }
+    grade["lut"] = .string(path)
+    fields["grade"] = .object(grade)
+    return .object(fields)
   }
 
   /// Runs several registry commands as one undo step.
@@ -651,9 +699,16 @@ public final class ToolHandler {
       throw rejected(.commandFailed(.invalidArguments("missing edits")), tool: "batch")
     }
     let before = editor.project
+    let resolved = try edits.map { edit throws(ToolError) -> JSONValue in
+      guard case .object(var fields) = edit, let arguments = fields["arguments"] else {
+        return edit
+      }
+      fields["arguments"] = try resolvingLUT(in: arguments)
+      return .object(fields)
+    }
     try perform { () throws(CommandError) in
       var commands = [any Command]()
-      for (index, edit) in edits.enumerated() {
+      for (index, edit) in resolved.enumerated() {
         guard let tool = edit["tool"]?.stringValue else {
           throw CommandError.invalidArguments("edit \(index + 1) has no tool")
         }
@@ -892,6 +947,12 @@ public final class ToolHandler {
           : ": \(plugin.summary)"))
       if let problem = plugin.problem {
         lines.append("  PROBLEM: \(problem)")
+      }
+      if !plugin.looks.isEmpty {
+        lines.append("  looks: " + plugin.looks.keys.sorted().joined(separator: ", "))
+      }
+      if !plugin.luts.isEmpty {
+        lines.append("  luts: " + plugin.luts.keys.sorted().joined(separator: ", "))
       }
       if !plugin.styles.isEmpty {
         lines.append("  styles: " + plugin.styles.keys.sorted().joined(separator: ", "))
@@ -1162,6 +1223,13 @@ private struct TemplateArguments: Decodable {
   let name: String
   let at: MediaTime
   let fields: [String: String]?
+}
+
+// MARK: - LookArguments
+
+private struct LookArguments: Decodable {
+  let clipIDs: [UUID]
+  let look: String
 }
 
 // MARK: - StyleArguments

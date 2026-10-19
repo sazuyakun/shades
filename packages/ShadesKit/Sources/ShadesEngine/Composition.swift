@@ -61,12 +61,19 @@ extension Composition {
       var placed = [PlacedClip]()
       for clip in track.clips {
         guard let mediaID = clip.mediaID else {
-          if clip.drawing != nil {
+          let drawn: LayerSource? =
+            switch clip.source {
+            case .drawing: .drawing
+            case .adjustment: .adjustment
+            case .media,
+                 .text: nil
+            }
+          if let drawn {
             placed.append(PlacedClip(
               clip: clip,
               rotation: .identity,
               hasMatte: false,
-              drawn: .drawing,
+              drawn: drawn,
             ))
           }
           continue

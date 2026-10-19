@@ -37,6 +37,24 @@ public final class PluginLibrary {
     find(name) { $0.styles }
   }
 
+  /// A look by name, `plugin/name` or just `name`, with its LUT (if any) resolved to a file.
+  public func look(named name: String) -> Look? {
+    for plugin in matching(name) {
+      if var look = plugin.looks[localName(name)] {
+        let lut = look.grade?.lut
+          .map { name in plugin.luts[name]?.path ?? lutPath(named: name) ?? name }
+        look.grade?.lut = lut
+        return look
+      }
+    }
+    return nil
+  }
+
+  /// A LUT's file path by name, `plugin/name` or just `name`.
+  public func lutPath(named name: String) -> String? {
+    find(name) { $0.luts }?.path
+  }
+
   /// A template by name, `plugin/name` or just `name`, with the plugin it comes from.
   public func template(named name: String) -> (template: Template, plugin: Plugin)? {
     for plugin in matching(name) {

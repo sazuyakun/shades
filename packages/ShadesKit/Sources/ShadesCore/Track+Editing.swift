@@ -92,6 +92,9 @@ extension Clip {
       isAudioEnabled: isAudioEnabled,
       keyframes: keyframes,
       sticker: sticker,
+      grade: grade,
+      effects: effects,
+      blend: blend,
     )
   }
 

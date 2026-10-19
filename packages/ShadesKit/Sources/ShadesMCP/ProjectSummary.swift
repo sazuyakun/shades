@@ -110,7 +110,17 @@ enum ProjectSummary {
         "boil": rounded(drawing.boil),
         "write_on": rounded(drawing.writeOn),
       ]
+
+    case .adjustment:
+      fields["adjustment"] = .bool(true)
     }
+    if clip.blend != .normal {
+      fields["blend"] = .string(clip.blend.rawValue)
+    }
+    // why: our own value types always encode; a failure would only drop the field from the summary.
+    fields["grade"] = clip.grade.flatMap { try? JSONValue(encoding: $0) }
+    fields["effects"] = clip.effects.flatMap { try? JSONValue(encoding: $0) }
+    fields["sticker"] = clip.sticker.flatMap { try? JSONValue(encoding: $0) }
     if !clip.keyframes.isEmpty {
       fields["keyframes"] = .array(clip.keyframes.map { keyframe in
         .object([

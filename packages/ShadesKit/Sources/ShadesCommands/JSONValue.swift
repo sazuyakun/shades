@@ -23,10 +23,12 @@ public enum JSONValue: Hashable, Sendable {
     }
   }
 
-  /// Converts any `Encodable` value, e.g. a project summary, into JSON.
+  /// Converts any `Encodable` value into JSON with snake_case keys, the way tools take it.
   public init(encoding value: some Encodable) throws(CommandError) {
     do {
-      let data = try JSONEncoder().encode(value)
+      let encoder = JSONEncoder()
+      encoder.keyEncodingStrategy = .convertToSnakeCase
+      let data = try encoder.encode(value)
       self = try JSONDecoder().decode(JSONValue.self, from: data)
     } catch {
       throw .invalidJSON

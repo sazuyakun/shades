@@ -3,7 +3,8 @@ import ShadesCore
 import UniformTypeIdentifiers
 
 /// Reads plugins from disk. A plugin is a folder with a `plugin.json` manifest (its name,
-/// description, text styles and templates) and any of `stickers/`, `sounds/` and `fonts/`.
+/// description, text styles, templates and looks) and any of `stickers/`, `sounds/`, `luts/` and
+/// `fonts/`.
 public enum PluginLoader {
 
   // MARK: Public
@@ -35,10 +36,11 @@ public enum PluginLoader {
     let description: String?
     let styles: [String: TextStyle]?
     let templates: [String: Template]?
+    let looks: [String: Look]?
   }
 
   private static func isPlugin(_ folder: URL) -> Bool {
-    ["plugin.json", "stickers", "sounds", "fonts"].contains { item in
+    ["plugin.json", "stickers", "sounds", "fonts", "luts"].contains { item in
       FileManager.default.fileExists(atPath: folder.appending(path: item).path)
     }
   }
@@ -63,23 +65,35 @@ public enum PluginLoader {
       summary: manifest?.description ?? "",
       styles: manifest?.styles ?? [:],
       templates: manifest?.templates ?? [:],
+      looks: manifest?.looks ?? [:],
       stickers: files(in: folder.appending(path: "stickers"), conformingTo: .image),
       sounds: files(in: folder.appending(path: "sounds"), conformingTo: .audio),
+      luts: files(in: folder.appending(path: "luts"), withExtension: "cube"),
       fonts: Array(files(in: folder.appending(path: "fonts"), conformingTo: .font).values)
         .sorted { $0.path < $1.path },
       problem: problem,
     )
   }
 
+  /// The files with `pathExtension` anywhere under `folder`, by name without extension.
+  private static func files(in folder: URL, withExtension pathExtension: String) -> [String: URL] {
+    files(in: folder) { $0.pathExtension.lowercased() == pathExtension }
+  }
+
   /// The files of a type anywhere under `folder`, by name without extension.
   private static func files(in folder: URL, conformingTo type: UTType) -> [String: URL] {
+    files(in: folder) { UTType(filenameExtension: $0.pathExtension)?.conforms(to: type) == true }
+  }
+
+  /// The files under `folder` that pass `wanted`, by name without extension.
+  private static func files(in folder: URL, where wanted: (URL) -> Bool) -> [String: URL] {
     guard let walker = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: nil)
     else {
       return [:]
     }
     var found = [String: URL]()
     for case let url as URL in walker {
-      if UTType(filenameExtension: url.pathExtension)?.conforms(to: type) == true {
+      if wanted(url) {
         found[url.deletingPathExtension().lastPathComponent] = url
       }
     }

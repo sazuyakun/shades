@@ -75,6 +75,12 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         }.map(LayerPicture.surface)
         rotation = .identity
 
+      case .adjustment:
+        picture = .backdrop
+        rotation = .identity
+        // why: an adjustment works on the whole frame, wherever the clip or camera would move it.
+        transform = .identity
+
       case .text:
         let drawn = clip.text.flatMap { content in
           instruction.renderContext.text(
@@ -98,16 +104,19 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           source: picture,
           rotation: rotation,
           transform: transform,
-          camera: style.followsCamera ? camera : .identity,
+          camera: style.followsCamera && clip.source != .adjustment ? camera : .identity,
           opacity: opacity,
           depth: clip.depth,
           matte: matte,
           isNaturalSize: isText,
+          grade: clip.grade,
+          effects: clip.effects,
+          blend: clip.blend,
         )
       }
     }
     do {
-      try instruction.renderContext.renderer.draw(layers, into: output)
+      try instruction.renderContext.renderer.draw(layers, into: output, seed: time.seconds)
     } catch {
       request.finish(with: error)
       return

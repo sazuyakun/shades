@@ -318,3 +318,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Runs a closure, notes which `@Observable` properties it read, and calls you once when any of them changes. It fires once, so you re-arm it each time.
 **JS/TS analogy:** Like a one-shot MobX `reaction` or a Vue `watch` you set up again after it fires.
 **In Shades:** `PluginLibrary` reloads when the list of plugin folders changes in Settings.
+
+## Metal blending and the backdrop pass
+**What it is:** The GPU can mix a new pixel over the old one by fixed rules (like "over" by alpha), but modes such as overlay need to read the pixel underneath. Shades copies the frame drawn so far into a second texture (a blit) and lets the shader read it.
+**JS/TS analogy:** Like canvas `globalCompositeOperation`, but where some modes make you snapshot the canvas first with `drawImage` into another canvas.
+**In Shades:** `MetalRenderer` does this for blend modes and adjustment clips.

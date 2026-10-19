@@ -50,6 +50,12 @@ enum Guide {
     - track_motion follows a box through a video clip (a background job) and saves a named \
     path; follow then makes any layer move with it, or with the cut-out's subject.
 
+    Colour and effects
+    - set_look grades clips (exposure, contrast, saturation, temperature, tint, lift, gamma, \
+    gain, curves, a LUT), adds grain, vignette, halation, blur or a green-screen key, and sets \
+    blend modes (screen for flares on black, multiply for paper, overlay for grain plates).
+    - add_adjustment puts a grade or film look over everything under it; captions stay clean.
+
     Plugins (taste lives here)
     - list_plugins shows text styles, templates, stickers and sounds. apply_template places a \
     template with its fields filled; use_style restyles text. Write a plugin folder (plugin.json \

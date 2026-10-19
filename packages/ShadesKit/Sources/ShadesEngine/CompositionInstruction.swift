@@ -67,4 +67,6 @@ enum LayerSource: Sendable {
   case still(URL)
   /// Hand-drawn lines, from the clip's drawing in `RenderState`.
   case drawing
+  /// An adjustment clip: the frame so far, graded and given its effects.
+  case adjustment
 }

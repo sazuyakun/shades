@@ -57,6 +57,8 @@ struct PluginLibraryTests {
     #expect(library.style(named: "Taste/chul") != nil)
     #expect(library.style(named: "Other/chul") == nil)
     #expect(library.template(named: "lower-third")?.plugin.name == "Taste")
+    #expect(library.look(named: "warm")?.effects?.grain == 0.2)
+    #expect(library.look(named: "warm")?.grade?.lut == "film")
     try write(
       manifest.replacing("\"chul\"", with: "\"keeda\""),
       to: root.appending(path: "taste/plugin.json"),
@@ -74,6 +76,7 @@ struct PluginLibraryTests {
       "name": "Taste",
       "description": "Soham's looks",
       "styles": {"chul": {"size": 0.12, "outline_color": "#FF0000", "anchor": "center"}},
+      "looks": {"warm": {"grade": {"temperature": 0.4, "lut": "film"}, "effects": {"grain": 0.2}}},
       "templates": {
         "lower-third": {"layers": [{"text": "{name}", "style": "chul", "reveal": "pop"}]}
       }

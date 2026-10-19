@@ -21,6 +21,9 @@ public struct Clip: Hashable, Sendable, Identifiable {
     isAudioEnabled: Bool = true,
     keyframes: [Keyframe] = [],
     sticker: StickerLook? = nil,
+    grade: Grade? = nil,
+    effects: Effects? = nil,
+    blend: BlendMode = .normal,
   ) {
     self.init(
       id: id,
@@ -35,6 +38,9 @@ public struct Clip: Hashable, Sendable, Identifiable {
       isAudioEnabled: isAudioEnabled,
       keyframes: keyframes,
       sticker: sticker,
+      grade: grade,
+      effects: effects,
+      blend: blend,
     )
   }
 
@@ -52,6 +58,9 @@ public struct Clip: Hashable, Sendable, Identifiable {
     isAudioEnabled: Bool = true,
     keyframes: [Keyframe] = [],
     sticker: StickerLook? = nil,
+    grade: Grade? = nil,
+    effects: Effects? = nil,
+    blend: BlendMode = .normal,
   ) {
     self.id = id
     self.source = source
@@ -65,6 +74,9 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.isAudioEnabled = isAudioEnabled
     self.keyframes = keyframes
     self.sticker = sticker
+    self.grade = grade
+    self.effects = effects
+    self.blend = blend
   }
 
   // MARK: Public
@@ -88,6 +100,12 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var keyframes: [Keyframe]
   /// The die-cut sticker look, for still pictures with a see-through background.
   public var sticker: StickerLook?
+  /// The clip's colour grade (for an adjustment clip, the grade of everything under it).
+  public var grade: Grade?
+  /// Film-look and keying effects.
+  public var effects: Effects?
+  /// How the clip mixes with what's under it.
+  public var blend: BlendMode
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -149,6 +167,9 @@ extension Clip: Codable {
       isAudioEnabled: container.decode(Bool.self, forKey: .isAudioEnabled),
       keyframes: container.decodeIfPresent([Keyframe].self, forKey: .keyframes) ?? [],
       sticker: container.decodeIfPresent(StickerLook.self, forKey: .sticker),
+      grade: container.decodeIfPresent(Grade.self, forKey: .grade),
+      effects: container.decodeIfPresent(Effects.self, forKey: .effects),
+      blend: container.decodeIfPresent(BlendMode.self, forKey: .blend) ?? .normal,
     )
   }
 
@@ -168,6 +189,9 @@ extension Clip: Codable {
     try container.encode(isAudioEnabled, forKey: .isAudioEnabled)
     try container.encode(keyframes, forKey: .keyframes)
     try container.encodeIfPresent(sticker, forKey: .sticker)
+    try container.encodeIfPresent(grade, forKey: .grade)
+    try container.encodeIfPresent(effects, forKey: .effects)
+    try container.encode(blend, forKey: .blend)
   }
 
   // MARK: Private
@@ -187,6 +211,9 @@ extension Clip: Codable {
     case isAudioEnabled
     case keyframes
     case sticker
+    case grade
+    case effects
+    case blend
   }
 
 }
