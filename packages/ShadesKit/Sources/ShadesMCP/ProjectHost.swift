@@ -58,6 +58,8 @@ public protocol ProjectHost: AnyObject {
     at time: MediaTime,
     fields: [String: String],
   ) async throws(ToolError) -> String
+  /// Ducks a music track under the speech on the timeline; returns what was done.
+  func duckMusic(track: String?, level: Double) throws(CommandError) -> String
   /// Queues following what's inside `box` (fractions of the picture) of a video clip from `time`
   /// to the clip's end, saved as a path called `name`; returns the job's title.
   func trackMotion(

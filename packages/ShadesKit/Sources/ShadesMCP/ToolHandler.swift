@@ -417,6 +417,21 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "duck_music",
+      summary: "Lower the music while anyone speaks, coming back up between: volume keyframes on "
+        + "the music track's clips (the top audio track unless named). Needs speech analysis "
+        + "(analyze_audio or transcribe) on the dialogue first.",
+      parameters: JSONSchema.object([
+        "track": JSONSchema.string("The music track, like A2"),
+        "level": JSONSchema.number(
+          "The music's level under speech, 0 to 1 (default 0.25, about 12 dB down)",
+          minimum: 0,
+          maximum: 1,
+        ),
+      ]),
+      kind: .edit,
+    ),
+    Tool(
       name: "list_projects",
       summary: "List the projects in ~/Shades, newest first, and which one is open.",
       parameters: JSONSchema.object([:]),
@@ -663,6 +678,13 @@ public final class ToolHandler {
         )
       }
       return .text("Styled \(request.clipIDs.count) text clips with \(request.style).")
+
+    case "duck_music":
+      let request = try decode(DuckArguments.self, from: arguments, tool: name)
+      let projectHost = try host()
+      return .text(try perform { () throws(CommandError) -> String in
+        try projectHost.duckMusic(track: request.track, level: request.level ?? 0.25)
+      })
 
     case "list_projects":
       return await listProjects()
@@ -1288,6 +1310,13 @@ private struct TemplateArguments: Decodable {
   let name: String
   let at: MediaTime
   let fields: [String: String]?
+}
+
+// MARK: - DuckArguments
+
+private struct DuckArguments: Decodable {
+  let track: String?
+  let level: Double?
 }
 
 // MARK: - LookArguments

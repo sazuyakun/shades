@@ -13,6 +13,7 @@ extension AnimatedProperty {
     case .tiltY: "Turn"
     case .depth: "Depth"
     case .opacity: "Opacity"
+    case .volume: "Volume"
     }
   }
 
@@ -27,6 +28,7 @@ extension AnimatedProperty {
          .tiltY: -80 ... 80
     case .depth: -3 ... 1
     case .opacity: 0 ... 1
+    case .volume: 0 ... 2
     }
   }
 
@@ -51,6 +53,7 @@ extension AnimatedProperty {
     case .tiltY: SetClip(clipID: clip, tiltY: value)
     case .depth: SetClip(clipID: clip, depth: value)
     case .opacity: SetClip(clipID: clip, opacity: value)
+    case .volume: SetClip(clipID: clip, volume: value)
     }
   }
 }

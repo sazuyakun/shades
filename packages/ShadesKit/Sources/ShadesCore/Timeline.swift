@@ -15,12 +15,14 @@ public struct Timeline: Hashable, Sendable {
     tracks: [Track] = [Track(kind: .video), Track(kind: .audio)],
     markers: [Marker] = [],
     camera: [Keyframe] = [],
+    gain: Double = 1,
   ) {
     self.name = name
     self.format = format
     self.tracks = tracks
     self.markers = markers
     self.camera = camera
+    self.gain = gain
   }
 
   // MARK: Public
@@ -33,6 +35,8 @@ public struct Timeline: Hashable, Sendable {
   /// The camera's moves (zoom as scale, pan as x and y, rotation and tilt), in timeline time.
   /// Without keyframes it rests: no zoom, no pan.
   public var camera: [Keyframe]
+  /// The whole mix's level (1 unchanged), set by loudness normalising.
+  public var gain: Double
 
   /// The length of the whole edit.
   public var duration: MediaTime {
@@ -94,6 +98,7 @@ extension Timeline: Codable {
       tracks: container.decode([Track].self, forKey: .tracks),
       markers: container.decode([Marker].self, forKey: .markers),
       camera: container.decodeIfPresent([Keyframe].self, forKey: .camera) ?? [],
+      gain: container.decodeIfPresent(Double.self, forKey: .gain) ?? 1,
     )
   }
 
@@ -105,6 +110,7 @@ extension Timeline: Codable {
     case tracks
     case markers
     case camera
+    case gain
   }
 
 }

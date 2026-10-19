@@ -19,6 +19,8 @@ public struct SetClip: ToolCommand {
     volume: Double? = nil,
     audioEnabled: Bool? = nil,
     sticker: StickerLook? = nil,
+    fadeIn: MediaTime? = nil,
+    fadeOut: MediaTime? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -33,6 +35,8 @@ public struct SetClip: ToolCommand {
     self.volume = volume
     self.audioEnabled = audioEnabled
     self.sticker = sticker
+    self.fadeIn = fadeIn
+    self.fadeOut = fadeOut
   }
 
   // MARK: Public
@@ -40,7 +44,7 @@ public struct SetClip: ToolCommand {
   public static let title = "Change Clip"
   public static let name = "set_clip"
   public static let summary = "Change a clip's position, size, rotation, 3D tilt and depth, "
-    + "opacity, depth slot or volume. Leave out what shouldn't change."
+    + "opacity, depth slot, volume or sound fades. Leave out what shouldn't change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -75,6 +79,8 @@ public struct SetClip: ToolCommand {
         maximum: 4,
       ),
       "audio_enabled": JSONSchema.boolean("Whether a video clip plays its own sound"),
+      "fade_in": JSONSchema.number("Seconds the sound takes to rise from silence", minimum: 0),
+      "fade_out": JSONSchema.number("Seconds the sound takes to fall to silence", minimum: 0),
       "sticker": JSONSchema.object([
         "border": JSONSchema.number(
           "White die-cut border as a fraction of the picture; with shadow false and border 0 "
@@ -99,6 +105,8 @@ public struct SetClip: ToolCommand {
   public let volume: Double?
   public let audioEnabled: Bool?
   public let sticker: StickerLook?
+  public let fadeIn: MediaTime?
+  public let fadeOut: MediaTime?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -121,6 +129,14 @@ public struct SetClip: ToolCommand {
       throw rejected(.invalidValue("volume goes from 0 to 4"))
     }
     var clip = project.timeline.tracks[location.track].clips[location.clip]
+    if
+      let fade = [fadeIn, fadeOut].compactMap(\.self)
+        .first(where: { $0 > clip.duration || $0 < .zero })
+    {
+      throw rejected(.invalidRange("a fade of \(fade.seconds) s doesn't fit the clip"))
+    }
+    clip.fadeIn = fadeIn.map(project.onFrame) ?? clip.fadeIn
+    clip.fadeOut = fadeOut.map(project.onFrame) ?? clip.fadeOut
     clip.transform.x = x ?? clip.transform.x
     clip.transform.y = y ?? clip.transform.y
     clip.transform.scale = scale ?? clip.transform.scale

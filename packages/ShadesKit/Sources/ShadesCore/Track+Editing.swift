@@ -98,6 +98,8 @@ extension Clip {
       blend: blend,
       // why: the incoming transition belongs to the original's start, not to a split's middle.
       transitionIn: nil,
+      fadeIn: fadeIn,
+      fadeOut: fadeOut,
     )
   }
 

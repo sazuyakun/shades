@@ -21,7 +21,7 @@ struct ClipVideoInspector: View {
         DrawingInspector(clip: clip, drawing: drawing, onError: onError)
         Hairline()
       }
-      ForEach(AnimatedProperty.allCases, id: \.self) { property in
+      ForEach(AnimatedProperty.allCases.filter(\.isVisual), id: \.self) { property in
         AnimatedSlider(clip: clip, property: property, onError: onError)
       }
       Picker("Depth", selection: Binding(

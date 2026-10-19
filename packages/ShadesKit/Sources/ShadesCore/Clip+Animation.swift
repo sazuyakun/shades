@@ -20,6 +20,16 @@ extension Clip {
     keyframes.value(of: property, at: sourceTime(at: time), fixed: fixedValue(of: property))
   }
 
+  /// The clip's sound level at `time` on the timeline: its volume keyframes (or fixed volume)
+  /// faded in and out at its ends.
+  public func gain(at time: MediaTime) -> Double {
+    let elapsed = (time - timelineStart).seconds
+    let remaining = (timelineEnd - time).seconds
+    let fadingIn = fadeIn.seconds > 0 ? min(max(elapsed / fadeIn.seconds, 0), 1) : 1
+    let fadingOut = fadeOut.seconds > 0 ? min(max(remaining / fadeOut.seconds, 0), 1) : 1
+    return value(of: .volume, at: time) * fadingIn * fadingOut
+  }
+
   /// The moment of the clip's source shown at `time` on the timeline.
   public func sourceTime(at time: MediaTime) -> MediaTime {
     time - timelineStart + sourceStart
@@ -42,6 +52,7 @@ extension Clip {
     case .tiltY: transform.tiltY
     case .depth: transform.depth
     case .opacity: opacity
+    case .volume: volume
     }
   }
 

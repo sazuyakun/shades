@@ -14,6 +14,7 @@ public struct Track: Hashable, Sendable, Identifiable {
     isMuted: Bool = false,
     isHidden: Bool = false,
     followsCamera: Bool? = nil,
+    volume: Double = 1,
   ) {
     self.id = id
     self.kind = kind
@@ -21,6 +22,7 @@ public struct Track: Hashable, Sendable, Identifiable {
     self.isMuted = isMuted
     self.isHidden = isHidden
     self.followsCamera = followsCamera ?? (kind != .text)
+    self.volume = volume
   }
 
   // MARK: Public
@@ -35,6 +37,8 @@ public struct Track: Hashable, Sendable, Identifiable {
   /// Whether the timeline's camera moves this track's pictures (by default video does, text
   /// such as captions doesn't).
   public var followsCamera: Bool
+  /// The track's level in the mix, on top of its clips' own volume (1 unchanged).
+  public var volume: Double
 
   /// The time right after the last clip on this track.
   public var end: MediaTime {
@@ -75,6 +79,7 @@ extension Track: Codable {
       isMuted: container.decode(Bool.self, forKey: .isMuted),
       isHidden: container.decode(Bool.self, forKey: .isHidden),
       followsCamera: container.decodeIfPresent(Bool.self, forKey: .followsCamera),
+      volume: container.decodeIfPresent(Double.self, forKey: .volume) ?? 1,
     )
   }
 
@@ -87,6 +92,7 @@ extension Track: Codable {
     case isMuted
     case isHidden
     case followsCamera
+    case volume
   }
 
 }

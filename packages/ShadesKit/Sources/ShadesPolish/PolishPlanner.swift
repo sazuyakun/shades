@@ -70,6 +70,26 @@ public enum PolishPlanner {
     word.lowercased().filter { $0.isLetter || $0.isNumber }
   }
 
+  /// Speech stretches of the track's clips, moved to timeline time.
+  static func speechOnTimeline(
+    _ track: Track,
+    analyses: [Media.ID: MediaAnalysis],
+  ) -> [TimeRange] {
+    track.clips.flatMap { clip -> [TimeRange] in
+      guard let mediaID = clip.mediaID, let speech = analyses[mediaID]?.speech else {
+        return []
+      }
+      let offset = clip.timelineStart - clip.sourceStart
+      let sourceEnd = clip.sourceStart + clip.duration
+      return speech.filter { $0.end > clip.sourceStart && $0.start < sourceEnd }.map { stretch in
+        TimeRange(
+          start: max(stretch.start, clip.sourceStart) + offset,
+          end: min(stretch.end, sourceEnd) + offset,
+        )
+      }
+    }
+  }
+
   // MARK: Private
 
   /// How far a cut may move to land on a beat, in seconds.
@@ -261,26 +281,6 @@ public enum PolishPlanner {
         range: stretch,
         detail: "zoom to \(Int((punchInScale * 100).rounded()))%",
       )
-    }
-  }
-
-  /// Speech stretches of the track's clips, moved to timeline time.
-  private static func speechOnTimeline(
-    _ track: Track,
-    analyses: [Media.ID: MediaAnalysis],
-  ) -> [TimeRange] {
-    track.clips.flatMap { clip -> [TimeRange] in
-      guard let mediaID = clip.mediaID, let speech = analyses[mediaID]?.speech else {
-        return []
-      }
-      let offset = clip.timelineStart - clip.sourceStart
-      let sourceEnd = clip.sourceStart + clip.duration
-      return speech.filter { $0.end > clip.sourceStart && $0.start < sourceEnd }.map { stretch in
-        TimeRange(
-          start: max(stretch.start, clip.sourceStart) + offset,
-          end: min(stretch.end, sourceEnd) + offset,
-        )
-      }
     }
   }
 

@@ -62,6 +62,10 @@ enum Guide {
     - set_transition joins touching clips with a dissolve, dip, flash, whip, push, slices, \
     tiles or iris.
 
+    Sound
+    - set_clip fade_in / fade_out and volume; set_keyframes property volume for rides; set_track \
+    volume for the mix; duck_music dips music under speech.
+
     Plugins (taste lives here)
     - list_plugins shows text styles, templates, stickers and sounds. apply_template places a \
     template with its fields filled; use_style restyles text. Write a plugin folder (plugin.json \

@@ -136,6 +136,24 @@ struct ClipEditTests {
     }
   }
 
+  @Test
+  func `fades, track volume and the master level are set within limits`() throws {
+    let media = makeMedia(seconds: 4)
+    var project = Project(media: [media])
+    try AppendClip(mediaID: media.id).apply(to: &project)
+    let id = try #require(project.timeline.allClips.first?.id)
+    try SetClip(clipID: id, fadeIn: seconds(1), fadeOut: seconds(0.5)).apply(to: &project)
+    #expect(project.timeline.clip(withID: id)?.fadeIn == seconds(1))
+    #expect(throws: CommandError.self) {
+      try SetClip(clipID: id, fadeIn: seconds(9)).apply(to: &project)
+    }
+    try SetTrack(track: "A1", volume: 0.5).apply(to: &project)
+    #expect(project.timeline.tracks.first { $0.kind == .audio }?.volume == 0.5)
+    try SetMasterGain(gain: 1.5).apply(to: &project)
+    #expect(project.timeline.gain == 1.5)
+    #expect(throws: CommandError.self) { try SetMasterGain(gain: 20).apply(to: &project) }
+  }
+
   // MARK: Private
 
   private let video = makeMedia(seconds: 4)

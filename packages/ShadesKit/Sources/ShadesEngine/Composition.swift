@@ -198,7 +198,15 @@ extension Composition {
       parameters.trackID = trackID
       for clip in track.clips {
         let isAudible = !track.isMuted && (track.kind == .audio || clip.isAudioEnabled)
-        parameters.setVolume(Float(isAudible ? clip.volume : 0), at: clip.timelineStart.cmTime)
+        let level = isAudible ? track.volume * timeline.gain : 0
+        let moments = Self.volumeMoments(of: clip)
+        for (from, to) in zip(moments, moments.dropFirst()) {
+          parameters.setVolumeRamp(
+            fromStartVolume: Float(clip.gain(at: from) * level),
+            toEndVolume: Float(clip.gain(at: to) * level),
+            timeRange: CMTimeRange(start: from.cmTime, end: to.cmTime),
+          )
+        }
       }
       return parameters
     }
@@ -206,6 +214,26 @@ extension Composition {
   }
 
   // MARK: Private
+
+  /// The moments a clip's volume ramps between: its ends, its fades' ends and its volume
+  /// keyframes, with curved easings split into short straight steps.
+  private static func volumeMoments(of clip: Clip) -> [MediaTime] {
+    var moments: Set = [clip.timelineStart, clip.timelineEnd]
+    moments.insert(min(clip.timelineStart + clip.fadeIn, clip.timelineEnd))
+    moments.insert(max(clip.timelineEnd - clip.fadeOut, clip.timelineStart))
+    let keyframes = clip.keyframes.filter { $0.property == .volume }.sorted { $0.time < $1.time }
+    for (from, to) in zip(keyframes, keyframes.dropFirst()) {
+      let start = clip.timelineTime(atSource: from.time)
+      let end = clip.timelineTime(atSource: to.time)
+      // why: eight straight steps follow an eased curve closely enough to be inaudible.
+      let steps = from.easing == .linear ? 1 : 8
+      for step in 0 ... steps {
+        moments
+          .insert(start + MediaTime(seconds: (end - start).seconds * Double(step) / Double(steps)))
+      }
+    }
+    return moments.filter { clip.timelineStart <= $0 && $0 <= clip.timelineEnd }.sorted()
+  }
 
   private static func addTrack(
     _ type: AVMediaType,

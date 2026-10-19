@@ -25,6 +25,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
     effects: Effects? = nil,
     blend: BlendMode = .normal,
     transitionIn: Transition? = nil,
+    fadeIn: MediaTime = .zero,
+    fadeOut: MediaTime = .zero,
   ) {
     self.init(
       id: id,
@@ -43,6 +45,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
       effects: effects,
       blend: blend,
       transitionIn: transitionIn,
+      fadeIn: fadeIn,
+      fadeOut: fadeOut,
     )
   }
 
@@ -64,6 +68,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
     effects: Effects? = nil,
     blend: BlendMode = .normal,
     transitionIn: Transition? = nil,
+    fadeIn: MediaTime = .zero,
+    fadeOut: MediaTime = .zero,
   ) {
     self.id = id
     self.source = source
@@ -81,6 +87,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.effects = effects
     self.blend = blend
     self.transitionIn = transitionIn
+    self.fadeIn = fadeIn
+    self.fadeOut = fadeOut
   }
 
   // MARK: Public
@@ -112,6 +120,10 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var blend: BlendMode
   /// How the clip comes in from the clip just before it on its track (a cut when `nil`).
   public var transitionIn: Transition?
+  /// How long the sound takes to rise from silence at the start.
+  public var fadeIn: MediaTime
+  /// How long the sound takes to fall to silence at the end.
+  public var fadeOut: MediaTime
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -177,6 +189,8 @@ extension Clip: Codable {
       effects: container.decodeIfPresent(Effects.self, forKey: .effects),
       blend: container.decodeIfPresent(BlendMode.self, forKey: .blend) ?? .normal,
       transitionIn: container.decodeIfPresent(Transition.self, forKey: .transitionIn),
+      fadeIn: container.decodeIfPresent(MediaTime.self, forKey: .fadeIn) ?? .zero,
+      fadeOut: container.decodeIfPresent(MediaTime.self, forKey: .fadeOut) ?? .zero,
     )
   }
 
@@ -200,6 +214,8 @@ extension Clip: Codable {
     try container.encodeIfPresent(effects, forKey: .effects)
     try container.encode(blend, forKey: .blend)
     try container.encodeIfPresent(transitionIn, forKey: .transitionIn)
+    try container.encode(fadeIn, forKey: .fadeIn)
+    try container.encode(fadeOut, forKey: .fadeOut)
   }
 
   // MARK: Private
@@ -223,6 +239,8 @@ extension Clip: Codable {
     case effects
     case blend
     case transitionIn
+    case fadeIn
+    case fadeOut
   }
 
 }

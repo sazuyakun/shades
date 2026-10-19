@@ -18,6 +18,7 @@ enum ProjectSummary {
         "height": .number(Double(timeline.format.height)),
         "fps": .number(Double(timeline.format.framesPerSecond)),
         "duration": seconds(timeline.duration),
+        "master_gain": rounded(timeline.gain),
         "camera": .array(timeline.camera.map { keyframe in
           [
             "property": .string(keyframe.property.rawValue),
@@ -37,6 +38,7 @@ enum ProjectSummary {
           "muted": .bool(track.isMuted),
           "hidden": .bool(track.isHidden),
           "follows_camera": .bool(track.followsCamera),
+          "volume": rounded(track.volume),
           "clips": .array(track.clips
             .map { json(of: $0, media: $0.mediaID.flatMap { mediaByID[$0] }) }),
         ]
@@ -119,6 +121,10 @@ enum ProjectSummary {
         "kind": .string(transition.kind.rawValue),
         "duration": seconds(transition.duration),
       ]
+    }
+    if clip.fadeIn > .zero || clip.fadeOut > .zero {
+      fields["fade_in"] = seconds(clip.fadeIn)
+      fields["fade_out"] = seconds(clip.fadeOut)
     }
     if clip.blend != .normal {
       fields["blend"] = .string(clip.blend.rawValue)

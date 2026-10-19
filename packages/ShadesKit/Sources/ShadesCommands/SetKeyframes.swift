@@ -30,10 +30,10 @@ public struct SetKeyframes: ToolCommand {
 
   public static let title = "Set Keyframes"
   public static let name = "set_keyframes"
-  public static let summary = "Animate a clip's x, y, scale, rotation, tiltX, tiltY, depth or "
-    + "opacity: give the value at moments inside the clip, and the property moves between them. A "
-    + "keyframe's easing shapes the move to the next one (spring and bouncy overshoot). An "
-    + "animated property ignores its fixed value from set_clip."
+  public static let summary = "Animate a clip's x, y, scale, rotation, tiltX, tiltY, depth, "
+    + "opacity or volume: give the value at moments inside the clip, and the property moves "
+    + "between them. A keyframe's easing shapes the move to the next one (spring and bouncy "
+    + "overshoot). An animated property ignores its fixed value from set_clip."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -101,6 +101,8 @@ public struct SetKeyframes: ToolCommand {
     case .tiltX where !(-89 ... 89).contains(value),
          .tiltY where !(-89 ... 89).contains(value):
       throw rejected(.invalidValue("tilt goes from -89 to 89 degrees"))
+    case .volume where !(0 ... 4).contains(value):
+      throw rejected(.invalidValue("volume goes from 0 to 4"))
     case .depth where !(-10 ... 1.5).contains(value):
       throw rejected(.invalidValue("depth goes from -10 (far away) to 1.5 (close)"))
     default:

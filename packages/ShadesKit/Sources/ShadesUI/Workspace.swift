@@ -680,6 +680,29 @@ extension Workspace: ProjectHost {
     return "Placed \(name) at \(time.seconds) s: \(template.layers.count) layers."
   }
 
+  /// Ducks a music track (`track`, or the top audio track) under everyone's speech, to `level`
+  /// of its own volume. Returns what was done.
+  public func duckMusic(track label: String?, level: Double) throws(CommandError) -> String {
+    let timeline = editor.project.timeline
+    let audio = timeline.tracks.indices.filter { timeline.tracks[$0].kind == .audio }
+    let music = label.flatMap { label in
+      timeline.tracks.firstIndex { timeline.label(of: $0) == label.uppercased() }
+    } ?? audio.last { !timeline.tracks[$0].clips.isEmpty }
+    guard let music, timeline.tracks[music].kind == .audio else {
+      throw .invalidArguments("put the music on an audio track (A1, A2…) first")
+    }
+    let speech = DuckingPlanner.speech(in: timeline, except: music, analyses: analysis.analyses)
+    guard !speech.isEmpty else {
+      throw .invalidArguments(
+        "no speech found yet: run analyze_audio (or transcribe) on the dialogue first"
+      )
+    }
+    try editor.perform(DuckMusic(track: music, speech: speech, duckTo: level))
+    let name = timeline.label(of: timeline.tracks[music])
+    let percent = Int((level * 100).rounded())
+    return "Ducked \(name) to \(percent)% under \(speech.count) stretches of speech."
+  }
+
   // MARK: Internal
 
   /// Makes a layer follow the subject of the topmost video under it that has a cut-out.
