@@ -1,3 +1,4 @@
+import Accelerate
 import AVFoundation
 import ShadesCore
 
@@ -45,10 +46,14 @@ public enum MatteMaker {
         continue
       }
       let mask = try await segment(image, engine: engine, width: width, height: height)
-      let current = (mask ?? [UInt8](repeating: 0, count: width * height)).map(Float.init)
+      let current = vDSP.integerToFloatingPoint(
+        mask ?? [UInt8](repeating: 0, count: width * height),
+        floatingPointType: Float.self,
+      )
       // why: blending with the last frame steadies a mask that would otherwise shimmer.
-      let blended = smoothed
-        .map { previous in zip(current, previous).map { 0.65 * $0 + 0.35 * $1 } } ?? current
+      let blended = smoothed.map { previous in
+        vDSP.add(vDSP.multiply(0.65, current), vDSP.multiply(0.35, previous))
+      } ?? current
       smoothed = blended
       try await writer.append(blended, at: frame.requestedTime)
       index += 1
@@ -150,7 +155,7 @@ private struct MatteWriter {
     adaptor = AVAssetWriterInputPixelBufferAdaptor(
       assetWriterInput: input,
       sourcePixelBufferAttributes: [
-        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+        kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
         kCVPixelBufferWidthKey as String: width,
         kCVPixelBufferHeightKey as String: height,
       ],
@@ -179,20 +184,29 @@ private struct MatteWriter {
     guard let buffer = made else {
       throw .unwritable(url)
     }
+    let gray = vDSP.floatingPointToInteger(
+      vDSP.clip(mask, to: 0 ... 255),
+      integerType: UInt8.self,
+      rounding: .towardNearestInteger,
+    )
     CVPixelBufferLockBaseAddress(buffer, [])
-    if let base = CVPixelBufferGetBaseAddress(buffer) {
-      let rowBytes = CVPixelBufferGetBytesPerRow(buffer)
-      let pixels = base.assumingMemoryBound(to: UInt8.self)
-      for row in 0 ..< height {
-        for column in 0 ..< width {
-          let value = UInt8(min(max(mask[row * width + column], 0), 255))
-          let offset = row * rowBytes + column * 4
-          pixels[offset] = value
-          pixels[offset + 1] = value
-          pixels[offset + 2] = value
-          pixels[offset + 3] = 255
+    // why: a gray mask is just the brightness plane; colour stays neutral (128).
+    if
+      let luma = CVPixelBufferGetBaseAddressOfPlane(buffer, 0),
+      let chroma = CVPixelBufferGetBaseAddressOfPlane(buffer, 1)
+    {
+      let lumaRowBytes = CVPixelBufferGetBytesPerRowOfPlane(buffer, 0)
+      gray.withUnsafeBytes { source in
+        guard let start = source.baseAddress else {
+          return
+        }
+        for row in 0 ..< height {
+          (luma + row * lumaRowBytes).copyMemory(from: start + row * width, byteCount: width)
         }
       }
+      let chromaBytes = CVPixelBufferGetBytesPerRowOfPlane(buffer, 1)
+        * CVPixelBufferGetHeightOfPlane(buffer, 1)
+      memset(chroma, 128, chromaBytes)
     }
     CVPixelBufferUnlockBaseAddress(buffer, [])
     guard adaptor.append(buffer, withPresentationTime: time) else {

@@ -47,6 +47,9 @@ enum Segmenter {
 
   // MARK: Private
 
+  /// Shared across frames: making a CoreImage context is slow, and one is safe to share.
+  private static let resizeContext = CIContext(options: [.workingColorSpace: NSNull()])
+
   /// The mask scaled to `width`×`height` as one byte per pixel.
   private static func resized(_ mask: CVPixelBuffer, width: Int, height: Int) -> [UInt8] {
     let image = CIImage(cvPixelBuffer: mask)
@@ -55,12 +58,11 @@ enum Segmenter {
       y: CGFloat(height) / image.extent.height,
     ))
     var bytes = [UInt8](repeating: 0, count: width * height)
-    let context = CIContext(options: [.workingColorSpace: NSNull()])
     bytes.withUnsafeMutableBytes { buffer in
       guard let base = buffer.baseAddress else {
         return
       }
-      context.render(
+      resizeContext.render(
         scaled,
         toBitmap: base,
         rowBytes: width,
