@@ -45,11 +45,12 @@ struct InspectorPane: View {
 
   @ViewBuilder
   private func content(clip: Clip?, media: Media?) -> some View {
-    let isVideoTrack = clip.flatMap { editor.project.timeline.location(ofClip: $0.id) }
-      .map { editor.project.timeline.tracks[$0.track].kind == .video } ?? false
+    let kind = clip.flatMap { editor.project.timeline.location(ofClip: $0.id) }
+      .map { editor.project.timeline.tracks[$0.track].kind }
+    let isVideoTrack = kind == .video
     switch tab {
     case .video:
-      if let clip, isVideoTrack {
+      if let clip, kind == .video || kind == .text {
         ClipVideoInspector(clip: clip, onError: onError)
       } else {
         hint(clip == nil

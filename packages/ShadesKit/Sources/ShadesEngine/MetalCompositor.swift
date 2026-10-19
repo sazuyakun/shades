@@ -1,4 +1,5 @@
 import AVFoundation
+import ShadesCore
 
 // MARK: - MetalCompositor
 
@@ -34,11 +35,13 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     }
     let width = CVPixelBufferGetWidth(output)
     let height = CVPixelBufferGetHeight(output)
+    let time = MediaTime(seconds: request.compositionTime.seconds)
     let layers = instruction.layers.compactMap { layer -> RenderLayer? in
-      guard
-        let style = instruction.renderState.style(of: layer.clipID), style.isVisible,
-        style.opacity > 0
-      else {
+      guard let style = instruction.renderState.style(of: layer.clipID), style.isVisible else {
+        return nil
+      }
+      let opacity = style.clip.opacity(at: time)
+      guard opacity > 0 else {
         return nil
       }
       let picture: LayerPicture?
@@ -49,8 +52,8 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         rotation = sourceRotation
 
       case .text:
-        let texture = style.text.flatMap { text in
-          instruction.renderContext.caption(text, width: width, height: height)
+        let texture = style.clip.text.flatMap { content in
+          instruction.renderContext.caption(content.text, width: width, height: height)
         }
         picture = texture.map(LayerPicture.surface)
         rotation = .identity
@@ -61,9 +64,9 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         RenderLayer(
           source: picture,
           rotation: rotation,
-          transform: style.transform,
-          opacity: style.opacity,
-          depth: style.depth,
+          transform: style.clip.transform(at: time),
+          opacity: opacity,
+          depth: style.clip.depth,
           matte: matte,
         )
       }

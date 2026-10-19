@@ -49,6 +49,23 @@ struct LayerRenderingTests {
   }
 
   @Test
+  func `keyframes move a clip across the frame over time`() async throws {
+    let project = try await twoLayers {
+      $0.transform.scale = 0.3
+      $0.keyframes = [
+        Keyframe(property: .x, time: .zero, value: -0.3),
+        Keyframe(property: .x, time: MediaTime(seconds: 0.8), value: 0.3, easing: .easeInOut),
+      ]
+    }
+    let start = try await FrameRenderer.png(of: project, atSeconds: 0, maxSide: 320)
+    let end = try await FrameRenderer.png(of: project, atSeconds: 0.9, maxSide: 320)
+    #expect(try color(of: start, x: 0.2, y: 0.5).blue > 200)
+    #expect(try color(of: start, x: 0.8, y: 0.5).red > 200)
+    #expect(try color(of: end, x: 0.8, y: 0.5).blue > 200)
+    #expect(try color(of: end, x: 0.2, y: 0.5).red > 200)
+  }
+
+  @Test
   func `a clip's look doesn't change the playback structure, its timing does`() async throws {
     let project = try await twoLayers { _ in }
     var restyled = project

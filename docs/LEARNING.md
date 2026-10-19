@@ -283,3 +283,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A video frame stored as two planes: brightness (Y) at full size and colour (CbCr) at quarter size. It's what video encoders want natively, so no conversion is needed.
 **JS/TS analogy:** Like storing an image as a grayscale `Uint8Array` plus a smaller colour array, rather than RGBA.
 **In Shades:** A cut-out is gray, so `MatteMaker` copies its mask straight into the brightness plane and fills colour with neutral 128.
+
+## Parameterized tests (`@Test(arguments:)`)
+**What it is:** One test function run once per value in a list; each run passes or fails on its own.
+**JS/TS analogy:** Jest's `test.each([...])`.
+**In Shades:** `AnimationTests` checks every `Easing` case starts at 0 and arrives at 1.
+
+## `switch` with `where` clauses
+**What it is:** A `case` can add a condition: `case .opacity where value > 1:` only matches when both hold, and `default` catches the rest.
+**JS/TS analogy:** Like a `switch (true)` with `case prop === "opacity" && value > 1:`, but the compiler still checks every case is covered.
+**In Shades:** `SetKeyframes.validate` refuses out-of-range opacity and scale.

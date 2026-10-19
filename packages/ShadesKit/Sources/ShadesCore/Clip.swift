@@ -19,6 +19,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     depth: DepthSlot = .inFront,
     volume: Double = 1,
     isAudioEnabled: Bool = true,
+    keyframes: [Keyframe] = [],
   ) {
     self.init(
       id: id,
@@ -31,6 +32,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       depth: depth,
       volume: volume,
       isAudioEnabled: isAudioEnabled,
+      keyframes: keyframes,
     )
   }
 
@@ -46,6 +48,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     depth: DepthSlot = .inFront,
     volume: Double = 1,
     isAudioEnabled: Bool = true,
+    keyframes: [Keyframe] = [],
   ) {
     self.id = id
     self.source = source
@@ -57,6 +60,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.depth = depth
     self.volume = volume
     self.isAudioEnabled = isAudioEnabled
+    self.keyframes = keyframes
   }
 
   // MARK: Public
@@ -76,6 +80,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var volume: Double
   /// Whether a video clip plays its media's own sound (off once the audio is detached).
   public var isAudioEnabled: Bool
+  /// Values that change over time, overriding the fixed ones while present.
+  public var keyframes: [Keyframe]
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -127,6 +133,7 @@ extension Clip: Codable {
       depth: container.decode(DepthSlot.self, forKey: .depth),
       volume: container.decode(Double.self, forKey: .volume),
       isAudioEnabled: container.decode(Bool.self, forKey: .isAudioEnabled),
+      keyframes: container.decodeIfPresent([Keyframe].self, forKey: .keyframes) ?? [],
     )
   }
 
@@ -144,6 +151,7 @@ extension Clip: Codable {
     try container.encode(depth, forKey: .depth)
     try container.encode(volume, forKey: .volume)
     try container.encode(isAudioEnabled, forKey: .isAudioEnabled)
+    try container.encode(keyframes, forKey: .keyframes)
   }
 
   // MARK: Private
@@ -161,6 +169,7 @@ extension Clip: Codable {
     case depth
     case volume
     case isAudioEnabled
+    case keyframes
   }
 
 }

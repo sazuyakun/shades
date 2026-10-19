@@ -90,6 +90,7 @@ extension Clip {
       depth: depth,
       volume: volume,
       isAudioEnabled: isAudioEnabled,
+      keyframes: keyframes,
     )
   }
 

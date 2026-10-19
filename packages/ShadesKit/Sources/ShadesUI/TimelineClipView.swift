@@ -2,8 +2,8 @@ import ShadesCore
 import SwiftUI
 
 /// How a clip looks: rounded, labeled, with a thumbnail like Final Cut's filmstrip (video), a
-/// sound color (audio) or its words (text). Outlined in the accent color when selected, glowing
-/// purple for a moment after Claude changes it.
+/// sound color (audio) or its words (text), and diamonds where it has keyframes. Outlined in the
+/// accent color when selected, glowing purple for a moment after Claude changes it.
 struct TimelineClipView: View {
 
   // MARK: Internal
@@ -13,6 +13,8 @@ struct TimelineClipView: View {
   let kind: TrackKind
   let isSelected: Bool
   let isRecentlyChanged: Bool
+  /// Where the clip has keyframes, as fractions of its length.
+  let keyframeSpots: [Double]
 
   var body: some View {
     RoundedRectangle(cornerRadius: 7)
@@ -32,6 +34,16 @@ struct TimelineClipView: View {
           .lineLimit(1)
           .padding(.horizontal, 7)
           .padding(.top, 2)
+      }
+      .overlay {
+        GeometryReader { geometry in
+          ForEach(keyframeSpots, id: \.self) { spot in
+            Image(systemName: "diamond.fill")
+              .font(.system(size: 7))
+              .foregroundStyle(.white)
+              .position(x: spot * geometry.size.width, y: geometry.size.height - 6)
+          }
+        }
       }
       .clipShape(.rect(cornerRadius: 7))
       .overlay {

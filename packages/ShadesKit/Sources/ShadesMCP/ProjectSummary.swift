@@ -87,6 +87,16 @@ enum ProjectSummary {
     case .text(let content):
       fields["text"] = .string(content.text)
     }
+    if !clip.keyframes.isEmpty {
+      fields["keyframes"] = .array(clip.keyframes.map { keyframe in
+        .object([
+          "property": .string(keyframe.property.rawValue),
+          "at": seconds(clip.timelineTime(atSource: keyframe.time)),
+          "value": rounded(keyframe.value),
+          "easing": .string(keyframe.easing.rawValue),
+        ])
+      })
+    }
     return .object(fields)
   }
 

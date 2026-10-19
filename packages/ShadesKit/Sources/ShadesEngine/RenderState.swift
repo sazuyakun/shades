@@ -5,7 +5,8 @@ import Synchronization
 // MARK: - RenderState
 
 /// How every clip is drawn right now. The compositor reads it for each frame, so changing a
-/// clip's position, opacity or a track's visibility shows at once, without rebuilding playback.
+/// clip's position, opacity, keyframes or a track's visibility shows at once, without rebuilding
+/// playback.
 public final class RenderState: Sendable {
 
   // MARK: Lifecycle
@@ -19,13 +20,7 @@ public final class RenderState: Sendable {
     var styles = [Clip.ID: LayerStyle]()
     for track in timeline.tracks where track.kind != .audio {
       for clip in track.clips {
-        styles[clip.id] = LayerStyle(
-          transform: clip.transform,
-          opacity: clip.opacity,
-          isVisible: !track.isHidden,
-          text: clip.text?.text,
-          depth: clip.depth,
-        )
+        styles[clip.id] = LayerStyle(clip: clip, isVisible: !track.isHidden)
       }
     }
     self.styles.withLock { $0 = styles }
@@ -44,13 +39,8 @@ public final class RenderState: Sendable {
 
 // MARK: - LayerStyle
 
-/// The look of one clip in the frame.
+/// The look of one clip in the frame: the clip as it is now, and whether its track shows.
 struct LayerStyle: Sendable {
-  let transform: ClipTransform
-  let opacity: Double
+  let clip: Clip
   let isVisible: Bool
-  /// The words, for a text clip.
-  let text: String?
-  /// Where the layer sits relative to the subject.
-  let depth: DepthSlot
 }

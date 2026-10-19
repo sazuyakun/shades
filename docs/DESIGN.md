@@ -25,6 +25,7 @@ Locked target look, **v2**: a Final Cut layout with a Cursor/Glaze skin. Source:
 | Density | FCP density: small system font, compact rows |
 | Media browser | Thumbnail grid with rounded corners and hover-scrub |
 | History pane (⌘L) | Toggleable; replaces the inspector. A **Cursor-style list** of every change Claude made over MCP: each request with its time, its steps as quiet lines (✓ done, ◌ in progress), the result in green or red ("+2 clips", "−47 cuts"), and **Undo** / **Show** buttons. Read-only: no prompt or chat |
+| Keyframes | A small diamond beside each animatable slider: hollow to add one at the playhead, filled when one is there (click removes it); white once the property is animated, faint before. Animated clips show white diamonds along their bottom edge on the timeline |
 | AI changes | Clips Claude changed glow soft purple, then fade; a toast with Undo. Purple is reserved for AI |
 
 ## Inspiration

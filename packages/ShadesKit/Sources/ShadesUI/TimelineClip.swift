@@ -27,6 +27,9 @@ struct TimelineClip: View {
       kind: track.kind,
       isSelected: editor.selection.contains(clip.id),
       isRecentlyChanged: server.activity.recentlyChangedClipIDs.contains(clip.id),
+      keyframeSpots: Set(clip.keyframes.map {
+        (clip.timelineTime(atSource: $0.time) - clip.timelineStart).seconds / clip.duration.seconds
+      }).sorted(),
     )
     .opacity(track.isHidden || track.isMuted ? 0.45 : 1)
     .frame(width: max(width, 2), height: rowHeight(track) - 8)

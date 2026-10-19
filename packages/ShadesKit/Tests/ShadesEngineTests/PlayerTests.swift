@@ -6,8 +6,45 @@ import Testing
 
 @MainActor
 struct PlayerTests {
+
+  // MARK: Internal
+
   @Test
   func `a fresh player loads with a real playhead, not NaN`() async throws {
+    let project = try await oneClipProject()
+    let player = Player()
+    try await player.load(project)
+    #expect(player.currentTime.isFinite)
+    #expect(player.currentTime == 0)
+  }
+
+  @Test
+  func `a new cut-out rebuilds playback so depth slots can use it`() async throws {
+    let project = try await oneClipProject()
+    let player = Player()
+    try await player.load(project)
+    let before = player.avPlayer.currentItem
+    let mediaID = try #require(project.media.first?.id)
+    player.mattes[mediaID] = try await VideoFixture.make(red: 255, green: 255, blue: 255)
+    try await player.load(project)
+    #expect(player.avPlayer.currentItem !== before)
+  }
+
+  @Test
+  func `loads running at once share files without breaking each other`() async throws {
+    let project = try await oneClipProject()
+    let player = Player()
+    let mediaID = try #require(project.media.first?.id)
+    player.mattes[mediaID] = try await VideoFixture.make(red: 255, green: 255, blue: 255)
+    let loads = (0 ..< 4).map { _ in Task { try await player.load(project) } }
+    for load in loads {
+      try await load.value
+    }
+  }
+
+  // MARK: Private
+
+  private func oneClipProject() async throws -> Project {
     let url = try await VideoFixture.make(red: 0, green: 200, blue: 0)
     let media = Media(
       url: url,
@@ -23,9 +60,7 @@ struct PlayerTests {
       duration: media.duration,
       timelineStart: .zero,
     )]
-    let player = Player()
-    try await player.load(project)
-    #expect(player.currentTime.isFinite)
-    #expect(player.currentTime == 0)
+    return project
   }
+
 }

@@ -64,7 +64,8 @@ public final class Player {
     }
     let structure = Composition.Structure(timeline)
     if
-      structure == self.structure, proxies == loadedProxies, let composition,
+      structure == self.structure, proxies == loadedProxies, mattes == loadedMattes,
+      let composition,
       let item = avPlayer.currentItem
     {
       item.audioMix = composition.audioMix(for: timeline)

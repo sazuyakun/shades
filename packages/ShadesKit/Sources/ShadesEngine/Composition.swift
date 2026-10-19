@@ -97,7 +97,11 @@ extension Composition {
             try target.insertTimeRange(range, of: audio, at: clip.timelineStart.cmTime)
           }
         } catch {
-          logger.error("composition.failed reason=insert path=\(media.url.path, privacy: .private)")
+          let code = (error as NSError).code
+          let path = media.url.path
+          logger.error(
+            "composition.failed reason=insert code=\(code) path=\(path, privacy: .private)"
+          )
           throw .mediaUnreadable(media.url)
         }
       }

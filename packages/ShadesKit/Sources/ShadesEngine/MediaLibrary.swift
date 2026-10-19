@@ -21,6 +21,11 @@ final class MediaLibrary {
       let video = try await asset.loadTracks(withMediaType: .video).first
       let audio = try await asset.loadTracks(withMediaType: .audio).first
       let rotation = try await video?.load(.preferredTransform) ?? .identity
+      // why: another load may have opened the file meanwhile; replacing its entry would free
+      // the asset its tracks still read from.
+      if let cached = cache[url] {
+        return cached
+      }
       let tracks = MediaTracks(asset: asset, video: video, audio: audio, rotation: rotation)
       cache[url] = tracks
       return tracks
