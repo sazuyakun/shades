@@ -273,3 +273,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Swift tracks which values could be reached from more than one thread. A value that isn't marked `Sendable` can still move to another thread if nothing else holds onto it; otherwise the compiler stops you.
 **JS/TS analogy:** Transferring an `ArrayBuffer` to a Web Worker: after the transfer, the sender can't touch it.
 **In Shades:** Why caches hold `IOSurface`s (thread-safe) rather than pixel buffers, and why the decoder passes only a URL in and samples out.
+
+## Accelerate and `vDSP` (whole-array maths)
+**What it is:** Apple's library of fast maths over whole arrays at once, using the CPU's vector units: `vDSP.add(a, b)` adds every pair in one call instead of a Swift loop.
+**JS/TS analogy:** Like using a typed-array kernel (or WebAssembly SIMD) instead of `array.map((x, i) => x + b[i])`.
+**In Shades:** `MatteMaker` blends each cut-out with the last frame's and converts it to bytes with `vDSP`.
+
+## Bi-planar YUV pixel buffers
+**What it is:** A video frame stored as two planes: brightness (Y) at full size and colour (CbCr) at quarter size. It's what video encoders want natively, so no conversion is needed.
+**JS/TS analogy:** Like storing an image as a grayscale `Uint8Array` plus a smaller colour array, rather than RGBA.
+**In Shades:** A cut-out is gray, so `MatteMaker` copies its mask straight into the brightness plane and fills colour with neutral 128.
