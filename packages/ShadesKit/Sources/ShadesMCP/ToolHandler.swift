@@ -432,7 +432,8 @@ public final class ToolHandler {
     Tool(
       name: "duck_music",
       summary: "Lower the music while anyone speaks, coming back up between: volume keyframes on "
-        + "the music track's clips (the top audio track unless named). Needs speech analysis "
+        + "the music track's clips (the audio track with beats, or the longest without speech, "
+        + "unless named). Needs speech analysis "
         + "(analyze_audio or transcribe) on the dialogue first.",
       parameters: JSONSchema.object([
         "track": JSONSchema.string("The music track, like A2"),

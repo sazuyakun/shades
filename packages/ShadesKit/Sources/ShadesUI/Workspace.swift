@@ -680,14 +680,28 @@ extension Workspace: ProjectHost {
     return "Placed \(name) at \(time.seconds) s: \(template.layers.count) layers."
   }
 
-  /// Ducks a music track (`track`, or the top audio track) under everyone's speech, to `level`
-  /// of its own volume. Returns what was done.
+  /// Ducks a music track (`track`, or the one that sounds like music) under everyone's speech,
+  /// to `level` of its own volume. Returns what was done.
   public func duckMusic(track label: String?, level: Double) throws(CommandError) -> String {
     let timeline = editor.project.timeline
     let audio = timeline.tracks.indices.filter { timeline.tracks[$0].kind == .audio }
+    let analyses = analysis.analyses
+    let has = { (index: Int, test: (MediaAnalysis) -> Bool) in
+      timeline.tracks[index].clips.contains { clip in
+        clip.mediaID.flatMap { analyses[$0] }.map(test) ?? false
+      }
+    }
+    let length = { (index: Int) in
+      timeline.tracks[index].clips.reduce(0) { $0 + $1.duration.seconds }
+    }
+    // why: music is the track with beats, or failing that the longest track with no speech;
+    // short sound effects and dialogue are left alone.
+    let candidates = audio
+      .filter { !timeline.tracks[$0].clips.isEmpty && !has($0) { $0.speech?.isEmpty == false } }
     let music = label.flatMap { label in
       timeline.tracks.firstIndex { timeline.label(of: $0) == label.uppercased() }
-    } ?? audio.last { !timeline.tracks[$0].clips.isEmpty }
+    } ?? candidates.first { has($0) { $0.beats?.beats.isEmpty == false } }
+      ?? candidates.max { length($0) < length($1) }
     guard let music, timeline.tracks[music].kind == .audio else {
       throw .invalidArguments("put the music on an audio track (A1, A2…) first")
     }
