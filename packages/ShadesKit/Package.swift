@@ -15,6 +15,7 @@ let package = Package(
         "ShadesDocument",
         "ShadesMedia",
         "ShadesEngine",
+        "ShadesExport",
         "ShadesMatting",
         "ShadesMCP",
         "ShadesPlugins",
@@ -48,10 +49,12 @@ let package = Package(
       dependencies: ["ShadesCore"],
       resources: [.copy("Shaders")],
     ),
+    .target(name: "ShadesExport", dependencies: ["ShadesCaptions", "ShadesCore", "ShadesEngine"]),
     .target(
       name: "ShadesMCP",
       dependencies: [
         "ShadesCaptions",
+        "ShadesExport",
         "ShadesMatting",
         "ShadesPolish",
         "ShadesCommands",
@@ -71,6 +74,7 @@ let package = Package(
         "ShadesCommands",
         "ShadesDocument",
         "ShadesEngine",
+        "ShadesExport",
         "ShadesMCP",
         "ShadesMedia",
         "ShadesMatting",
@@ -91,6 +95,7 @@ let package = Package(
       dependencies: ["ShadesAudio", "ShadesEngine", "ShadesMatting", "ShadesTestSupport"],
       exclude: ["Golden"],
     ),
+    .testTarget(name: "ShadesExportTests", dependencies: ["ShadesExport", "ShadesTestSupport"]),
     .testTarget(
       name: "ShadesMCPTests",
       dependencies: ["ShadesMCP", "ShadesTestSupport"],

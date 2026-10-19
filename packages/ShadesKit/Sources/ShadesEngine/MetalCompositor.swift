@@ -33,8 +33,10 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       request.finish(with: EngineError.renderFailed)
       return
     }
-    let width = CVPixelBufferGetWidth(output)
-    let height = CVPixelBufferGetHeight(output)
+    let width = Int(instruction.pictureSize.width)
+    let height = Int(instruction.pictureSize.height)
+    let isCanvas = CVPixelBufferGetWidth(output) != width || CVPixelBufferGetHeight(output) !=
+      height
     let time = MediaTime(seconds: request.compositionTime.seconds)
     let camera = instruction.renderState.camera(at: time)
     let layers = instruction.layers.compactMap { layer -> RenderLayer? in
@@ -130,7 +132,13 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       }
     }
     do {
-      try instruction.renderContext.renderer.draw(layers, into: output, seed: time.seconds)
+      if isCanvas {
+        let picture = try RenderContext.pictureBuffer(width: width, height: height)
+        try instruction.renderContext.renderer.draw(layers, into: picture, seed: time.seconds)
+        instruction.renderContext.place(picture, onCanvas: output)
+      } else {
+        try instruction.renderContext.renderer.draw(layers, into: output, seed: time.seconds)
+      }
     } catch {
       request.finish(with: error)
       return

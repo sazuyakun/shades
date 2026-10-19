@@ -12,16 +12,16 @@ All real Mac code lives here as a Swift package with one module per system. The 
 | ShadesEngine | AVComposition builder, Metal compositor, playback, shaders |
 | ShadesColor | Color management, grade nodes, LUTs, scopes |
 | ShadesGraphics | Titles, templates, keyframes |
-| ShadesAudio | Speech activity (ported), beat detection; from M7 mixer, ducking, loudness |
+| ShadesAudio | Speech activity and noise reduction (ported), beat detection, waveforms, loudness (BS.1770), ducking plans, and stem separation (HTDemucs on CoreML, its model downloaded on first use) |
 | ShadesCaptions | WhisperKit transcription (models, audio decoding), caption lines. The only module that imports WhisperKit |
-| ShadesExport | Presets, encode queue |
+| ShadesExport | Exports: canvases (the 4:3 picture centred on 16:9 or 9:16 black), movies through `AVAssetExportSession` with our compositor (the engine draws the canvas), frames, GIFs and SRT captions. The queue is the app's `JobQueue` |
 | ShadesMCP | MCP server: commands become Claude tools |
 | ShadesMatting | Cut-outs (mattes): Apple Vision finds the subject, written as a small gray video played like any track; the subject's path over time for reframing |
 | ShadesPolish | Polish for talking-head footage: the rule-based planner (silences, fillers, retakes, beat snaps, punch-ins) and `ApplyPolish`. Pure logic on Core and Commands |
 | ShadesPlugins | Plugin folders (Settings), loading plugins (`PluginLoader`), and `PluginLibrary`: kept up to date with FSEvents, fonts registered for the app. Data only (on Core); templates are applied by `ApplyTemplate` in Commands |
 | ShadesUI | SwiftUI views (AppKit/Metal where SwiftUI is too slow) |
 
-Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesAudio, ShadesCaptions, ShadesCommands, ShadesDocument, ShadesMedia, ShadesEngine, ShadesMatting, ShadesMCP, ShadesPlugins, ShadesPolish, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
+Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesAudio, ShadesCaptions, ShadesCommands, ShadesDocument, ShadesMedia, ShadesEngine, ShadesExport, ShadesMatting, ShadesMCP, ShadesPlugins, ShadesPolish, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.
 
 ## Rules
 - **Dependencies point one way:** Core → Commands / Document → feature modules → MCP → UI → the app. Core imports only Foundation, nothing imports ShadesUI except the app, and ShadesMCP never imports ShadesUI (UI reads `MCPServer.status` to show Claude's connection).

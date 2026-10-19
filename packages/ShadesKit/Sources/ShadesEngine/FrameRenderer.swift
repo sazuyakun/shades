@@ -35,20 +35,9 @@ public enum FrameRenderer {
     context: RenderContext? = nil,
     mattes: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> CGImage {
-    let renderState = RenderState()
-    renderState.update(from: project.timeline)
-    let renderContext =
-      if let context {
-        context
-      } else {
-        try RenderContext()
-      }
-    let composition = try await Composition.build(
+    let composition = try await Composition.forRendering(
       project,
-      library: MediaLibrary(),
-      renderState: renderState,
-      renderContext: renderContext,
-      frameCounter: FrameCounter(),
+      context: context,
       mattes: mattes,
     )
     let generator = AVAssetImageGenerator(asset: composition.asset)

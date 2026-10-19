@@ -3,7 +3,7 @@ import ShadesCore
 
 extension MediaTime {
   /// The same time as AVFoundation's `CMTime`.
-  var cmTime: CMTime {
+  public var cmTime: CMTime {
     CMTime(value: value, timescale: timescale)
   }
 }

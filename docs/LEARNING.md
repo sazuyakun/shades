@@ -338,3 +338,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** `Float16` is a half-size floating-point number (2 bytes): the GPU computes in it for speed. Strides say how many elements to skip to move one step along each dimension of an array; GPUs often pad rows, so the next row doesn't start right after the last element of this one.
 **JS/TS analogy:** Like reading a `Uint16Array` view over an `ArrayBuffer` where each image row has extra padding bytes, so you index with `row * stride + column`, not `row * width + column`.
 **In Shades:** `StemSeparator.values(of:)` reads the model's padded half-float output directly, 100× faster than the generic conversion.
+
+## `AVAssetExportSession`
+**What it is:** AVFoundation's one-call exporter: give it a composition (with our video compositor and audio mix) and a preset, and it renders, encodes on the Mac's hardware encoder and writes the file, reporting progress.
+**JS/TS analogy:** Like calling `ffmpeg` with a filter graph and a preset, but as a built-in API with an async `export(to:)` and a stream of progress states.
+**In Shades:** `MovieExporter` writes YouTube, Reels and plain exports.
+
+## Core Image (`CIImage`, `CIContext`)
+**What it is:** Apple's GPU image pipeline: a `CIImage` is a recipe (scale this, place it over that), and a `CIContext` renders the recipe into real pixels.
+**JS/TS analogy:** Like building a chain of canvas `drawImage` and `transform` calls lazily, then running it all at once on the GPU.
+**In Shades:** `RenderContext.place(_:onCanvas:)` scales the 4:3 picture onto the black export canvas.

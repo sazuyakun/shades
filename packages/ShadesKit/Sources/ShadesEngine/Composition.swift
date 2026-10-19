@@ -17,6 +17,46 @@ public struct Composition {
 
 extension Composition {
 
+  // MARK: Public
+
+  /// Builds the project's timeline from its original media, for rendering frames or a file:
+  /// with cut-outs from `mattes` and noise-reduced sound from `cleanSound`, drawn in the middle
+  /// of a black `canvas` when one is given. Pass a long-lived `context` when rendering often; a
+  /// new one compiles the shaders again.
+  @MainActor
+  public static func forRendering(
+    _ project: Project,
+    context: RenderContext? = nil,
+    mattes: [Media.ID: URL] = [:],
+    cleanSound: [Media.ID: URL] = [:],
+    canvas: CGSize? = nil,
+  ) async throws(EngineError) -> Composition {
+    let renderState = RenderState()
+    renderState.update(from: project.timeline)
+    let renderContext =
+      if let context {
+        context
+      } else {
+        try RenderContext()
+      }
+    return try await build(
+      project,
+      library: MediaLibrary(),
+      renderState: renderState,
+      renderContext: renderContext,
+      frameCounter: FrameCounter(),
+      mattes: mattes,
+      cleanSound: cleanSound,
+      canvas: canvas,
+    )
+  }
+
+  /// Each track's volume over time: a clip's own volume, or silence where the track is muted or
+  /// a video clip's sound was detached.
+  public func audioMix(for timeline: Timeline) -> AVAudioMix {
+    Self.audioMix(for: timeline, trackIDs: audioTrackIDs)
+  }
+
   // MARK: Internal
 
   /// What, if it changes, means playback must be rebuilt: the frame format and every clip's
@@ -35,7 +75,8 @@ extension Composition {
 
   /// Builds the playable form of the project's timeline, reading each media file from
   /// `sources` (its proxy) when given there. Clips whose media has a cut-out in `mattes` get it
-  /// as a matching track, for depth slots, and clips set to clean sound play `cleanSound`.
+  /// as a matching track, for depth slots, and clips set to clean sound play `cleanSound`. With
+  /// a `canvas`, frames are that size, with the picture in the middle on black.
   @MainActor
   static func build(
     _ project: Project,
@@ -46,6 +87,7 @@ extension Composition {
     sources: [Media.ID: URL] = [:],
     mattes: [Media.ID: URL] = [:],
     cleanSound: [Media.ID: URL] = [:],
+    canvas: CGSize? = nil,
   ) async throws(EngineError) -> Composition {
     let timeline = project.timeline
     guard timeline.duration > .zero else {
@@ -168,10 +210,8 @@ extension Composition {
     let textLayers = timeline.tracks.filter { $0.kind == .text }.map(\.clips)
     let videoComposition = AVMutableVideoComposition()
     videoComposition.customVideoCompositorClass = MetalCompositor.self
-    videoComposition.renderSize = CGSize(
-      width: timeline.format.width,
-      height: timeline.format.height,
-    )
+    let pictureSize = CGSize(width: timeline.format.width, height: timeline.format.height)
+    videoComposition.renderSize = canvas ?? pictureSize
     videoComposition.frameDuration = CMTime(
       value: 1,
       timescale: CMTimeScale(timeline.format.framesPerSecond),
@@ -180,6 +220,7 @@ extension Composition {
       for: videoLayers,
       text: textLayers,
       duration: timeline.duration,
+      pictureSize: pictureSize,
       renderState: renderState,
       renderContext: renderContext,
       frameCounter: frameCounter,
@@ -236,12 +277,6 @@ extension Composition {
       throw .compositionFailed
     }
     return track
-  }
-
-  /// Each track's volume over time: a clip's own volume, or silence where the track is muted or
-  /// a video clip's sound was detached.
-  func audioMix(for timeline: Timeline) -> AVAudioMix {
-    Self.audioMix(for: timeline, trackIDs: audioTrackIDs)
   }
 
   // MARK: Private
@@ -374,6 +409,7 @@ extension Composition {
     for layers: [VideoLayer],
     text: [[Clip]],
     duration: MediaTime,
+    pictureSize: CGSize,
     renderState: RenderState,
     renderContext: RenderContext,
     frameCounter: FrameCounter,
@@ -411,6 +447,7 @@ extension Composition {
       return CompositionInstruction(
         timeRange: CMTimeRange(start: start.cmTime, end: end.cmTime),
         layers: showing,
+        pictureSize: pictureSize,
         renderState: renderState,
         renderContext: renderContext,
         frameCounter: frameCounter,

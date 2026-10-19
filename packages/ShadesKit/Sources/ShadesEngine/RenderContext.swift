@@ -1,3 +1,4 @@
+import CoreImage
 import CoreVideo
 import Foundation
 import IOSurface
@@ -28,6 +29,27 @@ public final class RenderContext: Sendable {
   // MARK: Internal
 
   let renderer: MetalRenderer
+
+  /// A frame-sized buffer the GPU can draw into, for a picture that's then placed on a canvas.
+  static func pictureBuffer(width: Int, height: Int) throws(EngineError) -> CVPixelBuffer {
+    var buffer: CVPixelBuffer?
+    CVPixelBufferCreate(
+      nil,
+      width,
+      height,
+      kCVPixelFormatType_32BGRA,
+      [
+        kCVPixelBufferMetalCompatibilityKey: true,
+        kCVPixelBufferIOSurfacePropertiesKey: [:] as CFDictionary,
+      ] as CFDictionary,
+      &buffer,
+    )
+    guard let buffer else {
+      logger.error("frame.renderFailed reason=pictureBuffer width=\(width, privacy: .public)")
+      throw .renderFailed
+    }
+    return buffer
+  }
 
   /// A text clip drawn as it looks at `time` (seconds into its source) on a transparent surface
   /// at the scale of a `width`×`height` frame, and where its centre sits (offset from the frame's
@@ -116,6 +138,27 @@ public final class RenderContext: Sendable {
     return surface
   }
 
+  /// Draws `picture` scaled into the middle of `canvas`, on black.
+  func place(_ picture: CVPixelBuffer, onCanvas canvas: CVPixelBuffer) {
+    let canvasSize = CGSize(
+      width: CVPixelBufferGetWidth(canvas),
+      height: CVPixelBufferGetHeight(canvas),
+    )
+    let source = CIImage(cvPixelBuffer: picture)
+    let scale = min(
+      canvasSize.width / source.extent.width,
+      canvasSize.height / source.extent.height,
+    )
+    let placement = CGAffineTransform(scaleX: scale, y: scale).concatenating(CGAffineTransform(
+      translationX: ((canvasSize.width - source.extent.width * scale) / 2).rounded(),
+      y: ((canvasSize.height - source.extent.height * scale) / 2).rounded(),
+    ))
+    let bounds = CGRect(origin: .zero, size: canvasSize)
+    let placed = source.transformed(by: placement, highQualityDownsample: true)
+      .composited(over: CIImage(color: .black).cropped(to: bounds))
+    canvasImages.render(placed, to: canvas, bounds: bounds, colorSpace: nil)
+  }
+
   // MARK: Private
 
   /// Drawn texts kept at most; the cache empties when full. Popping words draw a new picture each
@@ -133,6 +176,9 @@ public final class RenderContext: Sendable {
   private let stills = Mutex<[StillKey: IOSurface]>([:])
 
   private let drawings = Mutex<[DrawingKey: IOSurface]>([:])
+
+  // why: no colour management: frames are already Rec.709 and must come out exactly as drawn.
+  private let canvasImages = CIContext(options: [.workingColorSpace: NSNull()])
 
 }
 

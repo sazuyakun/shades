@@ -12,12 +12,14 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
   init(
     timeRange: CMTimeRange,
     layers: [CompositionLayer],
+    pictureSize: CGSize,
     renderState: RenderState,
     renderContext: RenderContext,
     frameCounter: FrameCounter,
   ) {
     self.timeRange = timeRange
     self.layers = layers
+    self.pictureSize = pictureSize
     self.renderState = renderState
     self.renderContext = renderContext
     self.frameCounter = frameCounter
@@ -30,6 +32,8 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
   let containsTweening = true
   let passthroughTrackID = kCMPersistentTrackID_Invalid
   let layers: [CompositionLayer]
+  /// The timeline's picture size; frames bigger than it are a canvas with the picture centred.
+  let pictureSize: CGSize
   let renderState: RenderState
   let renderContext: RenderContext
   let frameCounter: FrameCounter
