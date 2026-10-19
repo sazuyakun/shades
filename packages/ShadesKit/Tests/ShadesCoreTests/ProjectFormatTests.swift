@@ -18,7 +18,7 @@ struct ProjectFormatTests {
   }
 
   @Test
-  func `a timeline saved before the camera and 3D loads flat, tracks following by kind`() throws {
+  func `a timeline saved before the camera, 3D and shorts loads flat, with no shorts`() throws {
     let json = """
       {"name":"Main","format":{"width":2880,"height":2160,"framesPerSecond":24},"markers":[],
        "tracks":[{"id":"6A1F2B4C-0000-4000-8000-000000000003","kind":"video","clips":[],
@@ -28,6 +28,7 @@ struct ProjectFormatTests {
       """
     let timeline = try JSONDecoder().decode(Timeline.self, from: Data(json.utf8))
     #expect(timeline.camera.isEmpty)
+    #expect(timeline.shorts.isEmpty)
     #expect(timeline.tracks.map(\.followsCamera) == [true, false])
     let transform = try JSONDecoder().decode(
       ClipTransform.self,

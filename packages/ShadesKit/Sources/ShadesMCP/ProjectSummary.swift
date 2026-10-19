@@ -50,6 +50,14 @@ enum ProjectSummary {
           "name": .string(marker.name),
         ]
       }),
+      "shorts": .array(timeline.shorts.map { short in
+        [
+          "id": .string(short.id.uuidString),
+          "name": .string(short.name),
+          "start": seconds(short.range.start),
+          "end": seconds(short.range.end),
+        ]
+      }),
     ]
   }
 

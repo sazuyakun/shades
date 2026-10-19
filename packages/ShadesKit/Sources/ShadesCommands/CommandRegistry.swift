@@ -36,6 +36,8 @@ public enum CommandRegistry {
     SetTrack.self,
     AddMarker.self,
     RemoveMarker.self,
+    AddShort.self,
+    RemoveShort.self,
     RemoveMedia.self,
   ]
 

@@ -9,6 +9,7 @@ public enum CommandError: Error, Equatable {
   case mediaNotFound(Media.ID)
   case clipNotFound(Clip.ID)
   case markerNotFound(Marker.ID)
+  case shortNotFound(Short.ID)
   case trackNotFound(String)
   case wrongTrackKind(track: String, needs: TrackKind)
   case lastVideoTrack
@@ -40,6 +41,9 @@ extension CommandError: LocalizedError {
 
     case .markerNotFound(let id):
       "No marker with ID \(id) is on the timeline."
+
+    case .shortNotFound(let id):
+      "No short with ID \(id) is marked. Check get_project for the shorts."
 
     case .trackNotFound(let label):
       "The timeline has no track \(label). Tracks are named V1, V2… and A1, A2…"

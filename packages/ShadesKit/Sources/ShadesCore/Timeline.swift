@@ -14,6 +14,7 @@ public struct Timeline: Hashable, Sendable {
     format: VideoFormat = .standard,
     tracks: [Track] = [Track(kind: .video), Track(kind: .audio)],
     markers: [Marker] = [],
+    shorts: [Short] = [],
     camera: [Keyframe] = [],
     gain: Double = 1,
   ) {
@@ -21,6 +22,7 @@ public struct Timeline: Hashable, Sendable {
     self.format = format
     self.tracks = tracks
     self.markers = markers
+    self.shorts = shorts
     self.camera = camera
     self.gain = gain
   }
@@ -32,6 +34,8 @@ public struct Timeline: Hashable, Sendable {
   public var format: VideoFormat
   public var tracks: [Track]
   public var markers: [Marker]
+  /// Stretches marked to export as Reels and Shorts, in the order they were made.
+  public var shorts: [Short]
   /// The camera's moves (zoom as scale, pan as x and y, rotation and tilt), in timeline time.
   /// Without keyframes it rests: no zoom, no pan.
   public var camera: [Keyframe]
@@ -89,7 +93,7 @@ extension Timeline: Codable {
 
   // MARK: Lifecycle
 
-  /// Reads a timeline, including ones saved before the camera existed.
+  /// Reads a timeline, including ones saved before the camera or shorts existed.
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     try self.init(
@@ -97,6 +101,7 @@ extension Timeline: Codable {
       format: container.decode(VideoFormat.self, forKey: .format),
       tracks: container.decode([Track].self, forKey: .tracks),
       markers: container.decode([Marker].self, forKey: .markers),
+      shorts: container.decodeIfPresent([Short].self, forKey: .shorts) ?? [],
       camera: container.decodeIfPresent([Keyframe].self, forKey: .camera) ?? [],
       gain: container.decodeIfPresent(Double.self, forKey: .gain) ?? 1,
     )
@@ -109,6 +114,7 @@ extension Timeline: Codable {
     case format
     case tracks
     case markers
+    case shorts
     case camera
     case gain
   }
