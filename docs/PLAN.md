@@ -47,6 +47,8 @@ Each milestone ends with all four quality gates green ([SYSTEM.md §11](SYSTEM.m
 
 **Build decisions (2026-10-17):** test with footage already in `~/shades-playbook` (read-only). Cut-out and stem models: MIT/Apache only, converted to CoreML on this Mac, benchmarked against Apple Vision, downloaded by Shades on first use (never bundled). Check-ins: a summary with screenshots after each milestone, then keep going.
 
+**Matting engine (2026-10-19):** Apple Vision, nothing to download. Benchmarked on playbook frames (M1, per frame): Vision person (accurate) 60–130 ms, Vision foreground 25–35 ms, BiRefNet-lite (MIT, converted to CoreML) 830–890 ms on the GPU. Vision is as clean as BiRefNet on talking heads; BiRefNet alone found the riders in a busy street shot, but at 10× the time, a ~100 MB hosted download and a graph the Neural Engine can't compile, so it doesn't ship. Revisit if the playbook asks for cut-outs of non-people in cluttered shots.
+
 ### Issues from the playbook
 The taste agent files issues on `sazuyakun/shades` with its `editor-request` skill. The builder agent assesses each one, maps it to core capabilities (often it's a plugin built on existing core, not new core), estimates it, slots it into a milestone, and tells Soham. **Soham approves the order.** An issue closes only with tests plus a real-edit check.
 
