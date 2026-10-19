@@ -15,6 +15,10 @@ struct TransitionRenderingTests {
     #expect(TransitionStyle(kind: .dipToBlack, progress: 0.5, isIncoming: true).dip == 1)
     #expect(TransitionStyle(kind: .dipToBlack, progress: 0.25, isIncoming: true).opacity == 0)
     #expect(TransitionStyle(kind: .push, progress: 1, isIncoming: false).offsetX == -1)
+    let whipOut = TransitionStyle(kind: .whip, progress: 0.4, isIncoming: false)
+    let whipIn = TransitionStyle(kind: .whip, progress: 0.4, isIncoming: true)
+    #expect(abs(whipIn.offsetX - whipOut.offsetX - 1) < 0.0001, "the shots stay joined")
+    #expect(whipIn.opacity == 1 && whipOut.opacity == 1 && whipIn.blur > 0.5)
     #expect(TransitionStyle(kind: .iris, progress: 0.4, isIncoming: true).wipe == .iris)
     #expect(TransitionStyle(kind: .iris, progress: 0.4, isIncoming: false).wipe == nil)
   }

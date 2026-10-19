@@ -24,9 +24,9 @@ struct TransitionStyle: Equatable {
       }
 
     case .whip:
-      opacity = isIncoming == !firstHalf ? 1 : 0
-      let swing = Easing.easeInOut.progress(progress)
-      offsetX = isIncoming ? 1.2 * (1 - swing) : -1.2 * swing
+      // why: a whip is a push so fast it smears; easing in hard keeps the shots joined.
+      let swing = Easing.easeInOut.progress(Easing.easeInOut.progress(progress))
+      offsetX = isIncoming ? 1 - swing : -swing
       blur = 0.9 * (1 - abs(2 * progress - 1))
 
     case .push:
