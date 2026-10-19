@@ -51,12 +51,22 @@ struct PluginLibraryTests {
     let folders = PluginFolders(defaults: defaults)
     folders.remove(atOffsets: IndexSet(folders.urls.indices))
     folders.add(root)
+    try FileManager.default.createDirectory(
+      at: root.appending(path: "taste/sounds"),
+      withIntermediateDirectories: true,
+    )
+    try FileManager.default.copyItem(
+      at: try AudioFixture.makeTone(),
+      to: root.appending(path: "taste/sounds/whoosh.wav"),
+    )
     let library = PluginLibrary(folders: folders)
     await library.start()
     #expect(library.style(named: "chul") != nil)
     #expect(library.style(named: "Taste/chul") != nil)
     #expect(library.style(named: "Other/chul") == nil)
     #expect(library.template(named: "lower-third")?.plugin.name == "Taste")
+    #expect(library.sound(named: "Taste/whoosh")?.lastPathComponent == "whoosh.wav")
+    #expect(library.sound(named: "missing") == nil)
     #expect(library.look(named: "warm")?.effects?.grain == 0.2)
     #expect(library.look(named: "warm")?.grade?.lut == "film")
     try write(

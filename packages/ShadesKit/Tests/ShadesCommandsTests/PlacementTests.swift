@@ -84,6 +84,19 @@ struct PlacementTests {
   }
 
   @Test
+  func `a sound placed on top goes on a free audio track at its volume`() throws {
+    var project = Project(media: [video, music])
+    try AppendClip(mediaID: video.id).apply(to: &project)
+    try PlaceOnTop(mediaID: music.id, at: seconds(1), sourceEnd: seconds(2), volume: 0.5)
+      .apply(to: &project)
+    let labels = project.timeline.tracks.map(project.timeline.label(of:))
+    #expect(labels == ["V1", "A1", "A2"])
+    let sound = try #require(project.timeline.tracks[2].clips.first)
+    #expect(sound.volume == 0.5)
+    #expect(sound.timelineStart == seconds(1))
+  }
+
+  @Test
   func `times snap to the timeline's frames`() throws {
     var project = Project(media: [video])
     try InsertClip(mediaID: video.id, at: seconds(1.01), sourceEnd: seconds(1)).apply(to: &project)

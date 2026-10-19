@@ -399,6 +399,21 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "add_sound",
+      summary: "Place a sound effect at a moment on a free audio track: a plugin's sound by "
+        + "name (list_plugins shows them) or any sound file by path. It's imported for you. Use "
+        + "it for whooshes, pops and risers that land on cuts and captions.",
+      parameters: JSONSchema.object(
+        [
+          "sound": JSONSchema.string("The sound, as plugin/name, name or a file path"),
+          "at": Fields.time("When it starts"),
+          "volume": JSONSchema.number("Its level: 0 silent, 1 unchanged (default)", minimum: 0),
+        ],
+        required: ["sound", "at"],
+      ),
+      kind: .edit,
+    ),
+    Tool(
       name: "use_look",
       summary: "Give clips (or an adjustment clip) a plugin's look: its grade, effects and blend.",
       parameters: JSONSchema.object(
@@ -678,6 +693,9 @@ public final class ToolHandler {
         fields: request.fields ?? [:],
       ))
 
+    case "add_sound":
+      return try await addSound(decode(SoundArguments.self, from: arguments, tool: name))
+
     case "use_look":
       let request = try decode(LookArguments.self, from: arguments, tool: name)
       guard let look = try host().plugins.look(named: request.look) else {
@@ -845,6 +863,40 @@ public final class ToolHandler {
     return .text(
       "Imported \(media.name) as media \(media.id): \(media.duration.seconds) s, \(picture)"
         + "\(media.hasAudio ? "with" : "no") audio."
+    )
+  }
+
+  /// Imports a plugin's sound (or a sound file) if it isn't yet, and places it on a free audio
+  /// track, in one undo step.
+  private func addSound(_ request: SoundArguments) async throws(ToolError) -> ToolResult {
+    let url = try host().plugins.sound(named: request.sound)
+      ?? (FileManager.default.fileExists(atPath: request.sound)
+        ? URL(filePath: request.sound)
+        : nil)
+    guard let url else {
+      throw .commandFailed(.invalidArguments(
+        "there's no sound called \(request.sound); list_plugins shows the sounds"
+      ))
+    }
+    var commands = [any Command]()
+    let media: Media
+    if let existing = editor.project.media.first(where: { $0.url == url }) {
+      media = existing
+    } else {
+      do {
+        media = try await MediaLoader.load(url)
+      } catch {
+        throw .mediaFailed(error)
+      }
+      commands.append(AddMedia(media: media))
+    }
+    guard media.hasAudio, !media.hasVideo else {
+      throw .commandFailed(.invalidArguments("\(request.sound) isn't a sound-only file"))
+    }
+    commands.append(PlaceOnTop(mediaID: media.id, at: request.at, volume: request.volume))
+    try perform { () throws(CommandError) in try editor.perform(commands, title: "Add Sound") }
+    return .text(
+      "Placed \(media.name) at \(request.at.seconds) s (\(media.duration.seconds) s long)."
     )
   }
 
@@ -1163,6 +1215,7 @@ public final class ToolHandler {
   private func title(of name: String, arguments _: JSONValue) -> String {
     switch name {
     case "import_media": AddMedia.title
+    case "add_sound": "Add Sound"
     case "undo": "Undo"
     case "redo": "Redo"
     case "batch": "Batch of Edits"
@@ -1373,6 +1426,14 @@ private struct NoiseArguments: Decodable {
 private struct DuckArguments: Decodable {
   let track: String?
   let level: Double?
+}
+
+// MARK: - SoundArguments
+
+private struct SoundArguments: Decodable {
+  let sound: String
+  let at: MediaTime
+  let volume: Double?
 }
 
 // MARK: - LookArguments

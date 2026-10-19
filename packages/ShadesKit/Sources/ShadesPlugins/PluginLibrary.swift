@@ -64,6 +64,11 @@ public final class PluginLibrary {
     find(name) { $0.luts }?.path
   }
 
+  /// A sound effect's file by name, `plugin/name` or just `name`.
+  public func sound(named name: String) -> URL? {
+    find(name) { $0.sounds }
+  }
+
   /// A template by name, `plugin/name` or just `name`, with the plugin it comes from.
   public func template(named name: String) -> (template: Template, plugin: Plugin)? {
     for plugin in matching(name) {

@@ -10,11 +10,13 @@ public struct PlaceOnTop: ToolCommand {
     at time: MediaTime,
     sourceStart: MediaTime? = nil,
     sourceEnd: MediaTime? = nil,
+    volume: Double? = nil,
   ) {
     self.mediaID = mediaID
     at = time
     self.sourceStart = sourceStart
     self.sourceEnd = sourceEnd
+    self.volume = volume
   }
 
   // MARK: Public
@@ -29,6 +31,7 @@ public struct PlaceOnTop: ToolCommand {
       "at": Fields.time("Where to place it"),
       "source_start": Fields.sourceStart,
       "source_end": Fields.sourceEnd,
+      "volume": JSONSchema.number("The clip's level: 0 silent, 1 unchanged (default)", minimum: 0),
     ],
     required: ["media_id", "at"],
   )
@@ -37,11 +40,15 @@ public struct PlaceOnTop: ToolCommand {
   public let at: MediaTime
   public let sourceStart: MediaTime?
   public let sourceEnd: MediaTime?
+  public let volume: Double?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let media = try project.requireMedia(mediaID)
     let range = try project.sourceRange(of: media, from: sourceStart, to: sourceEnd)
-    project.placeOnTop(media, range: range, at: project.onFrame(at))
+    let clipID = project.placeOnTop(media, range: range, at: project.onFrame(at))
+    if let volume {
+      try SetClip(clipID: clipID, volume: volume).apply(to: &project)
+    }
   }
 
 }
