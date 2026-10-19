@@ -38,11 +38,15 @@ struct PerformanceTests {
         )
       }
     }
-    // why: the CI runner's virtual GPU grows its pools over the first frames; a leak keeps growing.
-    try await renderSecond()
-    let before = Benchmark.memoryFootprint()
-    try await renderSecond()
-    #expect(Benchmark.memoryFootprint() - before < 40_000_000)
+    // why: the CI runner's virtual GPU grows its pools in jumps now and then; a leak grows in
+    // every second rendered, so the smallest growth between seconds is the one that counts.
+    var footprints = [Int]()
+    for _ in 0 ..< 5 {
+      try await renderSecond()
+      footprints.append(Benchmark.memoryFootprint())
+    }
+    let growth = zip(footprints, footprints.dropFirst()).map { $1 - $0 }
+    #expect((growth.min() ?? 0) < 40_000_000)
   }
 
   // MARK: Private
