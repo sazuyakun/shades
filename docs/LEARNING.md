@@ -328,3 +328,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A view you draw into with code (paths, fills, images) in one pass, instead of building it from many child views. Much cheaper when there are hundreds of shapes.
 **JS/TS analogy:** Like an HTML `<canvas>` with a 2D context inside a React component, redrawn when its props change.
 **In Shades:** `ClipWaveform` draws an audio clip's waveform as one path of thin bars.
+
+## CoreML (`MLModel`, `MLMultiArray`)
+**What it is:** Apple's framework for running trained neural networks on the Mac's CPU, GPU or Neural Engine. A model is compiled to an `.mlmodelc` folder; you feed it named inputs (`MLMultiArray` is an n-dimensional array of numbers) and read named outputs.
+**JS/TS analogy:** Like loading an ONNX model in `onnxruntime-web` and calling `session.run({ input: tensor })`, but the runtime is built into macOS.
+**In Shades:** `StemSeparator` runs HTDemucs to split voice from music.
+
+## `Float16` and strides
+**What it is:** `Float16` is a half-size floating-point number (2 bytes): the GPU computes in it for speed. Strides say how many elements to skip to move one step along each dimension of an array; GPUs often pad rows, so the next row doesn't start right after the last element of this one.
+**JS/TS analogy:** Like reading a `Uint16Array` view over an `ArrayBuffer` where each image row has extra padding bytes, so you index with `row * stride + column`, not `row * width + column`.
+**In Shades:** `StemSeparator.values(of:)` reads the model's padded half-float output directly, 100× faster than the generic conversion.

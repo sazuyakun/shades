@@ -49,6 +49,8 @@ Each milestone ends with all four quality gates green ([SYSTEM.md §11](SYSTEM.m
 
 **Matting engine (2026-10-19):** Apple Vision, nothing to download. Benchmarked on playbook frames (M1, per frame): Vision person (accurate) 60–130 ms, Vision foreground 25–35 ms, BiRefNet-lite (MIT, converted to CoreML) 830–890 ms on the GPU. Vision is as clean as BiRefNet on talking heads; BiRefNet alone found the riders in a busy street shot, but at 10× the time, a ~100 MB hosted download and a graph the Neural Engine can't compile, so it doesn't ship. Revisit if the playbook asks for cut-outs of non-people in cluttered shots.
 
+**Stem separation (2026-10-19):** HTDemucs (Meta, MIT) converted to CoreML with its STFT left out: Swift makes the spectrogram exactly as Demucs does (`StemSpectrogram`) and the network runs on the GPU in half precision (within 0.2% of PyTorch). It splits sound into voice and music (drums, bass and the rest summed), about 6× faster than realtime on the M1. The Neural Engine is skipped, as compiling for it can hang for hours. The model (~100 MB) downloads on first use into `~/Library/Application Support/Shades/Models`.
+
 **Colour management (2026-10-19):** footage is SDR Rec.709 (iPhone 16, HDR off), so Shades grades in display-referred Rec.709/sRGB: frames are decoded as 8-bit BGRA, graded in the layer shader and exported in Rec.709. HDR and wide-gamut grading aren't in scope.
 
 ### Issues from the playbook
@@ -59,6 +61,7 @@ Problems found but not fixed yet. When one is fixed, delete its row in the same 
 
 | # | Issue | Fix in |
 |---|---|---|
+| 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 
 ## 3. Constraints & setup notes
 - Dev machine: **M1, 8 GB RAM, macOS 26**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.

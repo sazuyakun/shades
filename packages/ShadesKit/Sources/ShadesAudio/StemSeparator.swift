@@ -108,6 +108,35 @@ public actor StemSeparator {
     }
   }
 
+  /// A model output's values in order, as `Float`s. The GPU hands back half floats with each
+  /// row padded, which `MLShapedArray` converts one element at a time, far too slowly.
+  private static func values(of array: MLMultiArray) -> [Float] {
+    let shape = array.shape.map(\.intValue)
+    let strides = array.strides.map(\.intValue)
+    let rowLength = shape.last ?? 0
+    let rows = shape.dropLast().reduce(1, *)
+    var values = [Float](repeating: 0, count: rows * rowLength)
+    values.withUnsafeMutableBufferPointer { destination in
+      array.withUnsafeBytes { source in
+        for row in 0 ..< rows {
+          var remainder = row
+          var offset = 0
+          for dimension in stride(from: shape.count - 2, through: 0, by: -1) {
+            offset += remainder % shape[dimension] * strides[dimension]
+            remainder /= shape[dimension]
+          }
+          for column in 0 ..< rowLength {
+            let index = offset + column * (strides.last ?? 1)
+            destination[row * rowLength + column] = array.dataType == .float16
+              ? Float(source.load(fromByteOffset: index * 2, as: Float16.self))
+              : source.load(fromByteOffset: index * 4, as: Float.self)
+          }
+        }
+      }
+    }
+    return values
+  }
+
   /// One segment's voice and music, each as left and right samples.
   private func separate(left: [Float], right: [Float]) throws(AudioError) -> [Stem: [[Float]]] {
     let length = Self.segment
@@ -142,8 +171,8 @@ public actor StemSeparator {
       logger.error("stems.predictionFailed reason=missingOutput")
       throw .separationFailed
     }
-    let spectrumValues = MLShapedArray<Float>(converting: spectrumOut).scalars
-    let waveformValues = MLShapedArray<Float>(converting: waveformOut).scalars
+    let spectrumValues = Self.values(of: spectrumOut)
+    let waveformValues = Self.values(of: waveformOut)
     let voice = Self.sources.firstIndex(of: "vocals") ?? 3
     return Stem.allCases.reduce(into: [Stem: [[Float]]]()) { stems, stem in
       let picked = stem == .voice ? [voice] : Self.sources.indices.filter { $0 != voice }

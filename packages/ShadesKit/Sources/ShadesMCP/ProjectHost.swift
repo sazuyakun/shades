@@ -63,6 +63,9 @@ public protocol ProjectHost: AnyObject {
   /// Sets clips to play noise-reduced sound (strength 0 restores the original); returns what
   /// was done.
   func reduceNoise(_ clipIDs: [Clip.ID], strength: Double) throws(CommandError) -> String
+  /// Queues separating clips' voice from their music, laid under each clip when done; returns
+  /// what was queued.
+  func separateStems(_ clipIDs: [Clip.ID]) throws(CommandError) -> String
   /// Ducks a music track under the speech on the timeline; returns what was done.
   func duckMusic(track: String?, level: Double) throws(CommandError) -> String
   /// Queues following what's inside `box` (fractions of the picture) of a video clip from `time`

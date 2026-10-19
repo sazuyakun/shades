@@ -445,6 +445,15 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "separate_stems",
+      summary: "Split clips' sound into voice and music (HTDemucs, on this Mac): both land on "
+        + "audio tracks under each clip, lined up, and the clip's own sound goes quiet. Runs in "
+        + "the background (get_jobs); the first time it downloads the model (about 100 MB). Use "
+        + "it to drop or duck a song under speech, or keep the music without the talking.",
+      parameters: JSONSchema.object(["clip_ids": Fields.clipIDs], required: ["clip_ids"]),
+      kind: .edit,
+    ),
+    Tool(
       name: "reduce_noise",
       summary: "Take steady background noise (hiss, hum, fans, traffic rumble) out of clips' "
         + "sound, keeping the voice. Cleaning runs in the background (get_jobs); the clips "
@@ -732,6 +741,13 @@ public final class ToolHandler {
     case "normalize_loudness":
       let request = try decode(LoudnessArguments.self, from: arguments, tool: name)
       return try await .text(host().normalizeLoudness(target: request.target ?? -14))
+
+    case "separate_stems":
+      let clipIDs = try decode(SelectArguments.self, from: arguments, tool: name).clipIDs
+      let projectHost = try host()
+      return .text(try perform { () throws(CommandError) -> String in
+        try projectHost.separateStems(clipIDs)
+      })
 
     case "reduce_noise":
       let request = try decode(NoiseArguments.self, from: arguments, tool: name)

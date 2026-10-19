@@ -833,6 +833,41 @@ extension Workspace: ProjectHost {
         + "clips switch over when done."
   }
 
+  /// Separates the voice and music of clips' sound in the background (downloading the model the
+  /// first time), then lays the two under each clip in its place. Returns what was queued.
+  public func separateStems(_ clipIDs: [Clip.ID]) throws(CommandError) -> String {
+    guard let package = documentURL else {
+      throw .invalidArguments("open a project first")
+    }
+    let clips = clipIDs.compactMap(editor.project.timeline.clip(withID:))
+    let media = Set(clips.compactMap(\.mediaID)).compactMap(editor.project.media(withID:))
+      .filter(\.hasAudio)
+    guard !media.isEmpty else {
+      throw .invalidArguments("pick clips with sound")
+    }
+    for item in media {
+      let saved = analysis.analyses[item.id]?.stems
+      let wanted = clips.filter { $0.mediaID == item.id }.map(\.id)
+      let title = "Separating the voice and music of \(item.name)"
+      jobs.enqueue(title) { [weak self] progress throws(JobError) in
+        let files: [Stem: URL]
+        do throws(AudioError) {
+          files = try await Self.stems(of: item, saved: saved, in: package, progress: progress)
+        } catch {
+          throw .failed(error.errorDescription ?? "The sound couldn't be separated.")
+        }
+        try await self?.store(item.id, in: package) { analysis in
+          analysis.stems = Dictionary(uniqueKeysWithValues: files.map {
+            ($0.key.rawValue, "\(item.id.uuidString)/\($0.value.lastPathComponent)")
+          })
+        }
+        try await self?.useStems(files, for: wanted)
+      }
+    }
+    return "Separating \(media.count) file\(media.count == 1 ? "" : "s") in the background; the "
+      + "voice and music land under each clip when done."
+  }
+
   // MARK: Internal
 
   /// Makes a layer follow the subject of the topmost video under it that has a cut-out.
@@ -859,10 +894,70 @@ extension Workspace: ProjectHost {
 
   // MARK: Private
 
+  /// The separated sound of `media`: the files saved before, or freshly separated ones.
+  @concurrent
+  private static func stems(
+    of media: Media,
+    saved: [String: String]?,
+    in package: URL,
+    progress: @escaping @Sendable (Double) -> Void,
+  ) async throws(AudioError) -> [Stem: URL] {
+    // why: the file name becomes the stem clip's name; the folder keeps it unique.
+    let folder = package.appending(path: "cache/stems/\(media.id.uuidString)")
+    let files = Dictionary(uniqueKeysWithValues: Stem.allCases.map { stem in
+      (stem, folder.appending(path: "\(media.name) \(stem.rawValue).m4a"))
+    })
+    if saved != nil, files.values.allSatisfy({ FileManager.default.fileExists(atPath: $0.path) }) {
+      return files
+    }
+    if !StemModel.isReady {
+      try await StemModel.download()
+    }
+    let stems = try await StemSeparator.separate(
+      media.url,
+      modelURL: StemModel.url,
+      progress: { progress($0 * 0.9) },
+    )
+    for (stem, url) in files {
+      try await AudioWriter.writeM4A(
+        stems[stem] ?? [],
+        sampleRate: StemSeparator.sampleRate,
+        to: url,
+      )
+    }
+    return files
+  }
+
   /// Starts using a finished noise-reduced sound in playback.
   private func useCleanSound(_ url: URL, for mediaID: Media.ID) async {
     player.cleanSound[mediaID] = url
     try? await player.load(editor.project) // why: the editor shows playback errors.
+  }
+
+  /// Lays separated voice and music under each of `clipIDs` still on the timeline, as one step.
+  private func useStems(_ files: [Stem: URL], for clipIDs: [Clip.ID]) async throws(JobError) {
+    var stems = [Media]()
+    for stem in Stem.allCases {
+      guard let url = files[stem] else {
+        continue
+      }
+      if let existing = editor.project.media.first(where: { $0.url == url }) {
+        stems.append(existing)
+        continue
+      }
+      do {
+        stems.append(try await MediaLoader.load(url))
+      } catch {
+        throw .failed(error.errorDescription ?? "The separated sound couldn't be read.")
+      }
+    }
+    let commands = clipIDs.filter { editor.project.timeline.clip(withID: $0) != nil }
+      .map { UseStems(clipID: $0, stems: stems) }
+    do {
+      try editor.perform(commands, title: UseStems.title)
+    } catch {
+      throw .failed(error.errorDescription ?? "The separated sound couldn't be placed.")
+    }
   }
 
   /// Saves an analysis result, if its project is still the open one.

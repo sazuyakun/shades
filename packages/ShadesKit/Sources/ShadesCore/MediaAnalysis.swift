@@ -12,6 +12,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     tracks: [String: [SubjectPoint]]? = nil,
     cleanSound: String? = nil,
     waveform: [Float]? = nil,
+    stems: [String: String]? = nil,
   ) {
     self.transcript = transcript
     self.speech = speech
@@ -21,6 +22,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     self.tracks = tracks
     self.cleanSound = cleanSound
     self.waveform = waveform
+    self.stems = stems
   }
 
   // MARK: Public
@@ -42,5 +44,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   /// The sound's peaks for drawing its waveform, 0 (silent) to 1, `Waveform.peaksPerSecond` a
   /// second.
   public var waveform: [Float]?
+  /// The separated voice and music: file paths inside the project's `cache/stems` folder, by stem.
+  public var stems: [String: String]?
 
 }

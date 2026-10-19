@@ -2,8 +2,8 @@ import ShadesCommands
 import ShadesCore
 import SwiftUI
 
-/// Audio tab for a clip: its volume (with keyframes), fades and noise reduction, whether a video
-/// clip plays its own sound, and the levels of its track and the whole mix.
+/// Audio tab for a clip: its volume (with keyframes), fades, noise reduction and stem separation,
+/// whether a video clip plays its own sound, and the levels of its track and the whole mix.
 struct ClipAudioInspector: View {
 
   // MARK: Internal
@@ -41,6 +41,8 @@ struct ClipAudioInspector: View {
           set: { perform(SetClip(clipID: clip.id, audioEnabled: $0), nil) },
         ))
       }
+      Button("Separate Voice and Music") { separateStems() }
+        .help("Puts the clip's voice and its music on their own tracks underneath")
       Divider()
       InspectorSlider(
         label: "Track \(trackLabel) Level",
@@ -92,6 +94,14 @@ struct ClipAudioInspector: View {
       _ = try workspace.reduceNoise([clip.id], strength: isOn ? 0.7 : 0)
     } catch {
       onError(error.errorDescription ?? "The sound couldn't be cleaned.")
+    }
+  }
+
+  private func separateStems() {
+    do {
+      _ = try workspace.separateStems([clip.id])
+    } catch {
+      onError(error.errorDescription ?? "The sound couldn't be separated.")
     }
   }
 
