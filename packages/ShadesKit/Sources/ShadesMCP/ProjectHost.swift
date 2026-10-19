@@ -58,6 +58,8 @@ public protocol ProjectHost: AnyObject {
     at time: MediaTime,
     fields: [String: String],
   ) async throws(ToolError) -> String
+  /// Sets the master level so the mix plays at `target` LUFS; returns what was measured.
+  func normalizeLoudness(target: Double) async throws(ToolError) -> String
   /// Ducks a music track under the speech on the timeline; returns what was done.
   func duckMusic(track: String?, level: Double) throws(CommandError) -> String
   /// Queues following what's inside `box` (fractions of the picture) of a video clip from `time`

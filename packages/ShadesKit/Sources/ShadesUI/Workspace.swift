@@ -703,6 +703,43 @@ extension Workspace: ProjectHost {
     return "Ducked \(name) to \(percent)% under \(speech.count) stretches of speech."
   }
 
+  /// Measures the mix's loudness and sets the master level so it plays at `target` LUFS,
+  /// keeping peaks below -1 dBFS. Returns what was measured and done.
+  public func normalizeLoudness(target: Double) async throws(ToolError) -> String {
+    let reader = MixReader(project: editor.project)
+    let loudness: Loudness
+    do {
+      loudness = try await LoudnessMeter
+        .measure { () throws(EngineError) in try await reader.nextChunk() }
+    } catch {
+      throw .engineFailed(error)
+    }
+    guard loudness.integrated.isFinite else {
+      throw .commandFailed(.invalidArguments("the timeline has no sound to measure"))
+    }
+    let current = editor.project.timeline.gain
+    let wanted = target - loudness.integrated
+    // why: -1 dBFS of headroom keeps platforms' encoders from clipping the loudest moments.
+    let allowed = -1 - loudness.peak
+    let change = min(wanted, allowed)
+    let gain = min(max(current * pow(10, change / 20), 0), 8)
+    do {
+      try editor.perform(SetMasterGain(gain: gain))
+    } catch {
+      throw .commandFailed(error)
+    }
+    let result = loudness.integrated + 20 * log10(gain / max(current, 0.0001))
+    let limited = change < wanted ? " (held back to keep peaks under -1 dBFS)" : ""
+    return String(
+      format: "Measured %.1f LUFS (peak %.1f dBFS); master level now %.2f, about %.1f LUFS%@.",
+      loudness.integrated,
+      loudness.peak,
+      gain,
+      result,
+      limited,
+    )
+  }
+
   // MARK: Internal
 
   /// Makes a layer follow the subject of the topmost video under it that has a cut-out.

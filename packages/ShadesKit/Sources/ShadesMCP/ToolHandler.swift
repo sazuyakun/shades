@@ -417,6 +417,19 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "normalize_loudness",
+      summary: "Measure the whole mix's loudness (LUFS, like YouTube and Instagram do) and set the "
+        + "master level to hit a target, keeping peaks under -1 dBFS. Do it last, after the mix.",
+      parameters: JSONSchema.object([
+        "target": JSONSchema.number(
+          "Loudness in LUFS (default -14, YouTube; -16 for quieter platforms)",
+          minimum: -40,
+          maximum: -5,
+        )
+      ]),
+      kind: .edit,
+    ),
+    Tool(
       name: "duck_music",
       summary: "Lower the music while anyone speaks, coming back up between: volume keyframes on "
         + "the music track's clips (the top audio track unless named). Needs speech analysis "
@@ -678,6 +691,10 @@ public final class ToolHandler {
         )
       }
       return .text("Styled \(request.clipIDs.count) text clips with \(request.style).")
+
+    case "normalize_loudness":
+      let request = try decode(LoudnessArguments.self, from: arguments, tool: name)
+      return try await .text(host().normalizeLoudness(target: request.target ?? -14))
 
     case "duck_music":
       let request = try decode(DuckArguments.self, from: arguments, tool: name)
@@ -1310,6 +1327,12 @@ private struct TemplateArguments: Decodable {
   let name: String
   let at: MediaTime
   let fields: [String: String]?
+}
+
+// MARK: - LoudnessArguments
+
+private struct LoudnessArguments: Decodable {
+  let target: Double?
 }
 
 // MARK: - DuckArguments

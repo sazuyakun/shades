@@ -186,12 +186,15 @@ extension Composition {
     )
   }
 
-  /// Each track's volume over time: a clip's own volume, or silence where the track is muted or
-  /// a video clip's sound was detached.
-  func audioMix(for timeline: Timeline) -> AVAudioMix {
+  /// The mix of `timeline` for the composition tracks carrying each timeline track's sound: clip
+  /// volumes, fades and keyframes, track levels and the master level, as volume ramps.
+  static func audioMix(
+    for timeline: Timeline,
+    trackIDs: [Track.ID: CMPersistentTrackID],
+  ) -> AVAudioMix {
     let mix = AVMutableAudioMix()
     mix.inputParameters = timeline.tracks.compactMap { track in
-      guard let trackID = audioTrackIDs[track.id] else {
+      guard let trackID = trackIDs[track.id] else {
         return nil
       }
       let parameters = AVMutableAudioMixInputParameters()
@@ -199,7 +202,7 @@ extension Composition {
       for clip in track.clips {
         let isAudible = !track.isMuted && (track.kind == .audio || clip.isAudioEnabled)
         let level = isAudible ? track.volume * timeline.gain : 0
-        let moments = Self.volumeMoments(of: clip)
+        let moments = volumeMoments(of: clip)
         for (from, to) in zip(moments, moments.dropFirst()) {
           parameters.setVolumeRamp(
             fromStartVolume: Float(clip.gain(at: from) * level),
@@ -211,6 +214,29 @@ extension Composition {
       return parameters
     }
     return mix
+  }
+
+  static func addTrack(
+    _ type: AVMediaType,
+    to asset: AVMutableComposition,
+  ) throws(EngineError) -> AVMutableCompositionTrack {
+    guard
+      let track = asset.addMutableTrack(
+        withMediaType: type,
+        preferredTrackID: kCMPersistentTrackID_Invalid,
+      )
+    else {
+      logger.fault("composition.failed reason=addTrack")
+      assertionFailure("AVMutableComposition refused to add a track")
+      throw .compositionFailed
+    }
+    return track
+  }
+
+  /// Each track's volume over time: a clip's own volume, or silence where the track is muted or
+  /// a video clip's sound was detached.
+  func audioMix(for timeline: Timeline) -> AVAudioMix {
+    Self.audioMix(for: timeline, trackIDs: audioTrackIDs)
   }
 
   // MARK: Private
@@ -233,23 +259,6 @@ extension Composition {
       }
     }
     return moments.filter { clip.timelineStart <= $0 && $0 <= clip.timelineEnd }.sorted()
-  }
-
-  private static func addTrack(
-    _ type: AVMediaType,
-    to asset: AVMutableComposition,
-  ) throws(EngineError) -> AVMutableCompositionTrack {
-    guard
-      let track = asset.addMutableTrack(
-        withMediaType: type,
-        preferredTrackID: kCMPersistentTrackID_Invalid,
-      )
-    else {
-      logger.fault("composition.failed reason=addTrack")
-      assertionFailure("AVMutableComposition refused to add a track")
-      throw .compositionFailed
-    }
-    return track
   }
 
   /// Adds a track holding the frames transitions on `track` show past their clips' edges: the

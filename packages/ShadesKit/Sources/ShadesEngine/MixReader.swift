@@ -1,0 +1,128 @@
+import AVFoundation
+import ShadesCore
+
+// MARK: - MixReader
+
+/// Reads a project's finished sound mix (every track, with volumes, fades, ducking and the
+/// master level) as stereo samples, a stretch at a time. Reading blocks while audio decodes, so
+/// the reader runs on its own dispatch queue, never on Swift's thread pool.
+public actor MixReader {
+
+  // MARK: Lifecycle
+
+  /// A reader for `project`'s mix, read from the original media.
+  public init(project: Project) {
+    self.project = project
+  }
+
+  // MARK: Public
+
+  /// Samples a second: what the mix is read at.
+  public static let sampleRate = 48000.0
+
+  nonisolated public var unownedExecutor: UnownedSerialExecutor {
+    queue.asUnownedSerialExecutor()
+  }
+
+  /// The next stretch of the mix as interleaved left/right samples, or `nil` at its end.
+  public func nextChunk() async throws(EngineError) -> [Float]? {
+    if output == nil {
+      try await start()
+    }
+    guard let output, let sample = output.copyNextSampleBuffer() else {
+      return nil
+    }
+    guard let block = CMSampleBufferGetDataBuffer(sample) else {
+      return []
+    }
+    let length = CMBlockBufferGetDataLength(block)
+    var samples = [Float](repeating: 0, count: length / MemoryLayout<Float>.size)
+    let status = samples.withUnsafeMutableBytes { bytes in
+      bytes.baseAddress.map { CMBlockBufferCopyDataBytes(
+        block,
+        atOffset: 0,
+        dataLength: length,
+        destination: $0,
+      ) }
+        ?? kCMBlockBufferBadCustomBlockSourceErr
+    }
+    guard status == kCMBlockBufferNoErr else {
+      logger.error("mix.readFailed status=\(status, privacy: .public)")
+      throw .renderFailed
+    }
+    return samples
+  }
+
+  // MARK: Private
+
+  private nonisolated let queue = DispatchSerialQueue(label: "com.sazuyakun.shades.mix")
+  private let project: Project
+  private var reader: AVAssetReader?
+  private var output: AVAssetReaderAudioMixOutput?
+
+  /// Lays every clip's sound out in a composition and starts reading it through the mix.
+  private func start() async throws(EngineError) {
+    let timeline = project.timeline
+    let composition = AVMutableComposition()
+    var trackIDs = [Track.ID: CMPersistentTrackID]()
+    for track in timeline.tracks where track.kind != .text {
+      var target: AVMutableCompositionTrack?
+      for clip in track.clips {
+        guard
+          let mediaID = clip.mediaID,
+          let media = project.media(withID: mediaID), media.hasAudio
+        else {
+          continue
+        }
+        // why: a track doesn't keep its asset alive, and can't be inserted once the asset is gone.
+        let asset = AVURLAsset(url: media.url)
+        do {
+          guard let audio = try await asset.loadTracks(withMediaType: .audio).first else {
+            continue
+          }
+          let destination = try target ?? Composition.addTrack(.audio, to: composition)
+          target = destination
+          trackIDs[track.id] = destination.trackID
+          try destination.insertTimeRange(
+            CMTimeRange(start: clip.sourceStart.cmTime, duration: clip.duration.cmTime),
+            of: audio,
+            at: clip.timelineStart.cmTime,
+          )
+          withExtendedLifetime(asset) { }
+        } catch {
+          let code = (error as NSError).code
+          let path = media.url.path
+          logger.error("mix.readFailed reason=insert code=\(code) path=\(path, privacy: .private)")
+          throw .mediaUnreadable(media.url)
+        }
+      }
+    }
+    let tracks = composition.tracks(withMediaType: .audio)
+    guard !tracks.isEmpty else {
+      return
+    }
+    do {
+      let reader = try AVAssetReader(asset: composition)
+      let output = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: [
+        AVFormatIDKey: kAudioFormatLinearPCM,
+        AVSampleRateKey: Self.sampleRate,
+        AVNumberOfChannelsKey: 2,
+        AVLinearPCMBitDepthKey: 32,
+        AVLinearPCMIsFloatKey: true,
+        AVLinearPCMIsNonInterleaved: false,
+        AVLinearPCMIsBigEndianKey: false,
+      ])
+      output.audioMix = Composition.audioMix(for: timeline, trackIDs: trackIDs)
+      reader.add(output)
+      guard reader.startReading() else {
+        throw EngineError.renderFailed
+      }
+      self.reader = reader
+      self.output = output
+    } catch {
+      logger.error("mix.readFailed reason=reader")
+      throw .renderFailed
+    }
+  }
+
+}

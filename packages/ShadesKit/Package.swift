@@ -88,7 +88,7 @@ let package = Package(
     .testTarget(name: "ShadesMediaTests", dependencies: ["ShadesMedia", "ShadesTestSupport"]),
     .testTarget(
       name: "ShadesEngineTests",
-      dependencies: ["ShadesEngine", "ShadesMatting", "ShadesTestSupport"],
+      dependencies: ["ShadesAudio", "ShadesEngine", "ShadesMatting", "ShadesTestSupport"],
       exclude: ["Golden"],
     ),
     .testTarget(
