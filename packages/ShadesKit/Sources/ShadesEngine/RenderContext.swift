@@ -61,13 +61,41 @@ public final class RenderContext: Sendable {
     return drawn
   }
 
+  /// A still picture on a surface for a frame of `width`×`height`, with the sticker look when
+  /// given; from the cache when it was drawn recently.
+  func still(_ url: URL, look: StickerLook?, width: Int, height: Int) -> IOSurface? {
+    let key = StillKey(url: url, look: look, maxSide: max(width, height))
+    if let cached = stills.withLock({ $0[key] }) {
+      return cached
+    }
+    guard
+      let buffer = StillRenderer.render(url, maxSide: key.maxSide, look: look),
+      let surface = CVPixelBufferGetIOSurface(buffer)?.takeUnretainedValue()
+    else {
+      logger.error("still.renderFailed path=\(url.path, privacy: .private)")
+      return nil
+    }
+    stills.withLock { cache in
+      if cache.count >= Self.stillCacheLimit {
+        cache.removeAll()
+      }
+      cache[key] = surface
+    }
+    return surface
+  }
+
   // MARK: Private
 
   /// Drawn texts kept at most; the cache empties when full. Popping words draw a new picture each
   /// frame for a moment, so this holds a few seconds of them.
   private static let textCacheLimit = 256
 
+  /// Pictures kept at most; full-frame stills are large, so only a timeline's worth.
+  private static let stillCacheLimit = 32
+
   private let texts = Mutex<[TextKey: DrawnText]>([:])
+
+  private let stills = Mutex<[StillKey: IOSurface]>([:])
 
 }
 
@@ -89,4 +117,13 @@ private struct TextKey: Hashable {
   let height: Int
   /// How its words are revealed at that moment.
   let state: String
+}
+
+// MARK: - StillKey
+
+/// What a drawn still depends on.
+private struct StillKey: Hashable {
+  let url: URL
+  let look: StickerLook?
+  let maxSide: Int
 }

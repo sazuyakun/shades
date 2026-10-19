@@ -1,13 +1,21 @@
 import AVFoundation
+import ImageIO
 import ShadesCore
+import UniformTypeIdentifiers
 
 /// Reads what Shades needs to know about a media file on disk.
 public enum MediaLoader {
-  /// Reads a video or audio file's duration, size and whether it has picture and sound.
+
+  // MARK: Public
+
+  /// Reads a video, audio or image file's duration, size and whether it has picture and sound.
   public static func load(_ url: URL) async throws(MediaError) -> Media {
     guard FileManager.default.fileExists(atPath: url.path) else {
       logger.error("load.failed reason=fileMissing path=\(url.path, privacy: .private)")
       throw .fileMissing(url)
+    }
+    if let still = still(at: url) {
+      return still
     }
     let asset = AVURLAsset(url: url)
     let duration: CMTime
@@ -52,8 +60,11 @@ public enum MediaLoader {
     )
   }
 
-  /// Makes a still image from early in the file, no larger than `maxSize`.
+  /// Makes a still image from early in the file (or of the image), no larger than `maxSize`.
   public static func thumbnail(for url: URL, maxSize: CGSize) async throws(MediaError) -> CGImage {
+    if let image = image(at: url, maxSide: max(maxSize.width, maxSize.height)) {
+      return image
+    }
     let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
     generator.appliesPreferredTrackTransform = true
     generator.maximumSize = maxSize
@@ -71,6 +82,9 @@ public enum MediaLoader {
     count: Int,
     maxSize: CGSize,
   ) async throws(MediaError) -> [CGImage] {
+    if let image = image(at: url, maxSide: max(maxSize.width, maxSize.height)) {
+      return Array(repeating: image, count: count)
+    }
     let asset = AVURLAsset(url: url)
     let generator = AVAssetImageGenerator(asset: asset)
     generator.appliesPreferredTrackTransform = true
@@ -93,4 +107,44 @@ public enum MediaLoader {
       throw .thumbnailFailed(url)
     }
   }
+
+  // MARK: Private
+
+  /// The file as a still picture, when it's an image (PNG, JPEG, HEIC…).
+  private static func still(at url: URL) -> Media? {
+    guard
+      let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .image),
+      let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+      let width = properties[kCGImagePropertyPixelWidth] as? Int,
+      let height = properties[kCGImagePropertyPixelHeight] as? Int
+    else {
+      return nil
+    }
+    let turned = (properties[kCGImagePropertyOrientation] as? Int).map { $0 >= 5 } ?? false
+    return Media(
+      url: url,
+      duration: Media.stillLength,
+      width: turned ? height : width,
+      height: turned ? width : height,
+      hasAudio: false,
+      isStill: true,
+    )
+  }
+
+  /// An image file decoded upright, no larger than `maxSide`, or `nil` if it isn't an image.
+  private static func image(at url: URL, maxSide: Double) -> CGImage? {
+    guard
+      let type = UTType(filenameExtension: url.pathExtension), type.conforms(to: .image),
+      let source = CGImageSourceCreateWithURL(url as CFURL, nil)
+    else {
+      return nil
+    }
+    return CGImageSourceCreateThumbnailAtIndex(source, 0, [
+      kCGImageSourceCreateThumbnailFromImageAlways: true,
+      kCGImageSourceCreateThumbnailWithTransform: true,
+      kCGImageSourceThumbnailMaxPixelSize: maxSide,
+    ] as CFDictionary)
+  }
+
 }

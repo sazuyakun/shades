@@ -24,6 +24,11 @@ public struct VideoFormat: Codable, Hashable, Sendable {
   public let height: Int
   public let framesPerSecond: Int
 
+  /// Width over height (4:3 is 1.333…).
+  public var aspect: Double {
+    Double(width) / Double(height)
+  }
+
   /// The length of one frame.
   public var frameDuration: MediaTime {
     MediaTime(

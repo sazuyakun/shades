@@ -18,6 +18,7 @@ public struct SetClip: ToolCommand {
     depthSlot: DepthSlot? = nil,
     volume: Double? = nil,
     audioEnabled: Bool? = nil,
+    sticker: StickerLook? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -31,6 +32,7 @@ public struct SetClip: ToolCommand {
     self.depthSlot = depthSlot
     self.volume = volume
     self.audioEnabled = audioEnabled
+    self.sticker = sticker
   }
 
   // MARK: Public
@@ -73,6 +75,13 @@ public struct SetClip: ToolCommand {
         maximum: 4,
       ),
       "audio_enabled": JSONSchema.boolean("Whether a video clip plays its own sound"),
+      "sticker": JSONSchema.object([
+        "border": JSONSchema.number(
+          "White die-cut border as a fraction of the picture; with shadow false and border 0 "
+            + "the sticker look is removed"
+        ),
+        "shadow": JSONSchema.boolean("A soft drop shadow"),
+      ]),
     ],
     required: ["clip_id"],
   )
@@ -89,6 +98,7 @@ public struct SetClip: ToolCommand {
   public let depthSlot: DepthSlot?
   public let volume: Double?
   public let audioEnabled: Bool?
+  public let sticker: StickerLook?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -103,6 +113,9 @@ public struct SetClip: ToolCommand {
     }
     if let depth, !(-10 ... 1.5).contains(depth) {
       throw rejected(.invalidValue("depth goes from -10 (far away) to 1.5 (close)"))
+    }
+    if let sticker, !(0 ... 0.3).contains(sticker.border) {
+      throw rejected(.invalidValue("a sticker border goes from 0 to 0.3 of the picture"))
     }
     if let volume, !(0 ... 4).contains(volume) {
       throw rejected(.invalidValue("volume goes from 0 to 4"))
@@ -119,6 +132,9 @@ public struct SetClip: ToolCommand {
     clip.depth = depthSlot ?? clip.depth
     clip.volume = volume ?? clip.volume
     clip.isAudioEnabled = audioEnabled ?? clip.isAudioEnabled
+    if let sticker {
+      clip.sticker = sticker.border == 0 && !sticker.shadow ? nil : sticker
+    }
     project.timeline.tracks[location.track].clips[location.clip] = clip
   }
 

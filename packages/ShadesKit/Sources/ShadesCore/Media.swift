@@ -1,7 +1,9 @@
 import Foundation
 
+// MARK: - Media
+
 /// A source file imported into the project. The file stays where it is on disk.
-public struct Media: Codable, Hashable, Sendable, Identifiable {
+public struct Media: Hashable, Sendable, Identifiable {
 
   // MARK: Lifecycle
 
@@ -13,6 +15,7 @@ public struct Media: Codable, Hashable, Sendable, Identifiable {
     height: Int,
     hasVideo: Bool = true,
     hasAudio: Bool,
+    isStill: Bool = false,
   ) {
     self.id = id
     self.url = url
@@ -21,9 +24,13 @@ public struct Media: Codable, Hashable, Sendable, Identifiable {
     self.height = height
     self.hasVideo = hasVideo
     self.hasAudio = hasAudio
+    self.isStill = isStill
   }
 
   // MARK: Public
+
+  /// How long a still is placed for unless asked otherwise.
+  public static let stillLength = MediaTime(seconds: 5)
 
   public let id: UUID
   public let url: URL
@@ -32,10 +39,48 @@ public struct Media: Codable, Hashable, Sendable, Identifiable {
   public let height: Int
   public let hasVideo: Bool
   public let hasAudio: Bool
+  /// A picture rather than a video (a PNG sticker, a photo): it can be placed for any length.
+  public let isStill: Bool
 
   /// The file name without its extension, shown in the browser and timeline.
   public var name: String {
     url.deletingPathExtension().lastPathComponent
+  }
+
+}
+
+// MARK: Codable
+
+extension Media: Codable {
+
+  // MARK: Lifecycle
+
+  /// Reads media, including media saved before stills existed (always video or sound).
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    try self.init(
+      id: container.decode(UUID.self, forKey: .id),
+      url: container.decode(URL.self, forKey: .url),
+      duration: container.decode(MediaTime.self, forKey: .duration),
+      width: container.decode(Int.self, forKey: .width),
+      height: container.decode(Int.self, forKey: .height),
+      hasVideo: container.decode(Bool.self, forKey: .hasVideo),
+      hasAudio: container.decode(Bool.self, forKey: .hasAudio),
+      isStill: container.decodeIfPresent(Bool.self, forKey: .isStill) ?? false,
+    )
+  }
+
+  // MARK: Internal
+
+  enum CodingKeys: String, CodingKey {
+    case id
+    case url
+    case duration
+    case width
+    case height
+    case hasVideo
+    case hasAudio
+    case isStill
   }
 
 }

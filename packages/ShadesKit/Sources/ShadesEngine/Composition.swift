@@ -55,7 +55,7 @@ extension Composition {
     var videoLayers = [VideoLayer]()
     var audioTrackIDs = [Track.ID: CMPersistentTrackID]()
     for track in timeline.tracks where !track.clips.isEmpty && track.kind != .text {
-      let videoTrack = track.kind == .video ? try addTrack(.video, to: asset) : nil
+      var videoTrack: AVMutableCompositionTrack?
       var audioTrack: AVMutableCompositionTrack?
       var matteTrack: AVMutableCompositionTrack?
       var placed = [PlacedClip]()
@@ -64,11 +64,22 @@ extension Composition {
           continue
         }
         let media = try project.mediaForPlayback(mediaID)
+        guard !media.isStill else {
+          placed.append(PlacedClip(
+            clip: clip,
+            rotation: .identity,
+            hasMatte: false,
+            still: media.url,
+          ))
+          continue
+        }
         let source = try await library.tracks(at: sources[media.id] ?? media.url)
         let range = CMTimeRange(start: clip.sourceStart.cmTime, duration: clip.duration.cmTime)
         do {
-          if let videoTrack, let video = source.video {
-            try videoTrack.insertTimeRange(range, of: video, at: clip.timelineStart.cmTime)
+          if track.kind == .video, let video = source.video {
+            let target = try videoTrack ?? addTrack(.video, to: asset)
+            videoTrack = target
+            try target.insertTimeRange(range, of: video, at: clip.timelineStart.cmTime)
             var hasMatte = false
             if
               let matteURL = mattes[media.id],
@@ -88,7 +99,12 @@ extension Composition {
                 hasMatte = true
               }
             }
-            placed.append(PlacedClip(clip: clip, rotation: source.rotation, hasMatte: hasMatte))
+            placed.append(PlacedClip(
+              clip: clip,
+              rotation: source.rotation,
+              hasMatte: hasMatte,
+              still: nil,
+            ))
           }
           if let audio = source.audio {
             let target = try audioTrack ?? addTrack(.audio, to: asset)
@@ -105,13 +121,20 @@ extension Composition {
           throw .mediaUnreadable(media.url)
         }
       }
-      if let videoTrack {
+      if !placed.isEmpty {
         videoLayers.append(VideoLayer(
-          trackID: videoTrack.trackID,
+          trackID: videoTrack?.trackID,
           matteTrackID: matteTrack?.trackID,
           clips: placed,
         ))
       }
+    }
+    // why: AVFoundation only asks the compositor for frames while some video track plays, so a
+    // timeline of only stills and text gets an empty one to carry it.
+    if asset.tracks(withMediaType: .video).isEmpty {
+      try addTrack(.video, to: asset).insertEmptyTimeRange(
+        CMTimeRange(start: .zero, duration: timeline.duration.cmTime)
+      )
     }
     let textLayers = timeline.tracks.filter { $0.kind == .text }.map(\.clips)
     let videoComposition = AVMutableVideoComposition()
@@ -198,9 +221,15 @@ extension Composition {
         guard let placed = layer.clips.first(where: { $0.clip.contains(start) }) else {
           return nil
         }
+        guard
+          let source = placed.still.map(LayerSource.still)
+          ?? layer.trackID.map({ LayerSource.video(trackID: $0, rotation: placed.rotation) })
+        else {
+          return nil
+        }
         return CompositionLayer(
           clipID: placed.clip.id,
-          source: .video(trackID: layer.trackID, rotation: placed.rotation),
+          source: source,
           matteTrackID: placed.hasMatte ? layer.matteTrackID : nil,
         )
       }
@@ -226,20 +255,23 @@ extension Composition {
 
 // MARK: - VideoLayer
 
-/// A timeline track's video in the composition, and its cut-outs' track if any.
+/// A timeline track's video in the composition (none when it holds only stills), and its
+/// cut-outs' track if any.
 private struct VideoLayer {
-  let trackID: CMPersistentTrackID
+  let trackID: CMPersistentTrackID?
   let matteTrackID: CMPersistentTrackID?
   let clips: [PlacedClip]
 }
 
 // MARK: - PlacedClip
 
-/// A clip placed in the composition: its rotation, and whether its cut-out came with it.
+/// A clip placed in the composition: its rotation, whether its cut-out came with it, and the
+/// picture file when it's a still.
 private struct PlacedClip {
   let clip: Clip
   let rotation: CGAffineTransform
   let hasMatte: Bool
+  let still: URL?
 }
 
 // MARK: - TrackStructure

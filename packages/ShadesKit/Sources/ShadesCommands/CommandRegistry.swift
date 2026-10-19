@@ -20,6 +20,8 @@ public enum CommandRegistry {
     SetKeyframes.self,
     RemoveKeyframes.self,
     SetCamera.self,
+    ApplyMotion.self,
+    AddSticker.self,
     AddText.self,
     SetText.self,
     DetachAudio.self,

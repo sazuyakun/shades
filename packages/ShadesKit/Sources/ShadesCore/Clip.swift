@@ -20,6 +20,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     volume: Double = 1,
     isAudioEnabled: Bool = true,
     keyframes: [Keyframe] = [],
+    sticker: StickerLook? = nil,
   ) {
     self.init(
       id: id,
@@ -33,6 +34,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       volume: volume,
       isAudioEnabled: isAudioEnabled,
       keyframes: keyframes,
+      sticker: sticker,
     )
   }
 
@@ -49,6 +51,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     volume: Double = 1,
     isAudioEnabled: Bool = true,
     keyframes: [Keyframe] = [],
+    sticker: StickerLook? = nil,
   ) {
     self.id = id
     self.source = source
@@ -61,6 +64,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.volume = volume
     self.isAudioEnabled = isAudioEnabled
     self.keyframes = keyframes
+    self.sticker = sticker
   }
 
   // MARK: Public
@@ -82,6 +86,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var isAudioEnabled: Bool
   /// Values that change over time, overriding the fixed ones while present.
   public var keyframes: [Keyframe]
+  /// The die-cut sticker look, for still pictures with a see-through background.
+  public var sticker: StickerLook?
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -134,6 +140,7 @@ extension Clip: Codable {
       volume: container.decode(Double.self, forKey: .volume),
       isAudioEnabled: container.decode(Bool.self, forKey: .isAudioEnabled),
       keyframes: container.decodeIfPresent([Keyframe].self, forKey: .keyframes) ?? [],
+      sticker: container.decodeIfPresent(StickerLook.self, forKey: .sticker),
     )
   }
 
@@ -152,6 +159,7 @@ extension Clip: Codable {
     try container.encode(volume, forKey: .volume)
     try container.encode(isAudioEnabled, forKey: .isAudioEnabled)
     try container.encode(keyframes, forKey: .keyframes)
+    try container.encodeIfPresent(sticker, forKey: .sticker)
   }
 
   // MARK: Private
@@ -170,6 +178,7 @@ extension Clip: Codable {
     case volume
     case isAudioEnabled
     case keyframes
+    case sticker
   }
 
 }

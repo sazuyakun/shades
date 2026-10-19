@@ -520,7 +520,7 @@ extension Workspace: ProjectHost {
     let used = Set(editor.project.timeline.allClips.compactMap(\.mediaID))
     let wanted = editor.project.media.filter { media in
       media
-        .hasVideo &&
+        .hasVideo && !media.isStill &&
         (mediaIDs
           .map { $0.contains(media.id) } ??
           (used.contains(media.id) && analysis.analyses[media.id]?.matte == nil))
@@ -578,7 +578,8 @@ extension Workspace: ProjectHost {
     guard
       let package = documentURL,
       let clip = editor.project.timeline.clip(withID: clipID),
-      let media = clip.mediaID.flatMap(editor.project.media(withID:)), media.hasVideo
+      let media = clip.mediaID.flatMap(editor.project.media(withID:)), media.hasVideo,
+      !media.isStill
     else {
       throw .invalidArguments("pick a video clip on the timeline to track")
     }

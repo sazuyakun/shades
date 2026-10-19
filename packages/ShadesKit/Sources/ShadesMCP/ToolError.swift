@@ -2,6 +2,7 @@ import Foundation
 import ShadesCommands
 import ShadesDocument
 import ShadesEngine
+import ShadesMatting
 import ShadesMedia
 
 // MARK: - ToolError
@@ -12,6 +13,7 @@ public enum ToolError: Error, Equatable {
   case mediaFailed(MediaError)
   case engineFailed(EngineError)
   case documentFailed(DocumentError)
+  case mattingFailed(MattingError)
   case noProjectHost
   case noProjectOpen
   case listenFailed(port: UInt16)
@@ -29,6 +31,8 @@ extension ToolError: LocalizedError {
     case .engineFailed(let error):
       error.errorDescription
     case .documentFailed(let error):
+      error.errorDescription
+    case .mattingFailed(let error):
       error.errorDescription
     case .noProjectOpen:
       "No project is open. Open one with open_project or create one with new_project."

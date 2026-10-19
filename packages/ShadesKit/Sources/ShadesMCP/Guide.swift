@@ -34,6 +34,11 @@ enum Guide {
     a layer above set to behindSubject shows between the background and the person. \
     auto_reframe crops 16:9 footage to 4:3 around the subject.
 
+    Stickers and motion
+    - import_media takes pictures too (PNG, JPEG). add_sticker drops one on top with a die-cut \
+    border, a motion preset and a sound; cutout_from_frame turns a frame's subject into one.
+    - apply_motion gives layers ready-made moves (pop, slideIn, float, orbit, scatter, stack).
+
     Animation
     - set_keyframes animates x, y, scale, rotation or opacity: values at moments inside the \
     clip. Each keyframe's easing (linear, easeIn, easeOut, easeInOut, hold, spring, bouncy) \

@@ -90,6 +90,24 @@ struct PlacementTests {
     #expect(project.timeline.allClips.first?.timelineStart == seconds(1))
   }
 
+  @Test
+  func `a still is placed for five seconds and can be trimmed to any length`() throws {
+    let still = Media(
+      url: URL(filePath: "/tmp/sticker.png"),
+      duration: Media.stillLength,
+      width: 400,
+      height: 300,
+      hasAudio: false,
+      isStill: true,
+    )
+    var project = Project(media: [still])
+    try AppendClip(mediaID: still.id).apply(to: &project)
+    let clip = try #require(project.timeline.allClips.first)
+    #expect(clip.duration == seconds(5))
+    try TrimClip(clipID: clip.id, end: seconds(30)).apply(to: &project)
+    #expect(project.timeline.allClips.first?.duration == seconds(30))
+  }
+
   // MARK: Private
 
   private let video = makeMedia(seconds: 4)

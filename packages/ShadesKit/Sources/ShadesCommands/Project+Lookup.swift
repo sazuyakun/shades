@@ -47,6 +47,30 @@ extension Project {
     return addTrack(kind)
   }
 
+  /// Places part of `media` at `start` on the lowest upper track of its kind that's free then
+  /// (above V1 or A1, added if none is), and returns the new clip's ID.
+  @discardableResult
+  mutating func placeOnTop(
+    _ media: Media,
+    range: (start: MediaTime, duration: MediaTime),
+    at start: MediaTime,
+  ) -> Clip.ID {
+    let kind: TrackKind = media.hasVideo ? .video : .audio
+    let end = start + range.duration
+    let upper = timeline.tracks.indices.filter { timeline.tracks[$0].kind == kind }.dropFirst()
+    let index = upper.first { timeline.tracks[$0].isClear(from: start, to: end) }
+      ?? addTrack(kind)
+    let clip = Clip(
+      mediaID: media.id,
+      sourceStart: range.start,
+      duration: range.duration,
+      timelineStart: start,
+      isAudioEnabled: media.hasAudio,
+    )
+    timeline.tracks[index].add(clip)
+    return clip.id
+  }
+
   /// The text track labeled `label`, or the first text track (added if there is none).
   mutating func textTrack(labeled label: String?) throws(CommandError) -> Int {
     if let label {
@@ -72,8 +96,8 @@ extension Project {
     time.roundedToFrame(at: timeline.format.framesPerSecond)
   }
 
-  /// The part of `media` from `start` to `end` (the whole file by default), on frame
-  /// boundaries.
+  /// The part of `media` from `start` to `end` (the whole file by default; a still can run any
+  /// length), on frame boundaries.
   func sourceRange(
     of media: Media,
     from start: MediaTime?,
@@ -83,7 +107,7 @@ extension Project {
     let whole = media.duration.flooredToFrame(at: fps)
     let first = start.map(onFrame) ?? .zero
     let last = end.map(onFrame) ?? whole
-    guard first >= .zero, last <= whole else {
+    guard first >= .zero, media.isStill || last <= whole else {
       throw rejected(.invalidRange("the media is only \(whole.seconds) seconds long"))
     }
     guard first < last else {

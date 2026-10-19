@@ -75,4 +75,18 @@ struct MediaLoaderTests {
     #expect(image.width <= 160)
     #expect(image.height <= 160)
   }
+
+  @Test
+  func `a picture loads as a still with its size, and thumbnails from itself`() async throws {
+    let url = try ImageFixture.makeDisc(width: 400, height: 300)
+    let media = try await MediaLoader.load(url)
+    #expect(media.isStill)
+    #expect(media.width == 400 && media.height == 300)
+    #expect(!media.hasAudio)
+    let thumbnail = try await MediaLoader.thumbnail(
+      for: url,
+      maxSize: CGSize(width: 100, height: 100),
+    )
+    #expect(thumbnail.width == 100)
+  }
 }

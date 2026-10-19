@@ -63,4 +63,6 @@ enum LayerSource: Sendable {
   case video(trackID: CMPersistentTrackID, rotation: CGAffineTransform)
   /// Text, drawn from the clip's words in `RenderState`.
   case text
+  /// A still picture (PNG, photo), drawn from its file.
+  case still(URL)
 }

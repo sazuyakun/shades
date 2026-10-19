@@ -7,7 +7,7 @@ public enum ProxyMaker {
 
   /// Whether `media` is heavy enough to need a proxy: a picture larger than 1080p.
   public static func needsProxy(_ media: Media) -> Bool {
-    media.hasVideo && max(media.width, media.height) > 1920
+    media.hasVideo && !media.isStill && max(media.width, media.height) > 1920
   }
 
   /// Where the proxy for `media` lives inside a project's cache folder.

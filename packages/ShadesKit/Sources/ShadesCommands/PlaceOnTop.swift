@@ -41,21 +41,7 @@ public struct PlaceOnTop: ToolCommand {
   public func apply(to project: inout Project) throws(CommandError) {
     let media = try project.requireMedia(mediaID)
     let range = try project.sourceRange(of: media, from: sourceStart, to: sourceEnd)
-    let kind: TrackKind = media.hasVideo ? .video : .audio
-    let start = project.onFrame(at)
-    let end = start + range.duration
-    let upper = project.timeline.tracks.indices
-      .filter { project.timeline.tracks[$0].kind == kind }
-      .dropFirst()
-    let index = upper.first { project.timeline.tracks[$0].isClear(from: start, to: end) }
-      ?? project.addTrack(kind)
-    project.timeline.tracks[index].add(Clip(
-      mediaID: media.id,
-      sourceStart: range.start,
-      duration: range.duration,
-      timelineStart: start,
-      isAudioEnabled: media.hasAudio,
-    ))
+    project.placeOnTop(media, range: range, at: project.onFrame(at))
   }
 
 }

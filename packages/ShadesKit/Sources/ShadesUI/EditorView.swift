@@ -66,7 +66,7 @@ public struct EditorView: View {
     .preferredColorScheme(.dark)
     .fileImporter(
       isPresented: $isImporting,
-      allowedContentTypes: [.movie, .audio],
+      allowedContentTypes: [.movie, .audio, .image],
       allowsMultipleSelection: true,
     ) { result in
       if case .success(let urls) = result {

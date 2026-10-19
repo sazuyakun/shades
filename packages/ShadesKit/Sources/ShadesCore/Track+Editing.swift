@@ -91,6 +91,7 @@ extension Clip {
       volume: volume,
       isAudioEnabled: isAudioEnabled,
       keyframes: keyframes,
+      sticker: sticker,
     )
   }
 

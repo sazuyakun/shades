@@ -55,6 +55,15 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         picture = request.sourceFrame(byTrackID: trackID).map(LayerPicture.frame)
         rotation = sourceRotation
 
+      case .still(let url):
+        picture = instruction.renderContext.still(
+          url,
+          look: clip.sticker,
+          width: width,
+          height: height,
+        ).map(LayerPicture.surface)
+        rotation = .identity
+
       case .text:
         let drawn = clip.text.flatMap { content in
           instruction.renderContext.text(

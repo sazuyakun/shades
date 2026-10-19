@@ -309,6 +309,23 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "cutout_from_frame",
+      summary: "Cut the subject (a person or object) out of one frame of a video clip and import "
+        + "it as a picture with a see-through background, ready for add_sticker.",
+      parameters: JSONSchema.object(
+        [
+          "clip_id": Fields.clipID,
+          "at": Fields.time("The moment to cut out, inside the clip"),
+          "engine": JSONSchema.string(
+            "visionPerson (people, default) or visionForeground (any subject)",
+            values: MatteEngine.allCases.map(\.rawValue),
+          ),
+        ],
+        required: ["clip_id", "at"],
+      ),
+      kind: .edit,
+    ),
+    Tool(
       name: "track_motion",
       summary: "Follow something through a video clip in the background, from a box drawn around "
         + "it at one moment to the clip's end (or until it's lost), saved as a named path for "
@@ -512,6 +529,10 @@ public final class ToolHandler {
         "Reframed \(count) clip\(count == 1 ? "" : "s") to fill the frame around the subject."
       )
 
+    case "cutout_from_frame":
+      let request = try decode(CutoutFrameArguments.self, from: arguments, tool: name)
+      return try await cutoutFromFrame(request)
+
     case "track_motion":
       let request = try decode(TrackArguments.self, from: arguments, tool: name)
       let projectHost = try host()
@@ -601,11 +622,42 @@ public final class ToolHandler {
       throw .mediaFailed(error)
     }
     try perform { () throws(CommandError) in try editor.perform(AddMedia(media: media)) }
-    let picture = media.hasVideo ? "\(media.width)×\(media.height), " : "sound only, "
+    let picture = media.isStill
+      ? "a picture, \(media.width)×\(media.height), "
+      : media.hasVideo ? "\(media.width)×\(media.height), " : "sound only, "
     return .text(
       "Imported \(media.name) as media \(media.id): \(media.duration.seconds) s, \(picture)"
         + "\(media.hasAudio ? "with" : "no") audio."
     )
+  }
+
+  /// Saves the subject of one frame as a PNG in the project and imports it.
+  private func cutoutFromFrame(_ request: CutoutFrameArguments) async throws(ToolError)
+    -> ToolResult
+  {
+    guard let package = try host().documentURL else {
+      throw .noProjectOpen
+    }
+    let timeline = editor.project.timeline
+    guard
+      let clip = timeline.clip(withID: request.clipID), clip.contains(request.at),
+      let media = clip.mediaID.flatMap(editor.project.media(withID:)), media.hasVideo,
+      !media.isStill
+    else {
+      throw .commandFailed(.invalidArguments("pick a moment inside a video clip"))
+    }
+    let destination = package.appending(path: "cache/stickers/\(UUID().uuidString).png")
+    do {
+      try await StickerMaker.cutout(
+        from: media.url,
+        at: clip.sourceTime(at: request.at).seconds,
+        engine: request.engine.flatMap(MatteEngine.init(rawValue:)) ?? .visionPerson,
+        to: destination,
+      )
+    } catch {
+      throw .mattingFailed(error)
+    }
+    return try await importMedia(destination.path)
   }
 
   private func renderFrame(
@@ -992,6 +1044,14 @@ private struct CaptionArguments: Decodable {
   var range: TimeRange? {
     RangeArguments(start: start, end: end, words: nil).range
   }
+}
+
+// MARK: - CutoutFrameArguments
+
+private struct CutoutFrameArguments: Decodable {
+  let clipID: UUID
+  let at: MediaTime
+  let engine: String?
 }
 
 // MARK: - TrackArguments
