@@ -140,6 +140,7 @@ public final class Workspace {
     await saveThumbnail()
     player.pause()
     queuedProxies.removeAll()
+    queuedWaveforms.removeAll()
     player.proxies = [:]
     player.mattes = [:]
     player.cleanSound = [:]
@@ -152,6 +153,7 @@ public final class Workspace {
   /// proxies for newly imported heavy footage.
   public func projectDidChange() {
     makeMissingProxies()
+    makeMissingWaveforms()
     if polishPlan != nil, editor.project != polishBase {
       polishPlan = nil
     }
@@ -226,6 +228,7 @@ public final class Workspace {
   /// The project as it was when the Polish plan was made; any other change discards the plan.
   @ObservationIgnored private var polishBase: Project?
   @ObservationIgnored private var queuedProxies = Set<Media.ID>()
+  @ObservationIgnored private var queuedWaveforms = Set<Media.ID>()
   @ObservationIgnored private var lastClaudeSnapshot: ContinuousClock.Instant?
 
   /// Queues a proxy for every heavy file that has none yet; playback switches to each as it's
@@ -254,6 +257,28 @@ public final class Workspace {
           throw .failed(error.errorDescription ?? "The editing copy couldn't be made.")
         }
         await self?.useProxy(url, for: media.id, in: documentURL)
+      }
+    }
+  }
+
+  /// Queues a waveform for every sound file that has none yet, for the timeline to draw.
+  private func makeMissingWaveforms() {
+    guard let package = documentURL else {
+      return
+    }
+    for media in editor.project.media
+      where media.hasAudio && analysis.analyses[media.id]?.waveform == nil
+      && !queuedWaveforms.contains(media.id)
+    {
+      queuedWaveforms.insert(media.id)
+      jobs.enqueue("Drawing the sound of \(media.name)") { [weak self] _ throws(JobError) in
+        let peaks: [Float]
+        do throws(AudioError) {
+          peaks = try await Waveform.peaks(in: media.url)
+        } catch {
+          throw .failed(error.errorDescription ?? "The sound couldn't be read.")
+        }
+        try await self?.store(media.id, in: package) { $0.waveform = peaks }
       }
     }
   }
@@ -362,6 +387,7 @@ extension Workspace: ProjectHost {
     defaults.set(true, forKey: Keys.isOpen)
     startSnapshotTimer()
     makeMissingProxies()
+    makeMissingWaveforms()
   }
 
   public func createProject(named name: String, format: VideoFormat) async throws(DocumentError) {

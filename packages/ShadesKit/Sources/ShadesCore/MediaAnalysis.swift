@@ -11,6 +11,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     subjectPath: [SubjectPoint]? = nil,
     tracks: [String: [SubjectPoint]]? = nil,
     cleanSound: String? = nil,
+    waveform: [Float]? = nil,
   ) {
     self.transcript = transcript
     self.speech = speech
@@ -19,6 +20,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     self.subjectPath = subjectPath
     self.tracks = tracks
     self.cleanSound = cleanSound
+    self.waveform = waveform
   }
 
   // MARK: Public
@@ -37,5 +39,8 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   public var tracks: [String: [SubjectPoint]]?
   /// The noise-reduced sound's file name in the project's `cache/sound` folder.
   public var cleanSound: String?
+  /// The sound's peaks for drawing its waveform, 0 (silent) to 1, `Waveform.peaksPerSecond` a
+  /// second.
+  public var waveform: [Float]?
 
 }

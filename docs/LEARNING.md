@@ -323,3 +323,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** The GPU can mix a new pixel over the old one by fixed rules (like "over" by alpha), but modes such as overlay need to read the pixel underneath. Shades copies the frame drawn so far into a second texture (a blit) and lets the shader read it.
 **JS/TS analogy:** Like canvas `globalCompositeOperation`, but where some modes make you snapshot the canvas first with `drawImage` into another canvas.
 **In Shades:** `MetalRenderer` does this for blend modes and adjustment clips.
+
+## SwiftUI `Canvas`
+**What it is:** A view you draw into with code (paths, fills, images) in one pass, instead of building it from many child views. Much cheaper when there are hundreds of shapes.
+**JS/TS analogy:** Like an HTML `<canvas>` with a 2D context inside a React component, redrawn when its props change.
+**In Shades:** `ClipWaveform` draws an audio clip's waveform as one path of thin bars.

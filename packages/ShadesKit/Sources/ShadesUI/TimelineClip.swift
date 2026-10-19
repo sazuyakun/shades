@@ -1,4 +1,5 @@
 import AppKit
+import ShadesAudio
 import ShadesCommands
 import ShadesCore
 import ShadesEngine
@@ -30,6 +31,7 @@ struct TimelineClip: View {
       keyframeSpots: Set(clip.keyframes.map {
         (clip.timelineTime(atSource: $0.time) - clip.timelineStart).seconds / clip.duration.seconds
       }).sorted(),
+      peaks: peaks,
     )
     .opacity(track.isHidden || track.isMuted ? 0.45 : 1)
     .frame(width: max(width, 2), height: rowHeight(track) - 8)
@@ -53,9 +55,23 @@ struct TimelineClip: View {
   @Environment(Editor.self) private var editor
   @Environment(Player.self) private var player
   @Environment(MCPServer.self) private var server
+  @Environment(Workspace.self) private var workspace
   @State private var moveOffset = CGSize.zero
   @State private var startDelta = 0.0
   @State private var endDelta = 0.0
+
+  /// The peaks of the stretch of the media the clip plays.
+  private var peaks: [Float]? {
+    guard
+      let mediaID = clip.mediaID,
+      let all = workspace.analysis.analyses[mediaID]?.waveform
+    else {
+      return nil
+    }
+    let start = Int(clip.sourceStart.seconds * Waveform.peaksPerSecond)
+    let end = Int((clip.sourceStart + clip.duration).seconds * Waveform.peaksPerSecond)
+    return Array(all[min(start, all.count) ..< min(max(end, start), all.count)])
+  }
 
   private var fps: Int {
     editor.project.timeline.format.framesPerSecond

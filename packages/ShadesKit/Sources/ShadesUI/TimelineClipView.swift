@@ -15,6 +15,8 @@ struct TimelineClipView: View {
   let isRecentlyChanged: Bool
   /// Where the clip has keyframes, as fractions of its length.
   let keyframeSpots: [Double]
+  /// The waveform of the stretch of sound the clip plays, when it's been drawn.
+  let peaks: [Float]?
 
   var body: some View {
     RoundedRectangle(cornerRadius: 7)
@@ -25,6 +27,13 @@ struct TimelineClipView: View {
             .frame(width: 90)
             .padding(.top, 17)
             .padding(.bottom, 4)
+        }
+      }
+      .overlay {
+        if let peaks, kind == .audio {
+          ClipWaveform(peaks: peaks)
+            .padding(.top, 16)
+            .padding(.bottom, 3)
         }
       }
       .overlay(alignment: .topLeading) {
