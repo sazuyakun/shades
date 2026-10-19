@@ -23,10 +23,14 @@ public struct UseStems: Command {
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
     let clip = project.timeline.tracks[location.track].clips[location.clip]
+    let isVideoTrack = project.timeline.tracks[location.track].kind == .video
+    guard !isVideoTrack || clip.isAudioEnabled else {
+      throw rejected(.noAudio(clipID))
+    }
     for stem in stems where project.media(withID: stem.id) == nil {
       project.media.append(stem)
     }
-    if project.timeline.tracks[location.track].kind == .video {
+    if isVideoTrack {
       project.timeline.tracks[location.track].clips[location.clip].isAudioEnabled = false
     } else {
       project.timeline.tracks[location.track].clips.remove(at: location.clip)

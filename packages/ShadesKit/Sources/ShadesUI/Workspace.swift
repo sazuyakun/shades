@@ -876,11 +876,17 @@ extension Workspace: ProjectHost {
     guard let package = documentURL else {
       throw .invalidArguments("open a project first")
     }
-    let clips = clipIDs.compactMap(editor.project.timeline.clip(withID:))
+    let timeline = editor.project.timeline
+    // why: a video clip whose sound was detached plays none; its sound clip is the one to split.
+    let clips = clipIDs.compactMap(timeline.clip(withID:)).filter { clip in
+      clip.isAudioEnabled || timeline.location(ofClip: clip.id)
+        .map { timeline.tracks[$0.track].kind == .audio } == true
+    }
     let media = Set(clips.compactMap(\.mediaID)).compactMap(editor.project.media(withID:))
       .filter(\.hasAudio)
     guard !media.isEmpty else {
-      throw .invalidArguments("pick clips with sound")
+      throw .invalidArguments("pick clips that play sound (a detached video's sound clip, not "
+        + "the video)")
     }
     for item in media {
       let saved = analysis.analyses[item.id]?.stems

@@ -26,6 +26,17 @@ struct UseStemsTests {
   }
 
   @Test
+  func `a video clip whose sound was detached has none to separate`() throws {
+    var project = Project(media: [video])
+    try AppendClip(mediaID: video.id).apply(to: &project)
+    let clipID = try #require(project.timeline.allClips.first?.id)
+    try DetachAudio(clipID: clipID).apply(to: &project)
+    #expect(throws: CommandError.noAudio(clipID)) {
+      try UseStems(clipID: clipID, stems: [voice, music]).apply(to: &project)
+    }
+  }
+
+  @Test
   func `a sound clip is replaced by its stems`() throws {
     let sound = makeMedia(seconds: 4, hasVideo: false)
     var project = Project(media: [sound])

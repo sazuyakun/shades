@@ -19,15 +19,18 @@ struct TranscriptPane: View {
       HStack(spacing: 6) {
         Button("Transcribe") { transcribe() }
           .help("Transcribe the clips on the timeline that have no transcript yet")
-        Button("Add Captions") { addCaptions() }
+        Button("Captions") { addCaptions() }
           .disabled(words.isEmpty)
+          .help("Add captions for what's said, as text clips")
         Spacer()
-        Button("Cut Words") { cut(words) }
+        Button("Cut Words", systemImage: "scissors") { cut(words) }
+          .labelStyle(.iconOnly)
           .disabled(selection.isEmpty)
           .help("Remove the selected words from the timeline, closing the gap")
       }
       .buttonStyle(CapsuleButtonStyle())
-      .padding(.horizontal, 14)
+      // why: capsules pad their text by 10, so 4 more lines it up with the section label.
+      .padding(.horizontal, 4)
       .padding(.bottom, 10)
       Hairline()
       if words.isEmpty {
