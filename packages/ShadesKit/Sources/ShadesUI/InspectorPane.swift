@@ -50,7 +50,9 @@ struct InspectorPane: View {
     let isVideoTrack = kind == .video
     switch tab {
     case .video:
-      if let clip, kind == .video || kind == .text {
+      if clip?.source == .adjustment {
+        hint("An adjustment changes everything under it. Set its look in the Color tab.")
+      } else if let clip, kind == .video || kind == .text {
         ClipVideoInspector(clip: clip, onError: onError)
       } else {
         hint(clip == nil
@@ -59,7 +61,13 @@ struct InspectorPane: View {
       }
 
     case .color:
-      hint("Color grading arrives with the color tools.")
+      if let clip, kind == .video {
+        ClipColorInspector(clip: clip, onError: onError)
+      } else {
+        hint(clip == nil
+          ? "Select a clip on the timeline to grade it."
+          : "Text keeps its own colours; change them in the Video tab.")
+      }
 
     case .audio:
       if let clip, media?.hasAudio == true {

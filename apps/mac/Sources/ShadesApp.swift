@@ -15,6 +15,7 @@ struct ShadesApp: App {
         .environment(workspace.editor)
         .environment(workspace.player)
         .environment(workspace.server)
+        .environment(workspace.plugins)
         .task { await workspace.restoreLastProject() }
     }
     .windowStyle(.hiddenTitleBar)
