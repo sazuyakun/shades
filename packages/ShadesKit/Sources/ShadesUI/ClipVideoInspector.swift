@@ -13,6 +13,10 @@ struct ClipVideoInspector: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
+      if let content = clip.text {
+        TextInspector(clip: clip, content: content, onError: onError)
+        Hairline()
+      }
       ForEach(AnimatedProperty.allCases, id: \.self) { property in
         AnimatedSlider(clip: clip, property: property, onError: onError)
       }
@@ -36,6 +40,8 @@ struct ClipVideoInspector: View {
           Button(hasCutout ? "Cut Out Again" : "Cut Out Subject") { cutOut() }
             .help("Find the subject so layers can go behind or inside it")
         }
+        Button("Follow Subject") { followSubject() }
+          .help("Move with the cut-out subject of the video under this layer")
       }
       .buttonStyle(CapsuleButtonStyle())
     }
@@ -55,6 +61,14 @@ struct ClipVideoInspector: View {
       _ = try workspace.autoReframe([clip.id])
     } catch {
       onError(error.errorDescription ?? "The clip couldn't be reframed.")
+    }
+  }
+
+  private func followSubject() {
+    do {
+      try workspace.followSubject(clip.id)
+    } catch {
+      onError(error.errorDescription ?? "The layer couldn't follow the subject.")
     }
   }
 

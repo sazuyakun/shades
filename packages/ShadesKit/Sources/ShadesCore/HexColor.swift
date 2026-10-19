@@ -20,7 +20,8 @@ public struct HexColor: Hashable, Sendable {
     alpha = Double(full & 0xFF) / 255
   }
 
-  private init(red: Double, green: Double, blue: Double, alpha: Double = 1) {
+  /// A colour from its sRGB components, each 0…1.
+  public init(red: Double, green: Double, blue: Double, alpha: Double = 1) {
     self.red = red
     self.green = green
     self.blue = blue

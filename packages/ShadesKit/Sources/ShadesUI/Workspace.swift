@@ -624,6 +624,30 @@ extension Workspace: ProjectHost {
     try editor.perform(FollowPath(clipID: clipID, targetID: targetID, path: path))
   }
 
+  // MARK: Internal
+
+  /// Makes a layer follow the subject of the topmost video under it that has a cut-out.
+  func followSubject(_ clipID: Clip.ID) throws(CommandError) {
+    let timeline = editor.project.timeline
+    guard let clip = timeline.clip(withID: clipID) else {
+      throw .clipNotFound(clipID)
+    }
+    let target = timeline.tracks.reversed().filter { $0.kind == .video }.lazy
+      .compactMap { track in
+        track.clips.first { candidate in
+          candidate.id != clipID && candidate.timelineStart < clip.timelineEnd
+            && clip.timelineStart < candidate.timelineEnd
+            && candidate.mediaID.flatMap { self.analysis.analyses[$0]?.subjectPath } != nil
+        }
+      }.first
+    guard let target else {
+      throw .invalidArguments(
+        "there's no cut-out video under this layer; cut out its subject first"
+      )
+    }
+    try follow(clipID: clipID, targetID: target.id, path: nil)
+  }
+
   // MARK: Private
 
   /// Saves an analysis result, if its project is still the open one.
