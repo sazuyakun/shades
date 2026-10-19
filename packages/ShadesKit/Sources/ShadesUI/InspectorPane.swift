@@ -45,9 +45,9 @@ struct InspectorPane: View {
 
   @ViewBuilder
   private func content(clip: Clip?, media: Media?) -> some View {
-    let kind = clip.flatMap { editor.project.timeline.location(ofClip: $0.id) }
-      .map { editor.project.timeline.tracks[$0.track].kind }
-    let isVideoTrack = kind == .video
+    let track = clip.flatMap { editor.project.timeline.location(ofClip: $0.id) }
+      .map { editor.project.timeline.tracks[$0.track] }
+    let kind = track?.kind
     switch tab {
     case .video:
       if clip?.source == .adjustment {
@@ -70,8 +70,8 @@ struct InspectorPane: View {
       }
 
     case .audio:
-      if let clip, media?.hasAudio == true {
-        ClipAudioInspector(clip: clip, isVideoTrack: isVideoTrack, onError: onError)
+      if let clip, let track, media?.hasAudio == true {
+        ClipAudioInspector(clip: clip, track: track, onError: onError)
       } else {
         hint(clip == nil
           ? "Select a clip on the timeline to adjust its sound."

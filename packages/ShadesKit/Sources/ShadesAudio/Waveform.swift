@@ -8,6 +8,8 @@ public enum Waveform {
 
   /// Peaks a second: enough for a clip zoomed in to a few seconds.
   public static let peaksPerSecond = 25.0
+  /// Decibels between silent (0) and full scale (1) on the peaks' scale.
+  public static let decibelRange = 40.0
 
   /// The file's loudest moment in each stretch, on a decibel scale from 0 (−40 dB or quieter)
   /// to 1 (full scale), rounded to keep the saved analysis small.
@@ -30,7 +32,7 @@ public enum Waveform {
     return stride(from: 0, to: samples.count, by: perPeak).map { start in
       let peak = samples[start ..< min(start + perPeak, samples.count)]
         .reduce(Float(0)) { max($0, abs($1)) }
-      let level = 1 + 20 * log10(max(peak, 1e-6)) / 40
+      let level = 1 + 20 * log10(max(peak, 1e-6)) / Float(decibelRange)
       return (max(level, 0) * 100).rounded() / 100
     }
   }

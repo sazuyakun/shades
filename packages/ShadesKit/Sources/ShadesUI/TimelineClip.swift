@@ -60,7 +60,7 @@ struct TimelineClip: View {
   @State private var startDelta = 0.0
   @State private var endDelta = 0.0
 
-  /// The peaks of the stretch of the media the clip plays.
+  /// The peaks of the stretch of the media the clip plays, shaped by its volume and fades.
   private var peaks: [Float]? {
     guard
       let mediaID = clip.mediaID,
@@ -70,7 +70,12 @@ struct TimelineClip: View {
     }
     let start = Int(clip.sourceStart.seconds * Waveform.peaksPerSecond)
     let end = Int((clip.sourceStart + clip.duration).seconds * Waveform.peaksPerSecond)
-    return Array(all[min(start, all.count) ..< min(max(end, start), all.count)])
+    return all[min(start, all.count) ..< min(max(end, start), all.count)].enumerated()
+      .map { index, peak in
+        let time = clip.timelineStart + MediaTime(seconds: Double(index) / Waveform.peaksPerSecond)
+        let gain = clip.gain(at: time)
+        return gain > 0 ? max(peak + Float(20 * log10(gain) / Waveform.decibelRange), 0) : 0
+      }
   }
 
   private var fps: Int {
