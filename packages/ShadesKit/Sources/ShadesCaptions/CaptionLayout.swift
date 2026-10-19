@@ -17,7 +17,12 @@ public enum CaptionLayout {
       guard index + 1 < lines.count, (lines[index + 1].start - line.end).seconds < holdGap else {
         return line
       }
-      return CaptionLine(text: line.text, start: line.start, end: lines[index + 1].start)
+      return CaptionLine(
+        text: line.text,
+        start: line.start,
+        end: lines[index + 1].start,
+        words: line.words,
+      )
     }
   }
 
@@ -40,6 +45,7 @@ public enum CaptionLayout {
         text: line.map(\.text).joined(separator: " "),
         start: first.start,
         end: max(last.end, first.start),
+        words: line,
       )
     }
   }
@@ -107,4 +113,6 @@ public struct CaptionLine: Hashable, Sendable {
   public let text: String
   public let start: MediaTime
   public let end: MediaTime
+  /// The words on it, with their timeline times.
+  public let words: [SpokenWord]
 }

@@ -9,12 +9,14 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     beats: BeatGrid? = nil,
     matte: String? = nil,
     subjectPath: [SubjectPoint]? = nil,
+    tracks: [String: [SubjectPoint]]? = nil,
   ) {
     self.transcript = transcript
     self.speech = speech
     self.beats = beats
     self.matte = matte
     self.subjectPath = subjectPath
+    self.tracks = tracks
   }
 
   // MARK: Public
@@ -29,5 +31,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   public var matte: String?
   /// Where the subject is over time, from the cut-out.
   public var subjectPath: [SubjectPoint]?
+  /// Things followed through the picture with `track_motion`, by the name they were given.
+  public var tracks: [String: [SubjectPoint]]?
 
 }

@@ -15,8 +15,8 @@ struct LayerRenderingTests {
   func `a smaller clip on V2 is drawn over V1`() async throws {
     let project = try await twoLayers { $0.transform.scale = 0.5 }
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
-    #expect(try color(of: png, x: 0.5, y: 0.5).blue > 200)
-    #expect(try color(of: png, x: 0.5, y: 0.2).red > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.5).blue > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.2).red > 200)
     #expect(try GoldenFrame.matches(png, named: "v2-half-size-over-v1", in: golden))
   }
 
@@ -24,7 +24,7 @@ struct LayerRenderingTests {
   func `opacity blends a layer with the one below`() async throws {
     let project = try await twoLayers { $0.opacity = 0.5 }
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
-    let center = try color(of: png, x: 0.5, y: 0.5)
+    let center = try PixelProbe.color(of: png, x: 0.5, y: 0.5)
     #expect((100 ... 160).contains(center.red))
     #expect((100 ... 160).contains(center.blue))
   }
@@ -34,7 +34,7 @@ struct LayerRenderingTests {
     var project = try await twoLayers { _ in }
     project.timeline.tracks[1].isHidden = true
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
-    #expect(try color(of: png, x: 0.5, y: 0.5).red > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.5).red > 200)
   }
 
   @Test
@@ -43,8 +43,8 @@ struct LayerRenderingTests {
       $0.transform = ClipTransform(x: 0.25, y: 0, scale: 0.5, rotation: 90)
     }
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
-    #expect(try color(of: png, x: 0.75, y: 0.5).blue > 200)
-    #expect(try color(of: png, x: 0.25, y: 0.5).red > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.75, y: 0.5).blue > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.25, y: 0.5).red > 200)
     #expect(try GoldenFrame.matches(png, named: "v2-moved-rotated", in: golden))
   }
 
@@ -59,10 +59,10 @@ struct LayerRenderingTests {
     }
     let start = try await FrameRenderer.png(of: project, atSeconds: 0, maxSide: 320)
     let end = try await FrameRenderer.png(of: project, atSeconds: 0.9, maxSide: 320)
-    #expect(try color(of: start, x: 0.2, y: 0.5).blue > 200)
-    #expect(try color(of: start, x: 0.8, y: 0.5).red > 200)
-    #expect(try color(of: end, x: 0.8, y: 0.5).blue > 200)
-    #expect(try color(of: end, x: 0.2, y: 0.5).red > 200)
+    #expect(try PixelProbe.color(of: start, x: 0.2, y: 0.5).blue > 200)
+    #expect(try PixelProbe.color(of: start, x: 0.8, y: 0.5).red > 200)
+    #expect(try PixelProbe.color(of: end, x: 0.8, y: 0.5).blue > 200)
+    #expect(try PixelProbe.color(of: end, x: 0.2, y: 0.5).red > 200)
   }
 
   @Test
@@ -90,10 +90,10 @@ struct LayerRenderingTests {
     )
     project.timeline.tracks.append(Track(kind: .text, clips: [caption]))
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
-    #expect(try color(of: png, x: 0.5, y: 0.3).red > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.3).red > 200)
     let lowerBand = try (0 ..< 40).flatMap { column in
       try [0.8, 0.84, 0.88]
-        .map { row in try color(of: png, x: 0.3 + Double(column) * 0.01, y: row) }
+        .map { row in try PixelProbe.color(of: png, x: 0.3 + Double(column) * 0.01, y: row) }
     }
     // why: downscaled, white letters blend with their outline; red video never has green or blue.
     #expect(lowerBand.contains { $0.green > 150 && $0.blue > 150 })
@@ -152,33 +152,6 @@ struct LayerRenderingTests {
 
   private func clip(of media: Media) -> Clip {
     Clip(mediaID: media.id, sourceStart: .zero, duration: media.duration, timelineStart: .zero)
-  }
-
-  private func color(
-    of png: Data,
-    x: Double,
-    y: Double,
-  ) throws -> (red: UInt8, green: UInt8, blue: UInt8) {
-    let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
-    let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
-    var pixel = [UInt8](repeating: 0, count: 4)
-    let context = try #require(CGContext(
-      data: &pixel,
-      width: 1,
-      height: 1,
-      bitsPerComponent: 8,
-      bytesPerRow: 4,
-      space: CGColorSpaceCreateDeviceRGB(),
-      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
-    ))
-    let width = Double(image.width)
-    let height = Double(image.height)
-    // why: CoreGraphics' origin is bottom-left, so the row is counted up from the bottom.
-    context.draw(
-      image,
-      in: CGRect(x: -x * width, y: -(1 - y) * height, width: width, height: height),
-    )
-    return (pixel[0], pixel[1], pixel[2])
   }
 
 }

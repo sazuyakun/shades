@@ -293,3 +293,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A `case` can add a condition: `case .opacity where value > 1:` only matches when both hold, and `default` catches the rest.
 **JS/TS analogy:** Like a `switch (true)` with `case prop === "opacity" && value > 1:`, but the compiler still checks every case is covered.
 **In Shades:** `SetKeyframes.validate` refuses out-of-range opacity and scale.
+
+## Actors with a custom executor (`unownedExecutor`)
+**What it is:** An actor normally runs on Swift's shared thread pool. Giving it its own `DispatchSerialQueue` as executor makes all its code run on that queue instead, so it can call slow, blocking APIs without starving the pool.
+**JS/TS analogy:** Like giving one object its own dedicated Web Worker that processes its messages one at a time.
+**In Shades:** `MotionTracker` keeps Vision's frame-to-frame tracking state and runs Vision on its own queue.
+
+## Raw strings (`#"…"#`)
+**What it is:** A string where `\` and `"` are literal; more `#`s on each side let the text itself contain `"#`.
+**JS/TS analogy:** `String.raw` template literals.
+**In Shades:** JSON snippets in tests, like a style with `"#FFD84A"` inside `##"…"##`.

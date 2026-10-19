@@ -28,8 +28,13 @@ public protocol ProjectHost: AnyObject {
   func transcribe(_ mediaIDs: [Media.ID]?, model: TranscriptionModel, language: String?) -> [String]
   /// Queues speech and beat detection; returns what was queued.
   func analyzeAudio(_ mediaIDs: [Media.ID]?) -> [String]
-  /// Adds captions for what's said (in `range`, or everywhere); returns how many.
-  func addCaptions(in range: TimeRange?) throws(CommandError) -> Int
+  /// Adds captions for what's said (in `range`, or everywhere), revealed and styled as asked;
+  /// returns how many.
+  func addCaptions(
+    in range: TimeRange?,
+    reveal: TextReveal,
+    style: TextStyle?,
+  ) throws(CommandError) -> Int
   /// Proposes Polish for a stretch of a track and keeps the plan for review.
   @discardableResult
   func proposePolish(in range: TimeRange, track: String?, options: PolishOptions) -> PolishPlan
@@ -41,4 +46,15 @@ public protocol ProjectHost: AnyObject {
   func makeCutouts(_ mediaIDs: [Media.ID]?, engine: MatteEngine) -> [String]
   /// Reframes clips (default: the selection) around their subject; returns how many.
   func autoReframe(_ clipIDs: [Clip.ID]?) throws(CommandError) -> Int
+  /// Queues following what's inside `box` (fractions of the picture) of a video clip from `time`
+  /// to the clip's end, saved as a path called `name`; returns the job's title.
+  func trackMotion(
+    clipID: Clip.ID,
+    at time: MediaTime,
+    box: CGRect,
+    name: String,
+  ) throws(CommandError) -> String
+  /// Makes a layer follow a path through a video clip: a tracked path's `name`, or the
+  /// cut-out's subject when `nil`.
+  func follow(clipID: Clip.ID, targetID: Clip.ID, path name: String?) throws(CommandError)
 }

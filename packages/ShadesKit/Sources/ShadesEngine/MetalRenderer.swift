@@ -187,6 +187,7 @@ final class MetalRenderer: Sendable {
       opacity: 1,
       depth: .inFront,
       matte: nil,
+      isNaturalSize: false,
     )
     try encode(matteLayer, size: size, encoder: encoder)
     encoder.endEncoding()
@@ -209,6 +210,7 @@ final class MetalRenderer: Sendable {
       output: size,
       transform: layer.transform,
       opacity: layer.opacity,
+      isNaturalSize: layer.isNaturalSize,
     )
     encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.size, index: 0)
     encoder.setFragmentTexture(sourceTexture, index: 0)
@@ -245,6 +247,8 @@ struct RenderLayer {
   let depth: DepthSlot
   /// The layer's cut-out for this frame (upright), when it has one.
   let matte: LayerPicture?
+  /// Drawn at its own pixel size (text) rather than fitted inside the frame.
+  let isNaturalSize: Bool
 }
 
 // MARK: - LayerPicture

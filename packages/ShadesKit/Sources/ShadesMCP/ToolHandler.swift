@@ -233,8 +233,14 @@ public final class ToolHandler {
     Tool(
       name: "add_captions",
       summary: "Add captions for what's said (in a range, or everywhere) as text clips on a text "
-        + "track. Needs transcripts first. Edit them afterwards with set_text.",
-      parameters: JSONSchema.object(["start": Fields.time("From"), "end": Fields.time("Up to")]),
+        + "track, with each word's timing for kinetic reveals. Needs transcripts first. Edit them "
+        + "afterwards with set_text.",
+      parameters: JSONSchema.object([
+        "start": Fields.time("From"),
+        "end": Fields.time("Up to"),
+        "reveal": Fields.reveal,
+        "style": Fields.textStyle,
+      ]),
       kind: .edit,
     ),
     Tool(
@@ -300,6 +306,45 @@ public final class ToolHandler {
       summary: "Zoom clips to fill the 4:3 frame (no black bars), keeping their subject in view "
         + "using the cut-out's subject path. Default: the selected clips.",
       parameters: JSONSchema.object(["clip_ids": Fields.clipIDs]),
+      kind: .edit,
+    ),
+    Tool(
+      name: "track_motion",
+      summary: "Follow something through a video clip in the background, from a box drawn around "
+        + "it at one moment to the clip's end (or until it's lost), saved as a named path for "
+        + "follow. Check the box with render_frame first.",
+      parameters: JSONSchema.object(
+        [
+          "clip_id": Fields.clipID,
+          "at": Fields.time("A moment inside the clip where the thing is clearly visible"),
+          "box": JSONSchema.object(
+            [
+              "x": JSONSchema.number("Left edge, 0 left to 1 right of the clip's picture"),
+              "y": JSONSchema.number("Top edge, 0 top to 1 bottom"),
+              "width": JSONSchema.number("Width, as a fraction of the picture"),
+              "height": JSONSchema.number("Height, as a fraction of the picture"),
+            ],
+            required: ["x", "y", "width", "height"],
+          ),
+          "name": JSONSchema.string("A name for the path, like ball or face"),
+        ],
+        required: ["clip_id", "at", "box", "name"],
+      ),
+      kind: .project,
+    ),
+    Tool(
+      name: "follow",
+      summary: "Make a layer (text, sticker, video) follow something moving in a video clip, "
+        + "keeping where it sits now relative to it: x and y keyframes along a track_motion path, "
+        + "or along the subject of the clip's cut-out when no path is named.",
+      parameters: JSONSchema.object(
+        [
+          "clip_id": JSONSchema.string("The layer that moves"),
+          "target_id": JSONSchema.string("The video clip with the moving thing"),
+          "path": JSONSchema.string("A track_motion path's name; leave out to follow the subject"),
+        ],
+        required: ["clip_id", "target_id"],
+      ),
       kind: .edit,
     ),
     Tool(
@@ -417,10 +462,14 @@ public final class ToolHandler {
       return try analysisReport()
 
     case "add_captions":
-      let request = try decode(RangeArguments.self, from: arguments, tool: name)
+      let request = try decode(CaptionArguments.self, from: arguments, tool: name)
       let projectHost = try host()
       let count = try perform { () throws(CommandError) -> Int in
-        try projectHost.addCaptions(in: request.range)
+        try projectHost.addCaptions(
+          in: request.range,
+          reveal: request.reveal ?? .none,
+          style: request.style,
+        )
       }
       return .text("Added \(count) captions on a text track.")
 
@@ -461,6 +510,37 @@ public final class ToolHandler {
       }
       return .text(
         "Reframed \(count) clip\(count == 1 ? "" : "s") to fill the frame around the subject."
+      )
+
+    case "track_motion":
+      let request = try decode(TrackArguments.self, from: arguments, tool: name)
+      let projectHost = try host()
+      return queued([try perform { () throws(CommandError) -> String in
+        try projectHost.trackMotion(
+          clipID: request.clipID,
+          at: request.at,
+          box: CGRect(
+            x: request.box.x,
+            y: request.box.y,
+            width: request.box.width,
+            height: request.box.height,
+          ),
+          name: request.name,
+        )
+      }], nothingLeft: "")
+
+    case "follow":
+      let request = try decode(FollowArguments.self, from: arguments, tool: name)
+      let projectHost = try host()
+      try perform { () throws(CommandError) in
+        try projectHost.follow(
+          clipID: request.clipID,
+          targetID: request.targetID,
+          path: request.path,
+        )
+      }
+      return .text(
+        "The layer now follows \(request.path ?? "the subject"). Check it with render_frame."
       )
 
     case "list_projects":
@@ -672,6 +752,12 @@ public final class ToolHandler {
       }
       if let beats = analysis.beats, !beats.beats.isEmpty {
         parts.append("beats at \(Int(beats.beatsPerMinute.rounded())) BPM")
+      }
+      if analysis.matte != nil {
+        parts.append("cut-out")
+      }
+      if let tracks = analysis.tracks, !tracks.isEmpty {
+        parts.append("tracked paths: " + tracks.keys.sorted().joined(separator: ", "))
       }
       return "- \(media.name) (\(media.id)): " + parts.joined(separator: "; ")
     }
@@ -892,6 +978,44 @@ private struct PolishApplyArguments: Decodable {
 private struct CutoutArguments: Decodable {
   let mediaIDs: [UUID]?
   let engine: String?
+}
+
+// MARK: - CaptionArguments
+
+private struct CaptionArguments: Decodable {
+  let start: MediaTime?
+  let end: MediaTime?
+  let reveal: TextReveal?
+  let style: TextStyle?
+
+  /// The stretch asked for, open-ended on either side.
+  var range: TimeRange? {
+    RangeArguments(start: start, end: end, words: nil).range
+  }
+}
+
+// MARK: - TrackArguments
+
+private struct TrackArguments: Decodable {
+  struct Box: Decodable {
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+  }
+
+  let clipID: UUID
+  let at: MediaTime
+  let box: Box
+  let name: String
+}
+
+// MARK: - FollowArguments
+
+private struct FollowArguments: Decodable {
+  let clipID: UUID
+  let targetID: UUID
+  let path: String?
 }
 
 // MARK: - ClipListArguments

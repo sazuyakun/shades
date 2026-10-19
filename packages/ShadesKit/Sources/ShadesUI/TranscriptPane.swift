@@ -93,7 +93,7 @@ struct TranscriptPane: View {
 
   private func addCaptions() {
     do {
-      _ = try workspace.addCaptions(in: nil)
+      _ = try workspace.addCaptions(in: nil, reveal: .none, style: nil)
     } catch {
       onError(error.errorDescription ?? "Captions couldn't be added.")
     }

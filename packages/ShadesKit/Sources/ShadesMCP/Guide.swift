@@ -37,6 +37,8 @@ enum Guide {
     - set_keyframes animates x, y, scale, rotation or opacity: values at moments inside the \
     clip. Each keyframe's easing (linear, easeIn, easeOut, easeInOut, hold, spring, bouncy) \
     shapes the move to the next one. remove_keyframes takes them away.
+    - track_motion follows a box through a video clip (a background job) and saves a named \
+    path; follow then makes any layer move with it, or with the cut-out's subject.
 
     Projects: list_projects, new_project and open_project. Point the user at clips with \
     select_clips. Heavy footage plays from proxies; render_frame always uses the originals.

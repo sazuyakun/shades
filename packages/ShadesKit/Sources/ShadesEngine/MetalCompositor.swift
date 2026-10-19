@@ -44,19 +44,31 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       guard opacity > 0 else {
         return nil
       }
+      let clip = style.clip
+      var transform = clip.transform(at: time)
       let picture: LayerPicture?
       let rotation: CGAffineTransform
+      var isText = false
       switch layer.source {
       case .video(let trackID, let sourceRotation):
         picture = request.sourceFrame(byTrackID: trackID).map(LayerPicture.frame)
         rotation = sourceRotation
 
       case .text:
-        let texture = style.clip.text.flatMap { content in
-          instruction.renderContext.caption(content.text, width: width, height: height)
+        let drawn = clip.text.flatMap { content in
+          instruction.renderContext.text(
+            content,
+            at: clip.sourceTime(at: time).seconds,
+            duration: clip.duration.seconds,
+            width: width,
+            height: height,
+          )
         }
-        picture = texture.map(LayerPicture.surface)
+        picture = drawn.map { LayerPicture.surface($0.surface) }
+        transform.x += drawn.map { Double($0.offset.x) } ?? 0
+        transform.y += drawn.map { Double($0.offset.y) } ?? 0
         rotation = .identity
+        isText = true
       }
       let matte = layer.matteTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
         .map(LayerPicture.frame)
@@ -64,10 +76,11 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         RenderLayer(
           source: picture,
           rotation: rotation,
-          transform: style.clip.transform(at: time),
+          transform: transform,
           opacity: opacity,
-          depth: style.clip.depth,
+          depth: clip.depth,
           matte: matte,
+          isNaturalSize: isText,
         )
       }
     }

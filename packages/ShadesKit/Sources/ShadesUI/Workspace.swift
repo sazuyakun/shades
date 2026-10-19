@@ -419,8 +419,12 @@ extension Workspace: ProjectHost {
   }
 
   /// Adds captions for what's said on the timeline (in `range`, or everywhere) as text clips on
-  /// a text track, in one undo step. Returns how many were added.
-  public func addCaptions(in range: TimeRange?) throws(CommandError) -> Int {
+  /// a text track, in one undo step, revealed and styled as asked. Returns how many were added.
+  public func addCaptions(
+    in range: TimeRange?,
+    reveal: TextReveal,
+    style: TextStyle?,
+  ) throws(CommandError) -> Int {
     let words = editor.project.timeline.spokenWords(transcripts: analysis.transcripts)
       .filter { word in range.map { $0.start <= word.start && word.start < $0.end } ?? true }
     guard !words.isEmpty else {
@@ -428,7 +432,18 @@ extension Workspace: ProjectHost {
     }
     let lines = CaptionLayout.lines(for: words)
     try editor.perform(
-      lines.map { AddText(text: $0.text, at: $0.start, duration: $0.end - $0.start) },
+      lines.map { line in
+        AddText(
+          text: line.text,
+          at: line.start,
+          duration: line.end - line.start,
+          style: style,
+          reveal: reveal,
+          words: line.words.map { word in
+            TimedWord(text: word.text, start: word.start - line.start, end: word.end - line.start)
+          },
+        )
+      },
       title: "Add Captions",
     )
     return lines.count
@@ -550,6 +565,63 @@ extension Workspace: ProjectHost {
     }
     try editor.perform(commands, title: ReframeClip.title)
     return commands.count
+  }
+
+  /// Queues following what's inside `box` of a video clip from `time` to the clip's end, saved
+  /// as a path called `name` on its media. Returns the job's title.
+  public func trackMotion(
+    clipID: Clip.ID,
+    at time: MediaTime,
+    box: CGRect,
+    name: String,
+  ) throws(CommandError) -> String {
+    guard
+      let package = documentURL,
+      let clip = editor.project.timeline.clip(withID: clipID),
+      let media = clip.mediaID.flatMap(editor.project.media(withID:)), media.hasVideo
+    else {
+      throw .invalidArguments("pick a video clip on the timeline to track")
+    }
+    guard clip.contains(time) else {
+      throw .invalidRange("the moment must fall inside the clip")
+    }
+    guard box.width > 0, box.height > 0, CGRect(x: 0, y: 0, width: 1, height: 1).contains(box)
+    else {
+      throw .invalidValue("the box must sit inside the picture, as fractions from 0 to 1")
+    }
+    let start = clip.sourceTime(at: time).seconds
+    let end = (clip.sourceStart + clip.duration).seconds
+    let title = "Tracking \(name) in \(media.name)"
+    jobs.enqueue(title) { [weak self] progress throws(JobError) in
+      let path: [SubjectPoint]
+      do throws(MattingError) {
+        path = try await MotionTracker.track(in: media.url, box: box, from: start, to: end) {
+          progress($0)
+        }
+      } catch {
+        throw error == .cancelled
+          ? .cancelled
+          : .failed(error.errorDescription ?? "The box couldn't be followed.")
+      }
+      try await self?.store(media.id, in: package) { analysis in
+        analysis.tracks = (analysis.tracks ?? [:]).merging([name: path]) { $1 }
+      }
+    }
+    return title
+  }
+
+  /// Makes a layer follow a path through a video clip: the tracked path called `name`, or the
+  /// cut-out's subject.
+  public func follow(clipID: Clip.ID, targetID: Clip.ID, path name: String?) throws(CommandError) {
+    let analysis = editor.project.timeline.clip(withID: targetID)?.mediaID
+      .flatMap { self.analysis.analyses[$0] }
+    let path = name.map { analysis?.tracks?[$0] } ?? analysis?.subjectPath
+    guard let path else {
+      throw .invalidArguments(name.map {
+        "there's no path called \($0) on that clip's media; run track_motion first"
+      } ?? "that clip has no cut-out yet; run make_cutout first")
+    }
+    try editor.perform(FollowPath(clipID: clipID, targetID: targetID, path: path))
   }
 
   // MARK: Private

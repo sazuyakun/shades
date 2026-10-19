@@ -52,7 +52,7 @@ struct DepthRenderingTests {
       maxSide: 640,
       mattes: [media.id: matte],
     )
-    let middle = try color(of: png, x: 0.5, y: 0.5)
+    let middle = try PixelProbe.color(of: png, x: 0.5, y: 0.5)
     #expect(middle.red > 200 && middle.blue < 80, "the disc covers the text")
     #expect(try GoldenFrame.matches(png, named: "text-behind-subject", in: golden))
   }
@@ -61,31 +61,5 @@ struct DepthRenderingTests {
 
   private let golden = URL(filePath: #filePath).deletingLastPathComponent()
     .appending(path: "Golden")
-
-  private func color(
-    of png: Data,
-    x: Double,
-    y: Double,
-  ) throws -> (red: UInt8, green: UInt8, blue: UInt8) {
-    let source = try #require(CGImageSourceCreateWithData(png as CFData, nil))
-    let image = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
-    var pixel = [UInt8](repeating: 0, count: 4)
-    let context = try #require(CGContext(
-      data: &pixel,
-      width: 1,
-      height: 1,
-      bitsPerComponent: 8,
-      bytesPerRow: 4,
-      space: CGColorSpaceCreateDeviceRGB(),
-      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
-    ))
-    let width = Double(image.width)
-    let height = Double(image.height)
-    context.draw(
-      image,
-      in: CGRect(x: -x * width, y: -(1 - y) * height, width: width, height: height),
-    )
-    return (pixel[0], pixel[1], pixel[2])
-  }
 
 }

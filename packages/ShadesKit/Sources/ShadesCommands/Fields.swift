@@ -1,3 +1,5 @@
+import ShadesCore
+
 /// Argument schemas shared by several tools, so each field reads the same everywhere.
 public enum Fields {
   public static let mediaID = JSONSchema
@@ -16,6 +18,27 @@ public enum Fields {
   )
   public static let ripple = JSONSchema.boolean(
     "Move later clips on the same track to close or open the space (default false)"
+  )
+
+  public static let textStyle = JSONSchema.object([
+    "font": JSONSchema
+      .string("A font's name, from the Mac or a plugin (default the system's bold)"),
+    "size": JSONSchema.number("Letter height as a fraction of the frame height (default 0.075)"),
+    "color": JSONSchema.string("Fill colour like #FFFFFF"),
+    "outline_color": JSONSchema.string("Outline colour like #000000"),
+    "outline": JSONSchema.number("Outline thickness as a fraction of the size, 0 for none"),
+    "shadow": JSONSchema.boolean("A soft drop shadow (default true)"),
+    "align": JSONSchema.string("How lines line up", values: TextAlign.allCases.map(\.rawValue)),
+    "anchor": JSONSchema.string(
+      "bottom (like a caption, default) or center (like a title); x and y move it from there",
+      values: TextAnchor.allCases.map(\.rawValue),
+    ),
+    "highlight": JSONSchema.string("The spoken word's colour for the highlight reveal"),
+  ])
+  public static let reveal = JSONSchema.string(
+    "How the words come on: none, pop (each pops in as it's said), highlight (the spoken word "
+      + "lights up) or typewriter",
+    values: TextReveal.allCases.map(\.rawValue),
   )
 
   /// A time on the timeline, in seconds.

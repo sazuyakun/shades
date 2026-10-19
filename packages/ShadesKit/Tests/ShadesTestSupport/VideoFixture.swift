@@ -32,13 +32,12 @@ public enum VideoFixture {
   ) async throws(FixtureError) -> URL {
     let frame = try splitFrame(left: left, right: right, width: width, height: height)
     return try await write(
-      frame,
       seconds: seconds,
       width: width,
       height: height,
       transform: transform,
       codec: codec,
-    )
+    ) { _ in frame }
   }
 
   /// Writes a `.mov` of a bright orange disc in the middle of a dark frame: an obvious subject
@@ -48,51 +47,62 @@ public enum VideoFixture {
     width: Int = 640,
     height: Int = 360,
   ) async throws(FixtureError) -> URL {
-    var buffer: CVPixelBuffer?
-    CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, nil, &buffer)
-    guard let frame = buffer else {
-      throw .writerFailed
+    let frame = try picture(width: width, height: height) { context in
+      context.setFillColor(CGColor(red: 1, green: 0.55, blue: 0.1, alpha: 1))
+      let radius = Double(height) * 0.32
+      context.fillEllipse(in: CGRect(
+        x: Double(width) / 2 - radius,
+        y: Double(height) / 2 - radius,
+        width: radius * 2,
+        height: radius * 2,
+      ))
     }
-    CVPixelBufferLockBaseAddress(frame, [])
-    guard
-      let context = CGContext(
-        data: CVPixelBufferGetBaseAddress(frame),
-        width: width,
-        height: height,
-        bitsPerComponent: 8,
-        bytesPerRow: CVPixelBufferGetBytesPerRow(frame),
-        space: CGColorSpaceCreateDeviceRGB(),
-        bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little
-          .rawValue,
-      )
-    else {
-      CVPixelBufferUnlockBaseAddress(frame, [])
-      throw .writerFailed
+    return try await write(seconds: seconds, width: width, height: height) { _ in frame }
+  }
+
+  /// Writes a `.mov` of a checkered square sliding from the left third to the right third of a
+  /// dark frame over its length, staying vertically centred: something to track.
+  public static func makeMovingSquare(
+    seconds: Int = 1,
+    width: Int = 640,
+    height: Int = 360,
+  ) async throws(FixtureError) -> URL {
+    let side = Double(height) * 0.3
+    let frames = seconds * 30
+    return try await write(
+      seconds: seconds,
+      width: width,
+      height: height,
+    ) { index throws(FixtureError) in
+      let centerX = Double(width) * (1 / 3 + Double(index) / Double(max(frames - 1, 1)) / 3)
+      return try picture(width: width, height: height) { context in
+        let origin = CGPoint(x: centerX - side / 2, y: Double(height) / 2 - side / 2)
+        for row in 0 ..< 4 {
+          for column in 0 ..< 4 {
+            let isLight = (row + column).isMultiple(of: 2)
+            context.setFillColor(CGColor(gray: isLight ? 0.95 : 0.35, alpha: 1))
+            context.fill(CGRect(
+              x: origin.x + Double(column) * side / 4,
+              y: origin.y + Double(row) * side / 4,
+              width: side / 4,
+              height: side / 4,
+            ))
+          }
+        }
+      }
     }
-    context.setFillColor(CGColor(red: 0.08, green: 0.09, blue: 0.12, alpha: 1))
-    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
-    context.setFillColor(CGColor(red: 1, green: 0.55, blue: 0.1, alpha: 1))
-    let radius = Double(height) * 0.32
-    context.fillEllipse(in: CGRect(
-      x: Double(width) / 2 - radius,
-      y: Double(height) / 2 - radius,
-      width: radius * 2,
-      height: radius * 2,
-    ))
-    CVPixelBufferUnlockBaseAddress(frame, [])
-    return try await write(frame, seconds: seconds, width: width, height: height)
   }
 
   // MARK: Private
 
-  /// Writes `frame` repeated for `seconds` at 30 fps.
+  /// Writes `seconds` at 30 fps, asking `frame` for each frame's picture by its index.
   private static func write(
-    _ frame: CVPixelBuffer,
     seconds: Int,
     width: Int,
     height: Int,
     transform: CGAffineTransform = .identity,
     codec: AVVideoCodecType = .proRes4444,
+    frame: (Int) throws(FixtureError) -> CVPixelBuffer,
   ) async throws(FixtureError) -> URL {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
       .appendingPathExtension("mov")
@@ -121,7 +131,11 @@ public enum VideoFixture {
       while !input.isReadyForMoreMediaData {
         try? await Task.sleep(for: .milliseconds(5)) // why: a cancelled sleep just polls again.
       }
-      guard adaptor.append(frame, withPresentationTime: CMTime(value: Int64(index), timescale: 30))
+      guard
+        try adaptor.append(
+          frame(index),
+          withPresentationTime: CMTime(value: Int64(index), timescale: 30),
+        )
       else {
         throw .writerFailed
       }
@@ -134,6 +148,39 @@ public enum VideoFixture {
       throw .writerFailed
     }
     return url
+  }
+
+  /// A frame of a dark background with `draw` drawn over it (bottom-left origin).
+  private static func picture(
+    width: Int,
+    height: Int,
+    draw: (CGContext) -> Void,
+  ) throws(FixtureError) -> CVPixelBuffer {
+    var buffer: CVPixelBuffer?
+    CVPixelBufferCreate(nil, width, height, kCVPixelFormatType_32BGRA, nil, &buffer)
+    guard let buffer else {
+      throw .writerFailed
+    }
+    CVPixelBufferLockBaseAddress(buffer, [])
+    defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
+    guard
+      let context = CGContext(
+        data: CVPixelBufferGetBaseAddress(buffer),
+        width: width,
+        height: height,
+        bitsPerComponent: 8,
+        bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
+        space: CGColorSpaceCreateDeviceRGB(),
+        bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little
+          .rawValue,
+      )
+    else {
+      throw .writerFailed
+    }
+    context.setFillColor(CGColor(red: 0.08, green: 0.09, blue: 0.12, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+    draw(context)
+    return buffer
   }
 
   private static func splitFrame(
