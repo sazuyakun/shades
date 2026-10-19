@@ -2,6 +2,7 @@
 public enum EditorSheet: String, Identifiable {
   case checkpoint
   case revert
+  case export
 
   public var id: String {
     rawValue

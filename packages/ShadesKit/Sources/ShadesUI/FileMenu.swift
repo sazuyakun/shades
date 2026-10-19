@@ -1,6 +1,7 @@
 import SwiftUI
 
-/// The File and Edit menu items for projects: new, open, checkpoints, revert, undo and redo.
+/// The File and Edit menu items for projects: new, open, checkpoints, revert, export, undo and
+/// redo.
 public struct FileMenu: Commands {
 
   // MARK: Lifecycle
@@ -21,6 +22,11 @@ public struct FileMenu: Commands {
         .keyboardShortcut("s")
         .disabled(workspace.documentURL == nil)
       Button("Revert To…") { workspace.sheet = .revert }
+        .disabled(workspace.documentURL == nil)
+    }
+    CommandGroup(replacing: .importExport) {
+      Button("Export…") { workspace.sheet = .export }
+        .keyboardShortcut("e")
         .disabled(workspace.documentURL == nil)
     }
     CommandGroup(replacing: .undoRedo) {

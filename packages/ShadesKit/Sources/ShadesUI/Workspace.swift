@@ -7,6 +7,7 @@ import ShadesCommands
 import ShadesCore
 import ShadesDocument
 import ShadesEngine
+import ShadesExport
 import ShadesMatting
 import ShadesMCP
 import ShadesMedia
@@ -229,6 +230,7 @@ public final class Workspace {
   @ObservationIgnored private var polishBase: Project?
   @ObservationIgnored private var queuedProxies = Set<Media.ID>()
   @ObservationIgnored private var queuedWaveforms = Set<Media.ID>()
+  @ObservationIgnored private let notifier = ExportNotifier()
   @ObservationIgnored private var lastClaudeSnapshot: ContinuousClock.Instant?
 
   /// Queues a proxy for every heavy file that has none yet; playback switches to each as it's
@@ -833,6 +835,41 @@ extension Workspace: ProjectHost {
         + "clips switch over when done."
   }
 
+  /// Queues `request`'s files for export from the timeline as it is now. Each chimes and posts
+  /// a notification when it's written. Returns the files' names.
+  public func export(_ request: ExportRequest) throws(CommandError) -> [String] {
+    let project = editor.project
+    guard project.timeline.duration > .zero else {
+      throw .invalidArguments("the timeline is empty; add clips first")
+    }
+    let mattes = player.mattes
+    let cleanSound = player.cleanSound
+    let transcripts = analysis.transcripts
+    let outputs = request.outputs(for: project.timeline)
+    for output in outputs {
+      let title = "Exporting \(output.url.lastPathComponent)"
+      jobs.enqueue(title) { [weak self] progress throws(JobError) in
+        do throws(ExportError) {
+          try await Exporter.write(
+            output,
+            of: request,
+            project: project,
+            mattes: mattes,
+            cleanSound: cleanSound,
+            transcripts: transcripts,
+            progress: progress,
+          )
+        } catch .cancelled {
+          throw .cancelled
+        } catch {
+          throw .failed(error.errorDescription ?? "The export couldn't be made.")
+        }
+        await self?.notifier.finished(output.url)
+      }
+    }
+    return outputs.map(\.url.lastPathComponent)
+  }
+
   /// Separates the voice and music of clips' sound in the background (downloading the model the
   /// first time), then lays the two under each clip in its place. Returns what was queued.
   public func separateStems(_ clipIDs: [Clip.ID]) throws(CommandError) -> String {
@@ -847,6 +884,7 @@ extension Workspace: ProjectHost {
     }
     for item in media {
       let saved = analysis.analyses[item.id]?.stems
+      let heard = analysis.analyses[item.id]
       let wanted = clips.filter { $0.mediaID == item.id }.map(\.id)
       let title = "Separating the voice and music of \(item.name)"
       jobs.enqueue(title) { [weak self] progress throws(JobError) in
@@ -861,7 +899,14 @@ extension Workspace: ProjectHost {
             ($0.key.rawValue, "\(item.id.uuidString)/\($0.value.lastPathComponent)")
           })
         }
-        try await self?.useStems(files, for: wanted)
+        let stems = try await self?.useStems(files, for: wanted) ?? []
+        // why: the voice keeps the original's timing, so what was heard in it still applies.
+        if let voice = stems.first, heard?.transcript != nil || heard?.speech != nil {
+          try await self?.store(voice.id, in: package) { analysis in
+            analysis.transcript = heard?.transcript
+            analysis.speech = heard?.speech
+          }
+        }
       }
     }
     return "Separating \(media.count) file\(media.count == 1 ? "" : "s") in the background; the "
@@ -934,8 +979,13 @@ extension Workspace: ProjectHost {
     try? await player.load(editor.project) // why: the editor shows playback errors.
   }
 
-  /// Lays separated voice and music under each of `clipIDs` still on the timeline, as one step.
-  private func useStems(_ files: [Stem: URL], for clipIDs: [Clip.ID]) async throws(JobError) {
+  /// Lays separated voice and music under each of `clipIDs` still on the timeline, as one step,
+  /// and returns the stems' media (voice first).
+  @discardableResult
+  private func useStems(
+    _ files: [Stem: URL],
+    for clipIDs: [Clip.ID],
+  ) async throws(JobError) -> [Media] {
     var stems = [Media]()
     for stem in Stem.allCases {
       guard let url = files[stem] else {
@@ -958,6 +1008,7 @@ extension Workspace: ProjectHost {
     } catch {
       throw .failed(error.errorDescription ?? "The separated sound couldn't be placed.")
     }
+    return stems
   }
 
   /// Saves an analysis result, if its project is still the open one.

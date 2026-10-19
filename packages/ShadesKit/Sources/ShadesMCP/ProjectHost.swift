@@ -3,6 +3,7 @@ import ShadesCaptions
 import ShadesCommands
 import ShadesCore
 import ShadesDocument
+import ShadesExport
 import ShadesMatting
 import ShadesPlugins
 import ShadesPolish
@@ -63,6 +64,8 @@ public protocol ProjectHost: AnyObject {
   /// Sets clips to play noise-reduced sound (strength 0 restores the original); returns what
   /// was done.
   func reduceNoise(_ clipIDs: [Clip.ID], strength: Double) throws(CommandError) -> String
+  /// Queues `request`'s files for export; returns their names.
+  func export(_ request: ExportRequest) throws(CommandError) -> [String]
   /// Queues separating clips' voice from their music, laid under each clip when done; returns
   /// what was queued.
   func separateStems(_ clipIDs: [Clip.ID]) throws(CommandError) -> String

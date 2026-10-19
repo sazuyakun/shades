@@ -4,6 +4,7 @@ import ShadesCommands
 import ShadesCore
 import ShadesDocument
 import ShadesEngine
+import ShadesExport
 import ShadesMatting
 import ShadesMedia
 import ShadesPlugins
@@ -445,6 +446,32 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "export",
+      summary: "Export in the background (get_jobs shows progress; Shades chimes when done): "
+        + "youtube (the picture on 16:9 black), shorts (each marked short on 9:16, or the "
+        + "whole timeline), frame (a PNG at `at`), gif (start to end, up to 30 s) or srt "
+        + "(captions). Files go to `folder` (default ~/Movies), named after `name`.",
+      parameters: JSONSchema.object(
+        [
+          "kind": JSONSchema.string(
+            "What to export",
+            values: ExportKind.allCases.map(\.rawValue),
+          ),
+          "name": JSONSchema.string("File name without extension (default: the project's)"),
+          "folder": JSONSchema.string("Folder path (default ~/Movies)"),
+          "codec": JSONSchema.string(
+            "Video codec (default hevc)",
+            values: VideoCodec.allCases.map(\.rawValue),
+          ),
+          "at": Fields.time("The frame's moment (frame)"),
+          "start": Fields.time("Where the GIF or video starts (default: the beginning)"),
+          "end": Fields.time("Where the GIF or video ends (default: the end)"),
+        ],
+        required: ["kind"],
+      ),
+      kind: .project,
+    ),
+    Tool(
       name: "separate_stems",
       summary: "Split clips' sound into voice and music (HTDemucs, on this Mac): both land on "
         + "audio tracks under each clip, lined up, and the clip's own sound goes quiet. Runs in "
@@ -742,6 +769,9 @@ public final class ToolHandler {
       let request = try decode(LoudnessArguments.self, from: arguments, tool: name)
       return try await .text(host().normalizeLoudness(target: request.target ?? -14))
 
+    case "export":
+      return try exportFiles(decode(ExportArguments.self, from: arguments, tool: name))
+
     case "separate_stems":
       let clipIDs = try decode(SelectArguments.self, from: arguments, tool: name).clipIDs
       let projectHost = try host()
@@ -880,6 +910,33 @@ public final class ToolHandler {
       "Imported \(media.name) as media \(media.id): \(media.duration.seconds) s, \(picture)"
         + "\(media.hasAudio ? "with" : "no") audio."
     )
+  }
+
+  /// Queues an export and says which files it makes.
+  private func exportFiles(_ request: ExportArguments) throws(ToolError) -> ToolResult {
+    let projectHost = try host()
+    let timeline = editor.project.timeline
+    let range: TimeRange? =
+      if request.start != nil || request.end != nil {
+        TimeRange(start: request.start ?? .zero, end: request.end ?? timeline.duration)
+      } else {
+        nil
+      }
+    let folder = request.folder.map { URL(filePath: ($0 as NSString).expandingTildeInPath) }
+      ?? URL.moviesDirectory
+    let files = try perform { () throws(CommandError) -> [String] in
+      try projectHost.export(ExportRequest(
+        kind: request.kind,
+        folder: folder,
+        name: request.name
+          ?? projectHost.documentURL?.deletingPathExtension().lastPathComponent ?? "Shades",
+        codec: request.codec ?? .hevc,
+        time: request.at ?? .zero,
+        range: range,
+      ))
+    }
+    return .text("Exporting to \(folder.path): " + files.joined(separator: ", ")
+      + ". get_jobs shows progress.")
   }
 
   /// Imports a plugin's sound (or a sound file) if it isn't yet, and places it on a free audio
@@ -1232,6 +1289,7 @@ public final class ToolHandler {
     switch name {
     case "import_media": AddMedia.title
     case "add_sound": "Add Sound"
+    case "export": "Export"
     case "undo": "Undo"
     case "redo": "Redo"
     case "batch": "Batch of Edits"
@@ -1442,6 +1500,18 @@ private struct NoiseArguments: Decodable {
 private struct DuckArguments: Decodable {
   let track: String?
   let level: Double?
+}
+
+// MARK: - ExportArguments
+
+private struct ExportArguments: Decodable {
+  let kind: ExportKind
+  let name: String?
+  let folder: String?
+  let codec: VideoCodec?
+  let at: MediaTime?
+  let start: MediaTime?
+  let end: MediaTime?
 }
 
 // MARK: - SoundArguments

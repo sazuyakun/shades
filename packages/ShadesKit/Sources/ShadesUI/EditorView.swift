@@ -99,6 +99,7 @@ public struct EditorView: View {
       switch sheet {
       case .checkpoint: CheckpointSheet()
       case .revert: RevertSheet()
+      case .export: ExportSheet()
       }
     }
     .task(id: editor.project) {
