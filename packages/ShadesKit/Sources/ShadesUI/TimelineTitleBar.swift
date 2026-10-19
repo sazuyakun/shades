@@ -1,13 +1,15 @@
 import ShadesCommands
 import SwiftUI
 
-/// The bar above the timeline: the timeline's name, the tool and snapping state, zoom, and the
-/// timeline's length.
+/// The bar above the timeline: the timeline's name, the tools and snapping, plugin templates, and
+/// the timeline's length.
 struct TimelineTitleBar: View {
 
   // MARK: Internal
 
   @Binding var settings: TimelineSettings
+
+  let onError: (String) -> Void
 
   var body: some View {
     HStack(spacing: 10) {
@@ -27,12 +29,16 @@ struct TimelineTitleBar: View {
         Button("Blade", systemImage: "scissors") { settings.tool = .blade }
           .buttonStyle(CapsuleButtonStyle(isOn: settings.tool == .blade))
           .help("Blade tool (B)")
+        Button("Draw", systemImage: "pencil.tip") { settings.isDrawing.toggle() }
+          .buttonStyle(CapsuleButtonStyle(isOn: settings.isDrawing))
+          .help("Draw tool: drag in the viewer to draw over the picture (P)")
       }
       .labelStyle(.iconOnly)
       Button("Snapping", systemImage: "arrow.right.to.line") { settings.isSnapping.toggle() }
         .labelStyle(.iconOnly)
         .buttonStyle(CapsuleButtonStyle(isOn: settings.isSnapping))
         .help("Snapping (N)")
+      TemplatesMenu(onError: onError)
       Spacer()
       Text(Timecode.full(
         editor.project.timeline.duration.seconds,

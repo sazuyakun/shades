@@ -57,7 +57,6 @@ Problems found but not fixed yet. When one is fixed, delete its row in the same 
 
 | # | Issue | Fix in |
 |---|---|---|
-| 9 | Templates and plugin styles can only be applied over MCP; the editor needs a way to place them by hand (⌘K entries) | M6 |
 | 10 | Text can't follow a curved path or bend yet (scope: "text on paths") | M6 |
 
 ## 3. Constraints & setup notes

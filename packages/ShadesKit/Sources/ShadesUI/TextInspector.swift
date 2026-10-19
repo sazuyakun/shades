@@ -1,6 +1,7 @@
 import AppKit
 import ShadesCommands
 import ShadesCore
+import ShadesPlugins
 import SwiftUI
 
 /// The words, look and reveal of a text clip.
@@ -19,6 +20,16 @@ struct TextInspector: View {
         .onSubmit { perform(SetText(clipID: clip.id, text: words), coalescing: nil) }
         .onAppear { words = content.text }
         .onChange(of: content.text) { words = content.text }
+      if !pluginStyles.isEmpty {
+        Menu("Plugin Style") {
+          ForEach(pluginStyles, id: \.name) { item in
+            Button(item.name) {
+              perform(SetText(clipID: clip.id, style: item.style), coalescing: nil)
+            }
+          }
+        }
+        .fixedSize()
+      }
       // why: a pop-up is as wide as its longest font name; a menu is as wide as the current one.
       Menu {
         Button("System Bold") { style(\.font).wrappedValue = nil }
@@ -81,7 +92,15 @@ struct TextInspector: View {
   private static let families = NSFontManager.shared.availableFontFamilies.sorted()
 
   @Environment(Editor.self) private var editor
+  @Environment(PluginLibrary.self) private var plugins
   @State private var words = ""
+
+  /// Every plugin's text styles, by `plugin / name`.
+  private var pluginStyles: [(name: String, style: TextStyle)] {
+    plugins.plugins.flatMap { plugin in
+      plugin.styles.map { (name: "\(plugin.name) / \($0.key)", style: $0.value) }
+    }.sorted { $0.name < $1.name }
+  }
 
   /// A binding to one style field; setting it restyles the clip.
   private func style<Value>(_ field: WritableKeyPath<TextStyle, Value>) -> Binding<Value> {

@@ -19,7 +19,7 @@ struct TimelinePane: View {
   var body: some View {
     VStack(spacing: 0) {
       Hairline()
-      TimelineTitleBar(settings: $settings)
+      TimelineTitleBar(settings: $settings, onError: onError)
       Hairline()
       GeometryReader { geometry in
         let scale = scale(fitting: geometry.size.width)

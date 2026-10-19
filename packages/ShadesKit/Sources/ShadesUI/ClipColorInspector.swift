@@ -17,6 +17,14 @@ struct ClipColorInspector: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 12) {
+      if !looks.isEmpty {
+        Menu("Plugin Look") {
+          ForEach(looks, id: \.self) { name in
+            Button(name) { use(look: name) }
+          }
+        }
+        .fixedSize()
+      }
       ForEach(GradeControl.allCases, id: \.self) { control in
         InspectorSlider(
           label: control.label,
@@ -89,6 +97,27 @@ struct ClipColorInspector: View {
     plugins.plugins.flatMap { plugin in
       plugin.luts.map { (name: "\(plugin.name) / \($0.key)", path: $0.value.path) }
     }.sorted { $0.name < $1.name }
+  }
+
+  /// Every plugin's looks, as `plugin/name`.
+  private var looks: [String] {
+    plugins.plugins.flatMap { plugin in plugin.looks.keys.map { "\(plugin.name)/\($0)" } }.sorted()
+  }
+
+  private func use(look name: String) {
+    guard let look = plugins.look(named: name) else {
+      return
+    }
+    perform(
+      SetLook(
+        clipIDs: [clip.id],
+        grade: look.grade,
+        effects: look.effects,
+        blend: look.blend,
+        clear: true,
+      ),
+      coalescing: nil,
+    )
   }
 
   private func set(grade: Grade) {
