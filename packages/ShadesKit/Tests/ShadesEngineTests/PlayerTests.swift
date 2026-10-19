@@ -19,6 +19,17 @@ struct PlayerTests {
   }
 
   @Test
+  func `a seek before the project loads wins over where the last session left off`(
+  ) async throws {
+    let project = try await oneClipProject()
+    let player = Player()
+    player.cue(toSeconds: 0.2)
+    await player.seek(toSeconds: 0.75)
+    try await player.load(project)
+    #expect(abs(player.currentTime - 0.75) < 0.01)
+  }
+
+  @Test
   func `a new cut-out rebuilds playback so depth slots can use it`() async throws {
     let project = try await oneClipProject()
     let player = Player()

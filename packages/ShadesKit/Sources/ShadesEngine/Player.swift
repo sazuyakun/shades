@@ -74,13 +74,15 @@ public final class Player {
       item.audioMix = composition.audioMix(for: timeline)
       // why: a fresh copy of the video composition makes the player redraw the paused frame.
       item.videoComposition = composition.videoComposition.mutableCopy() as? AVVideoComposition
+      if let cuedTime {
+        self.cuedTime = nil
+        await seek(toSeconds: cuedTime)
+      }
       return
     }
     let current = avPlayer.currentTime()
     // why: with nothing loaded yet the player's time is invalid (NaN seconds); start at zero.
-    let playhead = cuedTime.map { CMTime(seconds: $0, preferredTimescale: 600) }
-      ?? (current.isNumeric ? current : .zero)
-    cuedTime = nil
+    cuedTime = cuedTime ?? (current.isNumeric ? current.seconds : 0)
     let built = try await Composition.build(
       project,
       library: library,
@@ -105,6 +107,9 @@ public final class Player {
     loadedMattes = mattes
     loadedCleanSound = cleanSound
     isUsingProxies = timeline.allClips.contains { $0.mediaID.flatMap { proxies[$0] } != nil }
+    // why: read after building, so a seek made while it built lands, not the time before it.
+    let playhead = CMTime(seconds: min(cuedTime ?? 0, duration), preferredTimescale: 600)
+    cuedTime = nil
     await avPlayer.seek(to: playhead, toleranceBefore: .zero, toleranceAfter: .zero)
     currentTime = playhead.seconds
   }
@@ -138,8 +143,12 @@ public final class Player {
     isPlaying ? pause() : play()
   }
 
-  /// Moves the playhead to an exact time.
+  /// Moves the playhead to an exact time. While a project is loading, it's where the load ends.
   public func seek(toSeconds seconds: Double) async {
+    guard cuedTime == nil else {
+      cue(toSeconds: max(seconds, 0))
+      return
+    }
     let time = CMTime(seconds: min(max(seconds, 0), duration), preferredTimescale: 600)
     await avPlayer.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
     currentTime = time.seconds
@@ -162,6 +171,7 @@ public final class Player {
   @ObservationIgnored private let renderState = RenderState()
   @ObservationIgnored private var composition: Composition?
   @ObservationIgnored private var structure: Composition.Structure?
+  /// Where the playhead goes when the load under way (or the next one) finishes.
   @ObservationIgnored private var cuedTime: Double?
   @ObservationIgnored private var loadedProxies = [Media.ID: URL]()
   @ObservationIgnored private var loadedMattes = [Media.ID: URL]()
