@@ -817,7 +817,7 @@ extension Workspace: ProjectHost {
           progress(0.3)
           let cleaned = await NoiseReducer.reduce(samples, sampleRate: 48000, strength: strength)
           progress(0.9)
-          try await AudioWriter.writeM4A(cleaned, sampleRate: 48000, to: destination)
+          try await AudioWriter.writeM4A([cleaned], sampleRate: 48000, to: destination)
         } catch let error as AudioError {
           throw .failed(error.errorDescription ?? "The sound couldn't be cleaned.")
         } catch {
