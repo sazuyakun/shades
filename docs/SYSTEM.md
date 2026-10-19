@@ -84,6 +84,10 @@ Rule-based tools (no AI) that write ordinary, editable timeline items, starting 
 - **Settings → Plugins** holds a list of plugin folders (add, remove, reorder). Each folder is watched and hot-reloaded. Soham's is `~/shades-playbook/plugins`; other users start with `~/Shades/Plugins`.
 - The core must support everything a plugin can describe: grades, type, motion, effects, sound.
 - Over MCP, Claude can list plugins, use them, and write new ones as files.
+- **Format (M5):** a plugin folder holds any of:
+  - `plugin.json`: `name`, `description`, `styles` (named text styles: font, size, color, outline_color, outline, shadow, align, anchor, highlight; fields left out keep the caption look) and `templates` (named; `duration` and `layers`, each layer text with `{field}` placeholders or a `sticker`, plus `style`, `reveal`, `start`, `duration`, `transform`, `look`, `motion`, `keyframes`, `depth_slot`, `sound`). Keys may be snake_case or camelCase.
+  - `stickers/` (pictures), `sounds/` (audio), `fonts/` (registered while loaded). `luts/` and `shaders/` arrive with M6.
+  - A folder in Settings is a plugin itself, or holds plugins one level down. Changes reload by themselves; a broken manifest is reported (where and what) in Settings and `list_plugins`.
 
 ## 9. Storage
 - **Projects:** `~/Shades/<name>.shades`, a package with `project.json`, snapshots, and caches (analysis, mattes, proxies). Footage stays where it is on disk and is linked.

@@ -1,4 +1,3 @@
-import ShadesPlugins
 import ShadesUI
 import SwiftUI
 
@@ -34,14 +33,14 @@ struct ShadesApp: App {
     Settings {
       SettingsView()
         .environment(workspace.server)
-        .environment(pluginFolders)
+        .environment(workspace.pluginFolders)
+        .environment(workspace.plugins)
     }
   }
 
   // MARK: Private
 
   @NSApplicationDelegateAdaptor private var delegate: AppDelegate
-  @State private var pluginFolders = PluginFolders()
 
   private var workspace: Workspace {
     delegate.workspace

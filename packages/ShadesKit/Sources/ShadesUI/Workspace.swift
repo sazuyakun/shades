@@ -10,6 +10,7 @@ import ShadesEngine
 import ShadesMatting
 import ShadesMCP
 import ShadesMedia
+import ShadesPlugins
 import ShadesPolish
 
 // MARK: - Workspace
@@ -32,12 +33,15 @@ public final class Workspace {
     self.editor = editor
     self.player = player
     self.jobs = jobs
+    pluginFolders = PluginFolders(defaults: defaults)
+    plugins = PluginLibrary(folders: pluginFolders)
     server = MCPServer(editor: editor, player: player, jobs: jobs, port: port)
     wasRecovered = defaults.bool(forKey: Keys.isOpen) && !defaults.bool(forKey: Keys.quitCleanly)
     defaults.set(false, forKey: Keys.quitCleanly)
     server.beforeEdit = { [weak self] in self?.snapshotBeforeClaude() }
     server.projectHost = self
     server.start()
+    Task { await plugins.start() }
   }
 
   // MARK: Public
@@ -56,6 +60,10 @@ public final class Workspace {
   public let jobs: JobQueue
   /// What's been worked out about each media file: transcripts, speech, beats.
   public let analysis = AnalysisLibrary()
+  /// Where plugins are loaded from (Settings → Plugins).
+  public let pluginFolders: PluginFolders
+  /// The loaded plugins: styles, templates, stickers, sounds and fonts.
+  public let plugins: PluginLibrary
 
   /// The open project's package, or `nil` when none is open.
   public private(set) var documentURL: URL?
@@ -623,6 +631,53 @@ extension Workspace: ProjectHost {
       } ?? "that clip has no cut-out yet; run make_cutout first")
     }
     try editor.perform(FollowPath(clipID: clipID, targetID: targetID, path: path))
+  }
+
+  /// Places a plugin's template (`plugin/name` or `name`) at `time` with its text fields filled,
+  /// importing the stickers and sounds it uses. One undo step. Returns what was added.
+  public func applyTemplate(
+    named name: String,
+    at time: MediaTime,
+    fields: [String: String],
+  ) async throws(ToolError) -> String {
+    guard let (template, plugin) = plugins.template(named: name) else {
+      throw .commandFailed(.invalidArguments(
+        "there's no template called \(name); list_plugins shows the templates"
+      ))
+    }
+    var commands = [any Command]()
+    var media = [String: Media.ID]()
+    for layer in template.layers {
+      for asset in [layer.sticker, layer.sound].compactMap(\.self) where media[asset] == nil {
+        guard let url = plugin.stickers[asset] ?? plugin.sounds[asset] else {
+          continue
+        }
+        if let existing = editor.project.media.first(where: { $0.url == url }) {
+          media[asset] = existing.id
+          continue
+        }
+        do {
+          let loaded = try await MediaLoader.load(url)
+          commands.append(AddMedia(media: loaded))
+          media[asset] = loaded.id
+        } catch {
+          throw .mediaFailed(error)
+        }
+      }
+    }
+    commands.append(ApplyTemplate(
+      template,
+      at: time,
+      fields: fields,
+      styles: plugin.styles,
+      media: media,
+    ))
+    do {
+      try editor.perform(commands, title: "Template \(name)")
+    } catch {
+      throw .commandFailed(error)
+    }
+    return "Placed \(name) at \(time.seconds) s: \(template.layers.count) layers."
   }
 
   // MARK: Internal

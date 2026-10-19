@@ -308,3 +308,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Apple's small fixed-size vector and matrix types, matching the GPU's. A 4×4 matrix can scale, rotate, move and add perspective in one multiply; multiplying matrices chains those steps.
 **JS/TS analogy:** Like CSS `transform: perspective() rotateY() translate()`, or a `DOMMatrix`, as one value.
 **In Shades:** `FrameUniforms` builds each layer's model × camera × perspective matrix for the shader.
+
+## C callbacks with `Unmanaged` (FSEvents)
+**What it is:** Older C APIs call back through a plain function pointer that can't capture variables. You pass your object in as a raw pointer (`Unmanaged.passUnretained(self).toOpaque()`) and turn it back into the object inside the callback.
+**JS/TS analogy:** Like passing `this` explicitly into a callback that can't be a closure, then casting it back.
+**In Shades:** `FolderWatcher` listens for file changes in plugin folders so plugins reload by themselves.
+
+## `withObservationTracking`
+**What it is:** Runs a closure, notes which `@Observable` properties it read, and calls you once when any of them changes. It fires once, so you re-arm it each time.
+**JS/TS analogy:** Like a one-shot MobX `reaction` or a Vue `watch` you set up again after it fires.
+**In Shades:** `PluginLibrary` reloads when the list of plugin folders changes in Settings.

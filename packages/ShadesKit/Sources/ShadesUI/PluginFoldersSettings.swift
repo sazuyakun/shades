@@ -1,7 +1,8 @@
 import ShadesPlugins
 import SwiftUI
 
-/// Settings › Plugins: the folders plugins load from, top first. Add, remove and drag to reorder.
+/// Settings › Plugins: the folders plugins load from, top first (add, remove and drag to
+/// reorder), and what loaded from them.
 struct PluginFoldersSettings: View {
 
   // MARK: Internal
@@ -27,6 +28,17 @@ struct PluginFoldersSettings: View {
       Text("Shades loads plugins from these folders, top first. Drag to reorder.")
         .font(.callout)
         .foregroundStyle(.secondary)
+      Text("Loaded").font(.headline).padding(.top, 6)
+      if library.plugins.isEmpty {
+        Text(
+          "No plugins yet. A plugin is a folder with a plugin.json and stickers, sounds or fonts."
+        )
+        .font(.callout)
+        .foregroundStyle(.secondary)
+      }
+      ForEach(library.plugins) { plugin in
+        LoadedPluginRow(plugin: plugin)
+      }
     }
     .padding(20)
     .fileImporter(isPresented: $isChoosing, allowedContentTypes: [.folder]) { result in
@@ -39,6 +51,7 @@ struct PluginFoldersSettings: View {
   // MARK: Private
 
   @Environment(PluginFolders.self) private var folders
+  @Environment(PluginLibrary.self) private var library
   @State private var selection: URL?
   @State private var isChoosing = false
 

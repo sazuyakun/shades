@@ -48,6 +48,12 @@ enum Guide {
     - track_motion follows a box through a video clip (a background job) and saves a named \
     path; follow then makes any layer move with it, or with the cut-out's subject.
 
+    Plugins (taste lives here)
+    - list_plugins shows text styles, templates, stickers and sounds. apply_template places a \
+    template with its fields filled; use_style restyles text. Write a plugin folder (plugin.json \
+    plus stickers/, sounds/, fonts/) and it loads by itself; a manifest problem shows in \
+    list_plugins.
+
     Projects: list_projects, new_project and open_project. Point the user at clips with \
     select_clips. Heavy footage plays from proxies; render_frame always uses the originals.
 

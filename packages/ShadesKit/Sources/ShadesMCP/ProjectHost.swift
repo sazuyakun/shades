@@ -4,6 +4,7 @@ import ShadesCommands
 import ShadesCore
 import ShadesDocument
 import ShadesMatting
+import ShadesPlugins
 import ShadesPolish
 
 /// Whoever holds the open project (the app's workspace), so Claude can list, create and open
@@ -18,6 +19,11 @@ public protocol ProjectHost: AnyObject {
 
   /// The Polish plan waiting for review, if any.
   var polishPlan: PolishPlan? { get }
+
+  /// The loaded plugins: styles, templates, stickers, sounds and fonts.
+  var plugins: PluginLibrary { get }
+  /// The folders plugins load from.
+  var pluginFolders: PluginFolders { get }
 
   /// Saves the open project and opens another.
   func openProject(at url: URL) async throws(DocumentError)
@@ -46,6 +52,12 @@ public protocol ProjectHost: AnyObject {
   func makeCutouts(_ mediaIDs: [Media.ID]?, engine: MatteEngine) -> [String]
   /// Reframes clips (default: the selection) around their subject; returns how many.
   func autoReframe(_ clipIDs: [Clip.ID]?) throws(CommandError) -> Int
+  /// Places a plugin's template at `time` with its fields filled; returns what was added.
+  func applyTemplate(
+    named name: String,
+    at time: MediaTime,
+    fields: [String: String],
+  ) async throws(ToolError) -> String
   /// Queues following what's inside `box` (fractions of the picture) of a video clip from `time`
   /// to the clip's end, saved as a path called `name`; returns the job's title.
   func trackMotion(

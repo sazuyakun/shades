@@ -18,7 +18,7 @@ All real Mac code lives here as a Swift package with one module per system. The 
 | ShadesMCP | MCP server: commands become Claude tools |
 | ShadesMatting | Cut-outs (mattes): Apple Vision finds the subject, written as a small gray video played like any track; the subject's path over time for reframing |
 | ShadesPolish | Polish for talking-head footage: the rule-based planner (silences, fillers, retakes, beat snaps, punch-ins) and `ApplyPolish`. Pure logic on Core and Commands |
-| ShadesPlugins | Plugin folders (Settings), and from M5 loading and hot-reloading plugins |
+| ShadesPlugins | Plugin folders (Settings), loading plugins (`PluginLoader`), and `PluginLibrary`: kept up to date with FSEvents, fonts registered for the app. Data only (on Core); templates are applied by `ApplyTemplate` in Commands |
 | ShadesUI | SwiftUI views (AppKit/Metal where SwiftUI is too slow) |
 
 Modules are created only when a milestone first needs them. They exist today: ShadesCore, ShadesAudio, ShadesCaptions, ShadesCommands, ShadesDocument, ShadesMedia, ShadesEngine, ShadesMatting, ShadesMCP, ShadesPlugins, ShadesPolish, ShadesUI (plus `ShadesTestSupport` for tests). The rest of the table arrives with their milestones.

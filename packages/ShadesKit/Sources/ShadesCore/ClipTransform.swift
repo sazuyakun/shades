@@ -51,14 +51,15 @@ extension ClipTransform: Codable {
 
   // MARK: Lifecycle
 
-  /// Reads a transform, including ones saved before layers could tilt (flat, at depth 0).
+  /// Reads a transform where any field may be left out (it keeps its resting value), so older
+  /// projects (before tilt and depth) and plugin templates read the same way.
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     try self.init(
-      x: container.decode(Double.self, forKey: .x),
-      y: container.decode(Double.self, forKey: .y),
-      scale: container.decode(Double.self, forKey: .scale),
-      rotation: container.decode(Double.self, forKey: .rotation),
+      x: container.decodeIfPresent(Double.self, forKey: .x) ?? 0,
+      y: container.decodeIfPresent(Double.self, forKey: .y) ?? 0,
+      scale: container.decodeIfPresent(Double.self, forKey: .scale) ?? 1,
+      rotation: container.decodeIfPresent(Double.self, forKey: .rotation) ?? 0,
       tiltX: container.decodeIfPresent(Double.self, forKey: .tiltX) ?? 0,
       tiltY: container.decodeIfPresent(Double.self, forKey: .tiltY) ?? 0,
       depth: container.decodeIfPresent(Double.self, forKey: .depth) ?? 0,

@@ -6,6 +6,7 @@ import ShadesDocument
 import ShadesEngine
 import ShadesMatting
 import ShadesMedia
+import ShadesPlugins
 import ShadesPolish
 
 // MARK: - ToolHandler
@@ -365,6 +366,37 @@ public final class ToolHandler {
       kind: .edit,
     ),
     Tool(
+      name: "list_plugins",
+      summary: "List the plugins (taste packs): their text styles, templates (with the fields they "
+        + "ask for), stickers and sounds (with file paths to import), and any manifest problems. "
+        + "Plugins are folders with a plugin.json; write or edit one and it reloads by itself.",
+      parameters: JSONSchema.object([:]),
+      kind: .read,
+    ),
+    Tool(
+      name: "apply_template",
+      summary: "Place a plugin's title or motion template at a moment, filling its {fields}. Its "
+        + "stickers and sounds are imported for you. One undo step.",
+      parameters: JSONSchema.object(
+        [
+          "name": JSONSchema.string("The template, as plugin/name or just name"),
+          "at": Fields.time("When it starts"),
+          "fields": JSONSchema.object([:]),
+        ],
+        required: ["name", "at"],
+      ),
+      kind: .edit,
+    ),
+    Tool(
+      name: "use_style",
+      summary: "Give text clips a plugin's text style (by plugin/name or name).",
+      parameters: JSONSchema.object(
+        ["clip_ids": Fields.clipIDs, "style": JSONSchema.string("The style's name")],
+        required: ["clip_ids", "style"],
+      ),
+      kind: .edit,
+    ),
+    Tool(
       name: "list_projects",
       summary: "List the projects in ~/Shades, newest first, and which one is open.",
       parameters: JSONSchema.object([:]),
@@ -563,6 +595,32 @@ public final class ToolHandler {
       return .text(
         "The layer now follows \(request.path ?? "the subject"). Check it with render_frame."
       )
+
+    case "list_plugins":
+      return try .text(pluginsReport())
+
+    case "apply_template":
+      let request = try decode(TemplateArguments.self, from: arguments, tool: name)
+      return try await .text(host().applyTemplate(
+        named: request.name,
+        at: request.at,
+        fields: request.fields ?? [:],
+      ))
+
+    case "use_style":
+      let request = try decode(StyleArguments.self, from: arguments, tool: name)
+      guard let style = try host().plugins.style(named: request.style) else {
+        throw .commandFailed(.invalidArguments(
+          "there's no style called \(request.style); list_plugins shows the styles"
+        ))
+      }
+      try perform { () throws(CommandError) in
+        try editor.perform(
+          request.clipIDs.map { SetText(clipID: $0, style: style) },
+          title: "Style \(request.style)",
+        )
+      }
+      return .text("Styled \(request.clipIDs.count) text clips with \(request.style).")
 
     case "list_projects":
       return await listProjects()
@@ -818,6 +876,50 @@ public final class ToolHandler {
       : lines.joined(separator: "\n"))
   }
 
+  /// The plugins in plain words, with what each offers and where its files are.
+  private func pluginsReport() throws(ToolError) -> String {
+    let projectHost = try host()
+    let folders = projectHost.pluginFolders.urls.map(\.path).joined(separator: ", ")
+    let plugins = projectHost.plugins.plugins
+    guard !plugins.isEmpty else {
+      return "No plugins yet. Plugin folders: \(folders). Make one by writing a folder with a "
+        + "plugin.json (name, description, styles, templates) and stickers/, sounds/, fonts/."
+    }
+    var lines = ["Plugin folders: \(folders)"]
+    for plugin in plugins {
+      lines.append("\n\(plugin.name) (\(plugin.folder.path))" + (plugin.summary.isEmpty
+          ? ""
+          : ": \(plugin.summary)"))
+      if let problem = plugin.problem {
+        lines.append("  PROBLEM: \(problem)")
+      }
+      if !plugin.styles.isEmpty {
+        lines.append("  styles: " + plugin.styles.keys.sorted().joined(separator: ", "))
+      }
+      for (name, template) in plugin.templates.sorted(by: { $0.key < $1.key }) {
+        let fields = template.fields.isEmpty
+          ? ""
+          : " fields: " + template.fields.joined(separator: ", ")
+        lines
+          .append(
+            "  template \(name): \(template.layers.count) layers, \(template.duration) s.\(fields)"
+          )
+      }
+      for (kind, files) in [("stickers", plugin.stickers), ("sounds", plugin.sounds)]
+        where !files.isEmpty
+      {
+        lines
+          .append("  \(kind): " + files.sorted { $0.key < $1.key }.lazy
+            .map { "\($0.key) (\($0.value.path))" }
+            .joined(separator: ", "))
+      }
+      if !plugin.fonts.isEmpty {
+        lines.append("  fonts: " + plugin.fonts.map(\.lastPathComponent).joined(separator: ", "))
+      }
+    }
+    return lines.joined(separator: "\n")
+  }
+
   /// A plan in plain words: counts per kind, then each item with its ID.
   private func describe(_ plan: PolishPlan) -> String {
     guard !plan.items.isEmpty else {
@@ -1052,6 +1154,21 @@ private struct CutoutFrameArguments: Decodable {
   let clipID: UUID
   let at: MediaTime
   let engine: String?
+}
+
+// MARK: - TemplateArguments
+
+private struct TemplateArguments: Decodable {
+  let name: String
+  let at: MediaTime
+  let fields: [String: String]?
+}
+
+// MARK: - StyleArguments
+
+private struct StyleArguments: Decodable {
+  let clipIDs: [UUID]
+  let style: String
 }
 
 // MARK: - TrackArguments

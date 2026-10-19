@@ -42,7 +42,7 @@ let package = Package(
       ],
     ),
     .target(name: "ShadesMedia", dependencies: ["ShadesCore"]),
-    .target(name: "ShadesPlugins"),
+    .target(name: "ShadesPlugins", dependencies: ["ShadesCore"]),
     .target(
       name: "ShadesEngine",
       dependencies: ["ShadesCore"],
@@ -58,6 +58,7 @@ let package = Package(
         "ShadesDocument",
         "ShadesEngine",
         "ShadesMedia",
+        "ShadesPlugins",
       ],
     ),
     // ShadesUI sits above ShadesMCP (to show Claude's status) and runs on the main actor by
@@ -95,7 +96,10 @@ let package = Package(
       dependencies: ["ShadesMCP", "ShadesTestSupport"],
       exclude: ["Golden"],
     ),
-    .testTarget(name: "ShadesPluginsTests", dependencies: ["ShadesPlugins"]),
+    .testTarget(
+      name: "ShadesPluginsTests",
+      dependencies: ["ShadesPlugins", "ShadesTestSupport"],
+    ),
     .testTarget(name: "ShadesPolishTests", dependencies: ["ShadesPolish"]),
     .testTarget(name: "ShadesMattingTests", dependencies: ["ShadesMatting", "ShadesTestSupport"]),
     .testTarget(name: "ShadesUITests", dependencies: ["ShadesUI", "ShadesTestSupport"]),
