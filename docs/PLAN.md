@@ -86,3 +86,7 @@ Measured on the M1 8 GB dev machine with real iPhone 16 footage. The performance
 | Idle | ~0% CPU when nothing is playing, rendering or analysing |
 | Analysis | Never makes the editor stutter; pauses on battery or thermal pressure |
 | Export | YouTube 4K HEVC exports **faster than real time** for plain cuts (hardware encoder) |
+
+**Measured at the M8 performance pass (2026-10-19, M1 8 GB, debug build):** three 4K HEVC layers with a grade, grain, vignette and a behind-subject title play at 24–25 fps (from proxies) using 133 MB. A 31-minute, 60-clip project reopens in 0.4 s, plays at 25 fps and uses 130–145 MB. Launch to an open project takes 0.7 s. Idle CPU is 0.2–0.4%. A 28.5 s timeline exports to 3840×2160 HEVC in 15 s. CI gates export speed (faster than real time), frame render time and memory growth.
+
+**Render cache (2026-10-19): not built.** The playback target already runs in real time, so pre-rendering heavy stretches would add a cache to keep in step with every edit for no gain. Revisit if real edits with shader effects or several cut-outs drop frames.
