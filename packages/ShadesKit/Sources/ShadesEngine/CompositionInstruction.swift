@@ -1,4 +1,5 @@
 import AVFoundation
+import ShadesCore
 
 // MARK: - CompositionInstruction
 
@@ -53,6 +54,23 @@ struct CompositionLayer: Sendable {
   let source: LayerSource
   /// Where the clip's cut-out frames come from, when it has one.
   let matteTrackID: CMPersistentTrackID?
+  /// The transition the clip is part of here, if any.
+  let transition: TransitionPart?
+}
+
+// MARK: - TransitionPart
+
+/// A clip's part in a transition: which kind, when it runs, and whether the clip is coming in.
+struct TransitionPart: Sendable {
+  let kind: TransitionKind
+  let start: MediaTime
+  let duration: MediaTime
+  let isIncoming: Bool
+
+  /// How far through the transition `time` is, 0 to 1.
+  func progress(at time: MediaTime) -> Double {
+    min(max((time - start).seconds / max(duration.seconds, 0.001), 0), 1)
+  }
 }
 
 // MARK: - LayerSource

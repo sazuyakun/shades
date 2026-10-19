@@ -41,6 +41,17 @@ public struct Track: Hashable, Sendable, Identifiable {
     clips.last?.timelineEnd ?? .zero
   }
 
+  /// Each transition between touching clips: the clip going out, the one coming in, and how.
+  public var transitions: [(outgoing: Clip, incoming: Clip, transition: Transition)] {
+    zip(clips, clips.dropFirst()).compactMap { outgoing, incoming in
+      guard let transition = incoming.transitionIn, outgoing.timelineEnd == incoming.timelineStart
+      else {
+        return nil
+      }
+      return (outgoing, incoming, transition)
+    }
+  }
+
   /// The clip playing at `time`, if any.
   public func clip(at time: MediaTime) -> Clip? {
     clips.first { $0.contains(time) }

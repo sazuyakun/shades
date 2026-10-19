@@ -395,6 +395,7 @@ final class MetalRenderer: Sendable {
       hasLUT: lut != nil,
       hasCurves: curveTexture != nil,
       seed: seed,
+      transition: layer.transition,
     )
     let neutral = defaults.withLock { ($0.lut, $0.curves) }
     encoder.setFragmentTexture(lut ?? neutral.0, index: 3)
@@ -507,6 +508,7 @@ struct RenderLayer {
     grade: Grade? = nil,
     effects: Effects? = nil,
     blend: BlendMode = .normal,
+    transition: TransitionStyle? = nil,
   ) {
     self.source = source
     self.rotation = rotation
@@ -519,6 +521,7 @@ struct RenderLayer {
     self.grade = grade
     self.effects = effects
     self.blend = blend
+    self.transition = transition
   }
 
   // MARK: Internal
@@ -537,6 +540,8 @@ struct RenderLayer {
   let grade: Grade?
   let effects: Effects?
   let blend: BlendMode
+  /// How a transition it's part of shapes it this frame.
+  let transition: TransitionStyle?
 
   /// Whether this is an adjustment clip, working on the frame drawn so far.
   var isAdjustment: Bool {

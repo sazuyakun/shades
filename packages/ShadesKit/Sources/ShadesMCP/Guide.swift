@@ -55,6 +55,8 @@ enum Guide {
     gain, curves, a LUT), adds grain, vignette, halation, blur or a green-screen key, and sets \
     blend modes (screen for flares on black, multiply for paper, overlay for grain plates).
     - add_adjustment puts a grade or film look over everything under it; captions stay clean.
+    - set_transition joins touching clips with a dissolve, dip, flash, whip, push, slices, \
+    tiles or iris.
 
     Plugins (taste lives here)
     - list_plugins shows text styles, templates, stickers and sounds. apply_template places a \

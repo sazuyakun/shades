@@ -41,7 +41,14 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       guard let style = instruction.renderState.style(of: layer.clipID), style.isVisible else {
         return nil
       }
-      let opacity = style.clip.opacity(at: time)
+      let transition = layer.transition.map { part in
+        TransitionStyle(
+          kind: part.kind,
+          progress: part.progress(at: time),
+          isIncoming: part.isIncoming,
+        )
+      }
+      let opacity = style.clip.opacity(at: time) * (transition?.opacity ?? 1)
       guard opacity > 0 else {
         return nil
       }
@@ -97,6 +104,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         rotation = .identity
         isText = true
       }
+      transform.x += transition?.offsetX ?? 0
       let matte = layer.matteTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
         .map(LayerPicture.frame)
       return picture.map { picture in
@@ -110,8 +118,13 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           matte: matte,
           isNaturalSize: isText,
           grade: clip.grade,
-          effects: clip.effects,
+          effects: transition.map { style in
+            var effects = clip.effects ?? Effects()
+            effects.blur = max(effects.blur, style.blur)
+            return effects
+          } ?? clip.effects,
           blend: clip.blend,
+          transition: transition,
         )
       }
     }

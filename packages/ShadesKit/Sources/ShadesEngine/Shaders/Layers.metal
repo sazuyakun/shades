@@ -65,6 +65,10 @@ struct LayerLook {
   int masked;         // draw only inside the subject's mask
   int hasCurves;
   int isAdjustment;   // the source is the frame so far (an adjustment clip)
+  float dip;          // fade towards black (or white) in a transition, 0 … 1
+  float wipeProgress; // how far a transition's wipe has revealed the layer, 0 … 1
+  int dipToWhite;
+  int wipe;           // 0 none, 1 slices, 2 tiles, 3 iris
 };
 
 static float hash(float2 p) {
@@ -111,6 +115,27 @@ static float3 grade(float3 c, constant LayerLook &look, texture3d<float> lut, te
     c = mix(c, lut.sample(s, at).rgb, look.lutAmount);
   }
   return c;
+}
+
+// How much of a layer a transition's wipe shows at `screen` (0 hidden … 1 shown).
+static float wipeMask(float2 screen, int wipe, float progress) {
+  switch (wipe) {
+    case 1: {
+      float band = floor(screen.y * 8.0);
+      float local = saturate((progress - band / 8.0 * 0.5) / 0.5);
+      return step(screen.x, local);
+    }
+    case 2: {
+      float order = hash(floor(screen * float2(6.0, 5.0)) + 3.17);
+      return smoothstep(order * 0.8, order * 0.8 + 0.2, progress);
+    }
+    case 3: {
+      float distance = length((screen - 0.5) * float2(1.3333, 1.0));
+      float radius = progress * 0.85;
+      return 1.0 - smoothstep(radius - 0.015, radius + 0.015, distance);
+    }
+    default: return 1.0;
+  }
 }
 
 static float3 blendWith(float3 base, float3 top, int mode) {
@@ -166,8 +191,9 @@ fragment float4 layerFragment(
     float noise = hash(in.position.xy + look.seed * 61.7) - 0.5;
     rgb += noise * look.grain * 0.18 * (1.0 - abs(luma(rgb) - 0.5));
   }
+  rgb = mix(rgb, look.dipToWhite != 0 ? float3(1) : float3(0), look.dip);
   rgb = saturate(rgb);
-  alpha *= in.opacity;
+  alpha *= in.opacity * wipeMask(in.screen, look.wipe, look.wipeProgress);
   if (look.masked != 0) {
     alpha *= float(mask.sample(linearSampler, in.screen).r);
   }

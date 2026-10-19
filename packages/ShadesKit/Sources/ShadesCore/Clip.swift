@@ -24,6 +24,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     grade: Grade? = nil,
     effects: Effects? = nil,
     blend: BlendMode = .normal,
+    transitionIn: Transition? = nil,
   ) {
     self.init(
       id: id,
@@ -41,6 +42,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       grade: grade,
       effects: effects,
       blend: blend,
+      transitionIn: transitionIn,
     )
   }
 
@@ -61,6 +63,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     grade: Grade? = nil,
     effects: Effects? = nil,
     blend: BlendMode = .normal,
+    transitionIn: Transition? = nil,
   ) {
     self.id = id
     self.source = source
@@ -77,6 +80,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.grade = grade
     self.effects = effects
     self.blend = blend
+    self.transitionIn = transitionIn
   }
 
   // MARK: Public
@@ -106,6 +110,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var effects: Effects?
   /// How the clip mixes with what's under it.
   public var blend: BlendMode
+  /// How the clip comes in from the clip just before it on its track (a cut when `nil`).
+  public var transitionIn: Transition?
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -170,6 +176,7 @@ extension Clip: Codable {
       grade: container.decodeIfPresent(Grade.self, forKey: .grade),
       effects: container.decodeIfPresent(Effects.self, forKey: .effects),
       blend: container.decodeIfPresent(BlendMode.self, forKey: .blend) ?? .normal,
+      transitionIn: container.decodeIfPresent(Transition.self, forKey: .transitionIn),
     )
   }
 
@@ -192,6 +199,7 @@ extension Clip: Codable {
     try container.encodeIfPresent(grade, forKey: .grade)
     try container.encodeIfPresent(effects, forKey: .effects)
     try container.encode(blend, forKey: .blend)
+    try container.encodeIfPresent(transitionIn, forKey: .transitionIn)
   }
 
   // MARK: Private
@@ -214,6 +222,7 @@ extension Clip: Codable {
     case grade
     case effects
     case blend
+    case transitionIn
   }
 
 }

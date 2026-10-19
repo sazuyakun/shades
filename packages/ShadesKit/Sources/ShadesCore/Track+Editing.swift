@@ -78,7 +78,8 @@ extension Clip {
     return clip
   }
 
-  /// The same clip under a fresh ID, for the second half of a split or a copy.
+  /// The same clip under a fresh ID, for the second half of a split or a copy, without the
+  /// transition into it.
   public func withNewID() -> Clip {
     Clip(
       source: source,
@@ -95,6 +96,8 @@ extension Clip {
       grade: grade,
       effects: effects,
       blend: blend,
+      // why: the incoming transition belongs to the original's start, not to a split's middle.
+      transitionIn: nil,
     )
   }
 

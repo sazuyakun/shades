@@ -8,7 +8,8 @@ struct LayerLook {
   // MARK: Lifecycle
 
   /// The look of a layer whose source is `size` pixels: its grade, effects and blend, whether
-  /// it's masked by the subject or an adjustment clip, and a `seed` that changes each frame.
+  /// it's masked by the subject or an adjustment clip, a `seed` that changes each frame, and how
+  /// a transition it's part of shapes it.
   init(
     size: CGSize,
     grade: Grade?,
@@ -19,6 +20,7 @@ struct LayerLook {
     hasLUT: Bool,
     hasCurves: Bool,
     seed: Double,
+    transition: TransitionStyle?,
   ) {
     let grade = grade ?? Grade()
     let effects = effects ?? Effects()
@@ -46,6 +48,16 @@ struct LayerLook {
     masked = isMasked ? 1 : 0
     self.hasCurves = hasCurves ? 1 : 0
     self.isAdjustment = isAdjustment ? 1 : 0
+    dip = Float(transition?.dip ?? 0)
+    wipeProgress = Float(transition?.wipeProgress ?? 0)
+    dipToWhite = transition?.dipsToWhite == true ? 1 : 0
+    wipe =
+      switch transition?.wipe {
+      case .slices: 1
+      case .tiles: 2
+      case .iris: 3
+      default: 0
+      }
   }
 
   // MARK: Internal
@@ -74,5 +86,9 @@ struct LayerLook {
   let masked: Int32
   let hasCurves: Int32
   let isAdjustment: Int32
+  let dip: Float
+  let wipeProgress: Float
+  let dipToWhite: Int32
+  let wipe: Int32
 
 }

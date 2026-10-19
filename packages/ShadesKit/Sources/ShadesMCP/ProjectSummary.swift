@@ -114,6 +114,12 @@ enum ProjectSummary {
     case .adjustment:
       fields["adjustment"] = .bool(true)
     }
+    if let transition = clip.transitionIn {
+      fields["transition_in"] = [
+        "kind": .string(transition.kind.rawValue),
+        "duration": seconds(transition.duration),
+      ]
+    }
     if clip.blend != .normal {
       fields["blend"] = .string(clip.blend.rawValue)
     }

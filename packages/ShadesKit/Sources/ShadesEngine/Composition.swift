@@ -137,10 +137,19 @@ extension Composition {
         }
       }
       if !placed.isEmpty {
+        let handleTrackID = try await addHandles(
+          for: track,
+          project: project,
+          library: library,
+          sources: sources,
+          to: asset,
+        )
         videoLayers.append(VideoLayer(
           trackID: videoTrack?.trackID,
           matteTrackID: matteTrack?.trackID,
+          handleTrackID: handleTrackID,
           clips: placed,
+          transitions: track.transitions,
         ))
       }
     }
@@ -215,6 +224,108 @@ extension Composition {
     return track
   }
 
+  /// Adds a track holding the frames transitions on `track` show past their clips' edges: the
+  /// incoming clip from before its start, the outgoing one after its end. Where the media runs
+  /// out, its edge frame holds. Returns the track, or `nil` when no transition needs one.
+  @MainActor
+  private static func addHandles(
+    for track: Track,
+    project: Project,
+    library: MediaLibrary,
+    sources: [Media.ID: URL],
+    to asset: AVMutableComposition,
+  ) async throws(EngineError) -> CMPersistentTrackID? {
+    var handles: AVMutableCompositionTrack?
+    for (outgoing, incoming, transition) in track.transitions where track.kind == .video {
+      let half = MediaTime(seconds: transition.duration.seconds / 2)
+      let cut = incoming.timelineStart
+      let pieces = [
+        (incoming, incoming.sourceStart - half, cut - half),
+        (outgoing, outgoing.sourceStart + outgoing.duration, cut),
+      ]
+      for (clip, from, at) in pieces {
+        guard
+          let mediaID = clip.mediaID,
+          let media = project.media(withID: mediaID), !media.isStill,
+          let video = try await library.tracks(at: sources[mediaID] ?? media.url).video
+        else {
+          continue
+        }
+        let target: AVMutableCompositionTrack
+        if let handles {
+          target = handles
+        } else {
+          target = try addTrack(.video, to: asset)
+          handles = target
+        }
+        do {
+          let end = try await video.load(.timeRange).end
+          try insertHolding(
+            video,
+            from: from.cmTime,
+            length: half.cmTime,
+            end: end,
+            into: target,
+            at: at.cmTime,
+          )
+        } catch {
+          logger.error("composition.failed reason=handle path=\(media.url.path, privacy: .private)")
+          throw .mediaUnreadable(media.url)
+        }
+      }
+    }
+    return handles?.trackID
+  }
+
+  /// Puts `length` of `video` from `from` into `target` at `at`, holding its first or last frame
+  /// for whatever falls before its start or after `end`.
+  private static func insertHolding(
+    _ video: AVAssetTrack,
+    from: CMTime,
+    length: CMTime,
+    end: CMTime,
+    into target: AVMutableCompositionTrack,
+    at: CMTime,
+  ) throws {
+    let frame = CMTime(value: 1, timescale: 30)
+    let to = from + length
+    let start = max(from, .zero)
+    let stop = min(to, end)
+    var position = at
+    if from < .zero {
+      try hold(video, frameAt: .zero, frame: frame, for: .zero - from, into: target, at: position)
+      position = position + (.zero - from)
+    }
+    if stop > start {
+      try target.insertTimeRange(CMTimeRange(start: start, end: stop), of: video, at: position)
+      position = position + (stop - start)
+    }
+    if to > end {
+      let held = to - max(end, from)
+      try hold(
+        video,
+        frameAt: max(end - frame, .zero),
+        frame: frame,
+        for: held,
+        into: target,
+        at: position,
+      )
+    }
+  }
+
+  /// One frame of `video` stretched to last `length`.
+  private static func hold(
+    _ video: AVAssetTrack,
+    frameAt time: CMTime,
+    frame: CMTime,
+    for length: CMTime,
+    into target: AVMutableCompositionTrack,
+    at position: CMTime,
+  ) throws {
+    try target.insertTimeRange(CMTimeRange(start: time, duration: frame), of: video, at: position)
+    target.scaleTimeRange(CMTimeRange(start: position, duration: frame), toDuration: length)
+  }
+
   /// One instruction for every stretch between clip edges, listing the clips showing there
   /// bottom to top, covering the whole timeline without overlaps as AVFoundation requires.
   private static func instructions(
@@ -230,29 +341,28 @@ extension Composition {
       edges.insert(clip.timelineStart)
       edges.insert(clip.timelineEnd)
     }
+    for (_, incoming, transition) in layers.flatMap(\.transitions) {
+      let half = MediaTime(seconds: transition.duration.seconds / 2)
+      edges.insert(max(incoming.timelineStart - half, .zero))
+      edges.insert(min(incoming.timelineStart + half, duration))
+    }
     let sorted = edges.sorted()
     return zip(sorted, sorted.dropFirst()).map { start, end in
-      let video = layers.compactMap { layer -> CompositionLayer? in
+      let video = layers.flatMap { layer -> [CompositionLayer] in
+        if let crossing = layer.crossing(at: start) {
+          return crossing
+        }
         guard let placed = layer.clips.first(where: { $0.clip.contains(start) }) else {
-          return nil
+          return []
         }
-        guard
-          let source = placed.drawn
-          ?? layer.trackID.map({ LayerSource.video(trackID: $0, rotation: placed.rotation) })
-        else {
-          return nil
-        }
-        return CompositionLayer(
-          clipID: placed.clip.id,
-          source: source,
-          matteTrackID: placed.hasMatte ? layer.matteTrackID : nil,
-        )
+        return layer.layer(for: placed, fromHandles: false, transition: nil).map { [$0] } ?? []
       }
       let words = text.compactMap { clips in
         clips.first { $0.contains(start) }.map { CompositionLayer(
           clipID: $0.id,
           source: .text,
           matteTrackID: nil,
+          transition: nil,
         ) }
       }
       let showing = video + words
@@ -270,12 +380,67 @@ extension Composition {
 
 // MARK: - VideoLayer
 
-/// A timeline track's video in the composition (none when it holds only stills), and its
-/// cut-outs' track if any.
+/// A timeline track's video in the composition (none when it holds only stills), its cut-outs'
+/// track and its transitions' handle track if any, and its transitions.
 private struct VideoLayer {
+
   let trackID: CMPersistentTrackID?
   let matteTrackID: CMPersistentTrackID?
+  let handleTrackID: CMPersistentTrackID?
   let clips: [PlacedClip]
+  let transitions: [(outgoing: Clip, incoming: Clip, transition: Transition)]
+
+  /// Both clips of a transition happening at `start`, outgoing below incoming, or `nil` when
+  /// none is.
+  func crossing(at start: MediaTime) -> [CompositionLayer]? {
+    for (outgoing, incoming, transition) in transitions {
+      let half = MediaTime(seconds: transition.duration.seconds / 2)
+      let cut = incoming.timelineStart
+      guard
+        cut - half <= start, start < cut + half,
+        let leaving = clips.first(where: { $0.clip.id == outgoing.id }),
+        let arriving = clips.first(where: { $0.clip.id == incoming.id })
+      else {
+        continue
+      }
+      let part = { (isIncoming: Bool) in
+        TransitionPart(
+          kind: transition.kind,
+          start: cut - half,
+          duration: transition.duration,
+          isIncoming: isIncoming,
+        )
+      }
+      return [
+        layer(for: leaving, fromHandles: start >= cut, transition: part(false)),
+        layer(for: arriving, fromHandles: start < cut, transition: part(true)),
+      ].compactMap(\.self)
+    }
+    return nil
+  }
+
+  /// How `placed` is drawn: from its own track, or from the handles while a transition shows it
+  /// past its edge.
+  func layer(
+    for placed: PlacedClip,
+    fromHandles: Bool,
+    transition: TransitionPart?,
+  ) -> CompositionLayer? {
+    let videoTrack = fromHandles ? handleTrackID : trackID
+    guard
+      let source = placed.drawn
+      ?? videoTrack.map({ LayerSource.video(trackID: $0, rotation: placed.rotation) })
+    else {
+      return nil
+    }
+    return CompositionLayer(
+      clipID: placed.clip.id,
+      source: source,
+      matteTrackID: placed.hasMatte && !fromHandles ? matteTrackID : nil,
+      transition: transition,
+    )
+  }
+
 }
 
 // MARK: - PlacedClip
@@ -308,6 +473,7 @@ struct ClipTiming: Hashable {
     sourceStart = clip.sourceStart
     duration = clip.duration
     timelineStart = clip.timelineStart
+    transitionLength = clip.transitionIn?.duration
   }
 
   let id: Clip.ID
@@ -315,6 +481,8 @@ struct ClipTiming: Hashable {
   let sourceStart: MediaTime
   let duration: MediaTime
   let timelineStart: MediaTime
+  /// How long its incoming transition lasts: it decides the handles.
+  let transitionLength: MediaTime?
 }
 
 extension Project {

@@ -26,6 +26,7 @@ public enum CommandRegistry {
     SetDrawing.self,
     SetLook.self,
     AddAdjustment.self,
+    SetTransition.self,
     AddText.self,
     SetText.self,
     DetachAudio.self,
