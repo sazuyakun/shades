@@ -10,6 +10,8 @@ Open-source, AI-native video editor for Mac. **No AI inside the app:** Claude Co
 
 No slop: no dead code, no commented-out code, no unused parameters, no TODOs without an issue, no copy-paste duplication.
 
+**A milestone or scope item is marked done only with evidence.** Before ticking anything in `docs/PLAN.md`, check every capability it claims against the code: name the type or command that implements it, the test that covers it, and how it's reached (UI and MCP). Anything missing goes in Known issues; never tick a row on its headline alone.
+
 **Every problem you find gets fixed or written down.** If you can't fix it now, add it to the Known issues table in `docs/PLAN.md` with the milestone that will fix it. Never leave an issue only in chat or in a code comment. When you fix one, remove its row in the same commit.
 
 ## Teaching the user Swift (always)
