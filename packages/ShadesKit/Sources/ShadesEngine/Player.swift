@@ -19,7 +19,7 @@ public final class Player {
         if time.seconds.isFinite {
           self?.currentTime = time.seconds
         }
-        self?.isPlaying = self?.avPlayer.rate != 0
+        self?.watchPlayback()
       }
     }
   }
@@ -52,12 +52,22 @@ public final class Player {
   /// How fast playback runs: 1 is normal, 2 double speed, −1 backwards.
   public private(set) var rate: Float = 1
 
+  /// Whether playback is drawn at half size right now, for the viewer's "Half" badge.
+  public private(set) var isHalfSize = false
+
+  /// How big playback frames are drawn. Exports and frames for Claude are always full size.
+  public var previewQuality = PreviewQuality.auto {
+    didSet { showPreviewSize() }
+  }
+
   /// Brings playback up to date with the project, keeping the playhead where it was. Only
   /// changes to clip timing or media rebuild playback; a clip's look, volume or a track's
   /// visibility update live.
   public func load(_ project: Project) async throws(EngineError) {
+    let requested = ContinuousClock.now
     let timeline = project.timeline
     duration = timeline.duration.seconds
+    frameDuration = 1 / Double(timeline.format.framesPerSecond)
     renderState.update(from: timeline)
     guard duration > 0 else {
       avPlayer.replaceCurrentItem(with: nil)
@@ -73,13 +83,15 @@ public final class Player {
     {
       item.audioMix = composition.audioMix(for: timeline)
       // why: a fresh copy of the video composition makes the player redraw the paused frame.
-      item.videoComposition = composition.videoComposition.mutableCopy() as? AVVideoComposition
+      item.videoComposition = sized(composition)
+      frameCounter.expectFrame(for: .edit, since: requested)
       if let cuedTime {
         self.cuedTime = nil
         await seek(toSeconds: cuedTime)
       }
       return
     }
+    let isEdit = composition != nil
     let current = avPlayer.currentTime()
     // why: with nothing loaded yet the player's time is invalid (NaN seconds); start at zero.
     cuedTime = cuedTime ?? (current.isNumeric ? current.seconds : 0)
@@ -98,8 +110,9 @@ public final class Player {
     guard !Task.isCancelled else {
       return
     }
+    fellBehind = false
     let item = AVPlayerItem(asset: built.asset)
-    item.videoComposition = built.videoComposition
+    item.videoComposition = sized(built)
     item.audioMix = built.audioMix(for: timeline)
     item.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
     avPlayer.replaceCurrentItem(with: item)
@@ -112,6 +125,9 @@ public final class Player {
     // why: read after building, so a seek made while it built lands, not the time before it.
     let playhead = CMTime(seconds: min(cuedTime ?? 0, duration), preferredTimescale: 600)
     cuedTime = nil
+    if isEdit {
+      frameCounter.expectFrame(for: .edit, since: requested)
+    }
     await avPlayer.seek(to: playhead, toleranceBefore: .zero, toleranceAfter: .zero)
     currentTime = playhead.seconds
   }
@@ -134,11 +150,13 @@ public final class Player {
     self.rate = rate
     avPlayer.rate = rate
     isPlaying = true
+    playbackChanged()
   }
 
   public func pause() {
     avPlayer.pause()
     isPlaying = false
+    playbackChanged()
   }
 
   public func togglePlayback() {
@@ -152,6 +170,7 @@ public final class Player {
       return
     }
     let time = CMTime(seconds: min(max(seconds, 0), duration), preferredTimescale: 600)
+    frameCounter.expectFrame(for: .scrub, since: .now)
     await avPlayer.seek(to: time, toleranceBefore: .zero, toleranceAfter: .zero)
     currentTime = time.seconds
   }
@@ -179,5 +198,73 @@ public final class Player {
   @ObservationIgnored private var loadedMattes = [Media.ID: URL]()
   @ObservationIgnored private var loadedCleanSound = [Media.ID: URL]()
   @ObservationIgnored private var sharedContext: RenderContext?
+  /// Seconds between frames on the loaded timeline.
+  @ObservationIgnored private var frameDuration = 1.0 / 24
+  /// Whether frames fell behind while playing at full size since playback was last rebuilt;
+  /// Auto then plays at half size.
+  @ObservationIgnored private var fellBehind = false
+  /// Frames playback had skipped when it last started, to tell when it skips more.
+  @ObservationIgnored private var droppedAtStart = 0
+
+  /// Whether frames should be drawn at half size right now.
+  private var wantsHalfSize: Bool {
+    switch previewQuality {
+    case .full: false
+    case .half: true
+    case .auto: isPlaying && fellBehind
+    }
+  }
+
+  /// `composition`'s frames at the size the preview quality asks for now.
+  private func sized(_ composition: Composition) -> AVVideoComposition? {
+    isHalfSize = wantsHalfSize
+    guard let copy = composition.videoComposition.mutableCopy() as? AVMutableVideoComposition
+    else {
+      return nil
+    }
+    if isHalfSize {
+      // why: video sizes stay even, as encoders and pixel buffers expect.
+      copy.renderSize = CGSize(
+        width: (copy.renderSize.width / 4).rounded(.down) * 2,
+        height: (copy.renderSize.height / 4).rounded(.down) * 2,
+      )
+    }
+    return copy
+  }
+
+  /// Draws at the size the preview quality asks for, when that changed.
+  private func showPreviewSize() {
+    guard wantsHalfSize != isHalfSize, let composition, let item = avPlayer.currentItem else {
+      return
+    }
+    item.videoComposition = sized(composition)
+  }
+
+  /// Keeps up with the player: whether it's still playing (it stops at the end), and for Auto,
+  /// whether frames have started falling behind.
+  private func watchPlayback() {
+    let isPlaying = avPlayer.rate != 0
+    if isPlaying != self.isPlaying {
+      self.isPlaying = isPlaying
+      playbackChanged()
+    }
+    let isBehind = frameCounter.droppedFrames > droppedAtStart
+      || frameCounter.frameTime > .seconds(frameDuration)
+    if previewQuality == .auto, isPlaying, !isHalfSize, isBehind {
+      fellBehind = true
+      showPreviewSize()
+    }
+  }
+
+  /// Counts skipped frames while playing at normal speed, and sizes frames for the new state.
+  private func playbackChanged() {
+    if isPlaying, rate == 1 {
+      droppedAtStart = frameCounter.droppedFrames
+      frameCounter.playbackStarted(frameDuration: frameDuration)
+    } else {
+      frameCounter.playbackStopped()
+    }
+    showPreviewSize()
+  }
 
 }

@@ -79,11 +79,13 @@ final class MetalRenderer: Sendable {
 
   /// Draws `layers` (bottom to top) over black: each upright, fitted inside `output`, placed by
   /// its transform, graded and blended, in depth-slot order. `seed` changes each frame (grain).
-  /// With no layers (a gap), the output is black.
+  /// `scale` is how big `output` is next to the full-size picture (0.5 for a half-size preview),
+  /// so blurs and glows cover the same part of it. With no layers (a gap), the output is black.
   func draw(
     _ layers: [RenderLayer],
     into output: CVPixelBuffer,
     seed: Double = 0,
+    scale: Double = 1,
   ) throws(EngineError) {
     let outputTexture = try texture(for: output)
     let outputSize = CGSize(width: outputTexture.width, height: outputTexture.height)
@@ -132,6 +134,7 @@ final class MetalRenderer: Sendable {
           into: trail,
           sampling: effect?.sampling ?? samplePipeline,
           seed: seed,
+          scale: scale,
           commands: commands,
         )
         encoder = try startPass(on: outputTexture, clearing: false, commands: commands)
@@ -151,6 +154,7 @@ final class MetalRenderer: Sendable {
       try encode(
         layer,
         size: outputSize,
+        scale: scale,
         isMasked: isMasked,
         seed: seed,
         backdrop: backdrop,
@@ -493,6 +497,7 @@ final class MetalRenderer: Sendable {
     into trail: any MTLTexture,
     sampling: any MTLRenderPipelineState,
     seed: Double,
+    scale: Double,
     commands: any MTLCommandBuffer,
   ) throws(EngineError) {
     let encoder = try startPass(on: trail, clearing: true, toClear: true, commands: commands)
@@ -515,7 +520,15 @@ final class MetalRenderer: Sendable {
         transition: layer.transition,
         clipTime: layer.clipTime,
       )
-      try encode(moment, size: size, isMasked: false, seed: seed, backdrop: nil, encoder: encoder)
+      try encode(
+        moment,
+        size: size,
+        scale: scale,
+        isMasked: false,
+        seed: seed,
+        backdrop: nil,
+        encoder: encoder,
+      )
     }
     encoder.endEncoding()
   }
@@ -597,9 +610,11 @@ final class MetalRenderer: Sendable {
     return mask
   }
 
+  /// Draws `layer` into a `size` frame that's `scale` times the full-size picture.
   private func encode(
     _ layer: RenderLayer,
     size: CGSize,
+    scale: Double,
     isMasked: Bool,
     seed: Double,
     backdrop: (any MTLTexture)?,
@@ -608,7 +623,7 @@ final class MetalRenderer: Sendable {
     let lut = layer.grade?.lut.flatMap { lutTexture(at: URL(filePath: $0)) }
     let curveTexture = layer.grade?.curves.flatMap(curvesTexture)
     var look = LayerLook(
-      size: size,
+      size: CGSize(width: size.width / scale, height: size.height / scale),
       grade: layer.grade,
       effects: layer.effects,
       crop: layer.crop,

@@ -25,6 +25,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
 
   /// Draws one frame of the composition.
   private func render(_ request: AVAsynchronousVideoCompositionRequest) {
+    let started = ContinuousClock.now
     guard
       let instruction = request.videoCompositionInstruction as? CompositionInstruction,
       let output = request.renderContext.newPixelBuffer()
@@ -33,10 +34,13 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       request.finish(with: EngineError.renderFailed)
       return
     }
-    let width = Int(instruction.pictureSize.width)
-    let height = Int(instruction.pictureSize.height)
-    let isCanvas = CVPixelBufferGetWidth(output) != width || CVPixelBufferGetHeight(output) !=
-      height
+    let isCanvas = instruction.isCanvas
+    let width = isCanvas ? Int(instruction.pictureSize.width) : CVPixelBufferGetWidth(output)
+    let height = isCanvas ? Int(instruction.pictureSize.height) : CVPixelBufferGetHeight(output)
+    let drawSize = CGSize(width: width, height: height)
+    // why: a preview drawn smaller than the timeline keeps blurs and glows the same size in the
+    // picture, so it looks like the export, just softer.
+    let scale = Double(width) / max(instruction.pictureSize.width, 1)
     let time = MediaTime(seconds: request.compositionTime.seconds)
     let shutter = instruction.renderState.shutter()
     let layers = instruction.layers.compactMap { layer -> RenderLayer? in
@@ -143,7 +147,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
             : Shutter.poses(
               around: time,
               length: shutter * clip.motionBlur,
-              size: instruction.pictureSize,
+              size: drawSize,
               limit: instruction.quality.layerSamples,
               place: place,
             ),
@@ -156,13 +160,18 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         try instruction.renderContext.renderer.draw(layers, into: picture, seed: time.seconds)
         instruction.renderContext.place(picture, onCanvas: output)
       } else {
-        try instruction.renderContext.renderer.draw(layers, into: output, seed: time.seconds)
+        try instruction.renderContext.renderer.draw(
+          layers,
+          into: output,
+          seed: time.seconds,
+          scale: scale,
+        )
       }
     } catch {
       request.finish(with: error)
       return
     }
-    instruction.frameCounter.recordFrame()
+    instruction.frameCounter.recordFrame(at: time.seconds, took: .now - started)
     request.finish(withComposedVideoFrame: output)
   }
 
