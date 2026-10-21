@@ -388,3 +388,18 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A parameter can have a default, `func make(at url: URL = newTempFile())`. Swift works out the default every time the function is called without that argument, so each call can get a fresh value; callers who pass one get theirs instead.
 **JS/TS analogy:** The same as JavaScript's `function make(url = newTempFile())`, which also runs the default expression on each call (unlike Python's once-only defaults).
 **In Shades:** `LUTFixture.make` writes to a new temporary `.cube` file by default, or over an existing one when a test passes `at:` to check that an edited LUT is read again.
+
+## Tuples (`(time: Double, value: Double)`)
+**What it is:** A quick, unnamed bundle of a few values, optionally with labels, written in parentheses. It's a value type like a struct but needs no declaration; you read parts by label (`move.time`) or position (`move.0`).
+**JS/TS analogy:** A small object literal `{ time, value }` (or a typed tuple `[number, number]`), used for a short hop between functions.
+**In Shades:** `PanToSubject.camera(following:)` passes the camera's path around as `[(time: Double, value: Double)]` while it steadies, limits and eases it. Anything that outlives a function gets a real `struct` instead.
+
+## Key paths (`\SubjectPoint.x`, `value[keyPath:]`)
+**What it is:** A reference to a property itself, not its value: `\SubjectPoint.x` means "the x of some SubjectPoint". `point[keyPath: path]` reads it from a particular value.
+**JS/TS analogy:** Passing a property name and reading `point[key]`, but checked by the compiler (no typos, right type).
+**In Shades:** `PanToSubject` runs the same camera maths for both axes by pairing each animated property with the key path to read from the subject's path: `(.x, \SubjectPoint.x)` and `(.y, \.y)`.
+
+## `Menu` with a `primaryAction`
+**What it is:** A button with a small arrow: clicking the button does the main thing, and the arrow opens a menu of alternatives.
+**JS/TS analogy:** A "split button" component (one click handler plus a dropdown).
+**In Shades:** The Video inspector's **Reframe** pans with the subject when clicked; its menu offers **Locked on the Subject**.

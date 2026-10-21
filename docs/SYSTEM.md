@@ -33,7 +33,8 @@ How the whole product works. Decided with Soham on 2026-10-17. Product scope and
   - YouTube: the picture at 2880×2160, centred in a black 3840×2160 canvas.
   - Reels/Shorts: the picture at 1080×810, centred in a black 1080×1920 canvas.
 - **Shorts are ranges of the master**, exported in a batch.
-- iPhone 16 footage is 4K 16:9. **Auto-reframe** crops it to 4:3 and keeps the subject in frame, adjustable per clip.
+- iPhone 16 footage is 4K 16:9. **Auto-reframe** crops it to 4:3 and pans with the subject like a calm camera operator (a dead zone ignores small drifts, a top speed keeps pans slow, moves ease in and out), or stays locked on one framing; adjustable per clip.
+
 
 ## 4. Layers and depth slots
 Every clip can be split by the renderer into **background** and **subject** using its matte (the person or object cut-out). Every text, graphic, sticker or video layer has a **depth slot**:

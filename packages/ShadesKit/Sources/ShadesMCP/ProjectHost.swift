@@ -51,8 +51,10 @@ public protocol ProjectHost: AnyObject {
   func discardPolish()
   /// Queues cut-outs (default: video on the timeline without one); returns what was queued.
   func makeCutouts(_ mediaIDs: [Media.ID]?, engine: MatteEngine) -> [String]
-  /// Reframes clips (default: the selection) around their subject; returns how many.
-  func autoReframe(_ clipIDs: [Clip.ID]?) throws(CommandError) -> Int
+  /// Reframes clips (default: the selection) around their subject, panning with it unless
+  /// `locked`; returns how many.
+  func autoReframe(_ clipIDs: [Clip.ID]?, locked: Bool) throws(CommandError) -> Int
+
   /// Places a plugin's template at `time` with its fields filled; returns what was added.
   func applyTemplate(
     named name: String,

@@ -317,8 +317,12 @@ public final class ToolHandler {
     Tool(
       name: "auto_reframe",
       summary: "Zoom clips to fill the 4:3 frame (no black bars), keeping their subject in view "
-        + "using the cut-out's subject path. Default: the selected clips.",
-      parameters: JSONSchema.object(["clip_ids": Fields.clipIDs]),
+        + "using the cut-out's subject path: the frame pans with the subject (steady, eased, "
+        + "never fast), or stays locked on one framing. Default: the selected clips.",
+      parameters: JSONSchema.object([
+        "clip_ids": Fields.clipIDs,
+        "locked": JSONSchema.boolean("Keep one fixed framing instead of panning (default false)"),
+      ]),
       kind: .edit,
     ),
     Tool(
@@ -674,14 +678,14 @@ public final class ToolHandler {
       )
 
     case "auto_reframe":
-      let request = try decode(ClipListArguments.self, from: arguments, tool: name)
+      let request = try decode(ReframeArguments.self, from: arguments, tool: name)
       let projectHost = try host()
+      let locked = request.locked ?? false
       let count = try perform { () throws(CommandError) -> Int in
-        try projectHost.autoReframe(request.clipIDs)
+        try projectHost.autoReframe(request.clipIDs, locked: locked)
       }
-      return .text(
-        "Reframed \(count) clip\(count == 1 ? "" : "s") to fill the frame around the subject."
-      )
+      return .text("Reframed \(count) clip\(count == 1 ? "" : "s") to fill the frame, "
+        + (locked ? "locked on the subject." : "panning with the subject."))
 
     case "cutout_from_frame":
       let request = try decode(CutoutFrameArguments.self, from: arguments, tool: name)
@@ -1560,10 +1564,11 @@ private struct FollowArguments: Decodable {
   let path: String?
 }
 
-// MARK: - ClipListArguments
+// MARK: - ReframeArguments
 
-private struct ClipListArguments: Decodable {
+private struct ReframeArguments: Decodable {
   let clipIDs: [UUID]?
+  let locked: Bool?
 }
 
 // MARK: - SeekArguments

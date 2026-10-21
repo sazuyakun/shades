@@ -1,7 +1,7 @@
 import ShadesCore
 
 /// Zooms a clip to fill the 4:3 frame (no black bars) and shifts it to keep the subject in view,
-/// never so far that an edge shows.
+/// never so far that an edge shows. The framing is locked: it replaces any x / y keyframes.
 public struct ReframeClip: ToolCommand {
 
   // MARK: Lifecycle
@@ -16,9 +16,10 @@ public struct ReframeClip: ToolCommand {
 
   public static let title = "Reframe"
   public static let name = "reframe_clip"
-  public static let summary = "Zoom a clip to fill the 4:3 frame with no black bars, shifted to "
-    + "keep the subject in view. center_x / center_y say where the subject is across the clip's "
-    + "picture (0–1, default the middle); auto_reframe works them out from the cut-out."
+  public static let summary = "Zoom a clip to fill the 4:3 frame with no black bars, locked on "
+    + "one framing that keeps the subject in view. center_x / center_y say where the subject is "
+    + "across the clip's picture (0–1, default the middle); auto_reframe works them out from the "
+    + "cut-out, or pans with the subject."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -41,26 +42,15 @@ public struct ReframeClip: ToolCommand {
   public let centerY: Double?
 
   public func apply(to project: inout Project) throws(CommandError) {
-    let location = try project.requireClip(clipID)
-    let clip = project.timeline.tracks[location.track].clips[location.clip]
-    guard let mediaID = clip.mediaID else {
-      throw rejected(.invalidValue("only video clips can be reframed"))
-    }
-    let media = try project.requireMedia(mediaID)
-    guard media.hasVideo, media.width > 0, media.height > 0 else {
-      throw rejected(.invalidValue("only video clips can be reframed"))
-    }
-    let pictureAspect = Double(media.width) / Double(media.height)
-    let frameAspect = Double(project.timeline.format.width) / Double(project.timeline.format.height)
-    let fill = max(pictureAspect / frameAspect, frameAspect / pictureAspect)
-    let reach = (fill - 1) / 2
-    var transform = ClipTransform(scale: fill)
-    if pictureAspect > frameAspect {
-      transform.x = min(max(-((centerX ?? 0.5) - 0.5) * fill, -reach), reach)
-    } else {
-      transform.y = min(max(-((centerY ?? 0.5) - 0.5) * fill, -reach), reach)
-    }
-    project.timeline.tracks[location.track].clips[location.clip].transform = transform
+    let framing = try Framing(of: clipID, in: project)
+    var clip = framing.clip
+    clip.transform = ClipTransform(
+      x: framing.offset(forSubjectAt: centerX ?? 0.5, axis: .x),
+      y: framing.offset(forSubjectAt: centerY ?? 0.5, axis: .y),
+      scale: framing.scale,
+    )
+    clip.keyframes.removeAll { $0.property == .x || $0.property == .y }
+    project.timeline.tracks[framing.location.track].clips[framing.location.clip] = clip
   }
 
 }

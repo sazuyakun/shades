@@ -592,15 +592,19 @@ extension Workspace: ProjectHost {
   }
 
   /// Reframes clips (default: the selected ones) to fill the frame around their subject, from
-  /// the cut-out's subject path when there is one. Returns how many were reframed.
-  public func autoReframe(_ clipIDs: [Clip.ID]?) throws(CommandError) -> Int {
+  /// the cut-out's subject path when there is one: panning with it, or `locked` on its typical
+  /// position. Returns how many were reframed.
+  public func autoReframe(_ clipIDs: [Clip.ID]?, locked: Bool) throws(CommandError) -> Int {
     let timeline = editor.project.timeline
     let ids = clipIDs ?? Array(editor.selection)
     let clips = ids.compactMap(timeline.clip(withID:)).filter { $0.mediaID != nil }
     guard !clips.isEmpty else {
       throw .invalidArguments("pick video clips to reframe")
     }
-    let commands = clips.map { clip in
+    let commands = clips.map { clip -> any Command in
+      if !locked, let path = subjectPath(during: clip), path.count > 1 {
+        return PanToSubject(clipID: clip.id, path: path)
+      }
       let center = subjectCenter(of: clip)
       return ReframeClip(clipID: clip.id, centerX: center?.x, centerY: center?.y)
     }
@@ -1032,16 +1036,21 @@ extension Workspace: ProjectHost {
     }
   }
 
-  /// The subject's typical position while `clip` plays: the median of its path in that stretch.
-  private func subjectCenter(of clip: Clip) -> (x: Double, y: Double)? {
+  /// Where the subject is while `clip` plays, from its media's cut-out.
+  private func subjectPath(during clip: Clip) -> [SubjectPoint]? {
     guard let mediaID = clip.mediaID, let path = analysis.analyses[mediaID]?.subjectPath else {
       return nil
     }
-    let end = clip.sourceStart + clip.duration
-    let inside = path.filter { clip.sourceStart <= $0.time && $0.time < end }
-    guard !inside.isEmpty else {
+    let inside = path.filter { clip.sourceStart <= $0.time && $0.time <= clip.sourceEnd }
+    return inside.isEmpty ? nil : inside
+  }
+
+  /// The subject's typical position while `clip` plays: the median of its path in that stretch.
+  private func subjectCenter(of clip: Clip) -> (x: Double, y: Double)? {
+    guard let inside = subjectPath(during: clip) else {
       return nil
     }
+
     let xs = inside.map(\.x).sorted()
     let ys = inside.map(\.y).sorted()
     return (xs[xs.count / 2], ys[ys.count / 2])

@@ -40,8 +40,14 @@ struct ClipVideoInspector: View {
           resetTransform()
         }
         if clip.mediaID != nil {
-          Button("Reframe") { reframe() }
-            .help("Zoom to fill the 4:3 frame, keeping the subject in view")
+          Menu("Reframe") {
+            Button("Locked on the Subject") { reframe(locked: true) }
+          } primaryAction: {
+            reframe(locked: false)
+          }
+          .menuStyle(.button)
+          .fixedSize()
+          .help("Zoom to fill the 4:3 frame, panning with the subject (or locked on it)")
           Button(hasCutout ? "Cut Out Again" : "Cut Out Subject") { cutOut() }
             .help("Find the subject so layers can go behind or inside it")
         }
@@ -61,9 +67,10 @@ struct ClipVideoInspector: View {
     clip.mediaID.flatMap { workspace.analysis.analyses[$0]?.matte } != nil
   }
 
-  private func reframe() {
+  private func reframe(locked: Bool) {
     do {
-      _ = try workspace.autoReframe([clip.id])
+      _ = try workspace.autoReframe([clip.id], locked: locked)
+
     } catch {
       onError(error.errorDescription ?? "The clip couldn't be reframed.")
     }

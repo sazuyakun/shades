@@ -35,7 +35,9 @@ enum Guide {
     polish_propose finds silences, fillers, retakes and jump cuts; polish_apply applies them.
     - make_cutout finds the subject of a clip's media (a background job; watch get_jobs). Then \
     a layer above set to behindSubject shows between the background and the person. \
-    auto_reframe crops 16:9 footage to 4:3 around the subject.
+    auto_reframe crops 16:9 footage to 4:3 and pans with the subject like a calm camera \
+    operator (steady, eased, never fast); locked: true keeps one framing instead, and \
+    reframe_clip locks it wherever you say.
 
     Stickers and motion
     - import_media takes pictures too (PNG, JPEG). add_sticker drops one on top with a die-cut \

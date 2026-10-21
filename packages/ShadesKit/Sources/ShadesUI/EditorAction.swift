@@ -67,6 +67,7 @@ enum EditorAction: CaseIterable, Identifiable {
 
   var id: Self {
     self
+  case reframeLocked
   }
 
   var title: String {
@@ -125,7 +126,8 @@ enum EditorAction: CaseIterable, Identifiable {
     case .toggleTranscript: "Show / Hide Transcript"
     case .polishSelection: "Polish Selection"
     case .cutOutSubject: "Cut Out Subject of Selected Clips"
-    case .reframe: "Reframe Selected Clips"
+    case .reframe: "Reframe Selected Clips (Pan with Subject)"
+    case .reframeLocked: "Reframe Selected Clips (Locked)"
     }
   }
 
@@ -201,6 +203,7 @@ enum EditorAction: CaseIterable, Identifiable {
          .previousEdit,
          .nextEdit:
       transport(in: context)
+    case .reframeLocked: Shortcut("r", [.option, .shift])
 
     case .selectTool,
          .bladeTool,
@@ -238,8 +241,9 @@ enum EditorAction: CaseIterable, Identifiable {
       }
       _ = context.workspace.makeCutouts(media, engine: .visionPerson)
 
-    case .reframe:
-      _ = try context.workspace.autoReframe(nil)
+    case .reframe,
+         .reframeLocked:
+      _ = try context.workspace.autoReframe(nil, locked: self == .reframeLocked)
 
     case .undo:
       try context.editor.undo()
