@@ -12,5 +12,8 @@ extension TextStyle {
     guard (0 ... 0.3).contains(outline) else {
       throw rejected(.invalidValue("outline goes from 0 to 0.3 of the size"))
     }
+    guard (-0.3 ... 2).contains(spacing) else {
+      throw rejected(.invalidValue("spacing goes from -0.3 to 2 of the size"))
+    }
   }
 }

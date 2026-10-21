@@ -30,6 +30,9 @@ enum Guide {
     Text, speech and cut-outs
     - Text clips live on text tracks (T1, T2…), drawn above the video: add_text, set_text. \
     add_text takes words (each word's start and end) to time its reveal to speech.
+    - set_text path (points or svg_path) lays text along any line, curve or loop, letters \
+    turning with it; align places it at the path's start, middle or end, spacing opens the \
+    letters up, and pathOffset keyframes make it travel along. style arc bends it on a circle.
     - split_words turns a text or caption clip into one clip per word, each still where it sat: \
     then move, keyframe, tilt or set the depth slot of each word on its own (per-word layers).
     - transcribe, then get_transcript for word timings; add_captions turns them into text clips. \

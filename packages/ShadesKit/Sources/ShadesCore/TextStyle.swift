@@ -16,6 +16,7 @@ public struct TextStyle: Codable, Hashable, Sendable {
     anchor: TextAnchor = .bottom,
     highlight: HexColor? = nil,
     arc: Double = 0,
+    spacing: Double = 0,
   ) {
     self.font = font
     self.size = size
@@ -27,6 +28,7 @@ public struct TextStyle: Codable, Hashable, Sendable {
     self.anchor = anchor
     self.highlight = highlight
     self.arc = arc
+    self.spacing = spacing
   }
 
   // MARK: Public
@@ -51,6 +53,8 @@ public struct TextStyle: Codable, Hashable, Sendable {
   /// How far the line bends along a circle, in degrees: positive arches up like a rainbow,
   /// negative dips like a smile, 0 is straight.
   public var arc: Double
+  /// Extra room between letters as a fraction of the size; negative tightens them.
+  public var spacing: Double
 
 }
 
@@ -77,6 +81,7 @@ extension TextStyle {
       anchor: container.decodeIfPresent(TextAnchor.self, forKey: .anchor) ?? base.anchor,
       highlight: container.decodeIfPresent(HexColor.self, forKey: .highlight),
       arc: container.decodeIfPresent(Double.self, forKey: .arc) ?? 0,
+      spacing: container.decodeIfPresent(Double.self, forKey: .spacing) ?? 0,
     )
   }
 
@@ -93,6 +98,7 @@ extension TextStyle {
     case anchor
     case highlight
     case arc
+    case spacing
   }
 
 }

@@ -15,6 +15,7 @@ extension AnimatedProperty {
     case .opacity: "Opacity"
     case .volume: "Volume"
     case .speed: "Speed"
+    case .pathOffset: "Along Path"
     }
   }
 
@@ -31,6 +32,7 @@ extension AnimatedProperty {
     case .opacity: 0 ... 1
     case .volume: 0 ... 2
     case .speed: 0.1 ... 4
+    case .pathOffset: -1 ... 1
     }
   }
 
@@ -45,8 +47,18 @@ extension AnimatedProperty {
     }
   }
 
+  /// Whether `clip` has this property to show: a path offset only on text along a path.
+  func isShown(for clip: Clip) -> Bool {
+    switch self {
+    case .volume,
+         .speed: false
+    case .pathOffset: clip.text?.path != nil
+    default: true
+    }
+  }
+
   /// The edit that sets this property's fixed value on `clip`.
-  func fixedEdit(_ value: Double, on clip: Clip.ID) -> SetClip {
+  func fixedEdit(_ value: Double, on clip: Clip.ID) -> any ToolCommand {
     switch self {
     case .x: SetClip(clipID: clip, x: value)
     case .y: SetClip(clipID: clip, y: value)
@@ -58,6 +70,7 @@ extension AnimatedProperty {
     case .opacity: SetClip(clipID: clip, opacity: value)
     case .volume: SetClip(clipID: clip, volume: value)
     case .speed: SetClip(clipID: clip, speed: value)
+    case .pathOffset: SetText(clipID: clip, pathOffset: value)
     }
   }
 }

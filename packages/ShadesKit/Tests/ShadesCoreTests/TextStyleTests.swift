@@ -35,6 +35,27 @@ struct TextStyleTests {
     #expect(content.style == .caption)
     #expect(content.reveal == .none)
     #expect(content.words == nil)
+    #expect(content.path == nil && content.word == nil && content.style.spacing == 0)
+  }
+
+  @Test
+  func `text on a path round-trips and its offset is a keyframeable value`() throws {
+    let content = TextContent(
+      text: "round and round",
+      style: TextStyle(spacing: 0.2),
+      word: 1,
+      path: TextPath(points: [DrawingPoint(x: 0, y: 0.5), DrawingPoint(x: 1, y: 0.5)], offset: 0.3),
+    )
+    let data = try JSONEncoder().encode(content)
+    #expect(try JSONDecoder().decode(TextContent.self, from: data) == content)
+    #expect(content.shownText == "and")
+    let clip = Clip(
+      source: .text(content),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 2),
+      timelineStart: .zero,
+    )
+    #expect(clip.value(of: .pathOffset, at: .zero) == 0.3)
   }
 
   @Test

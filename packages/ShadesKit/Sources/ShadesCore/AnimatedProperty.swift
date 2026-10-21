@@ -12,11 +12,19 @@ public enum AnimatedProperty: String, Codable, CaseIterable, Sendable {
   case volume
   /// How fast the clip plays its media (1 normal, 2 twice as fast). Its keyframes make a ramp.
   case speed
+  /// How far text on a path has moved along it (`TextPath.offset`).
+  case pathOffset
 
   // MARK: Public
 
-  /// Whether it changes how the picture is placed or drawn (everything but volume and speed).
-  public var isVisual: Bool {
-    self != .volume && self != .speed
-  }
+  /// What a camera move animates: where the picture is seen from.
+  public static let cameraMoves: [AnimatedProperty] = [
+    .x,
+    .y,
+    .scale,
+    .rotation,
+    .tiltX,
+    .tiltY,
+    .depth,
+  ]
 }

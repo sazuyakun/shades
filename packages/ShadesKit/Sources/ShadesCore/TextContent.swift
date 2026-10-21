@@ -13,12 +13,14 @@ public struct TextContent: Hashable, Sendable {
     words: [TimedWord]? = nil,
     reveal: TextReveal = .none,
     word: Int? = nil,
+    path: TextPath? = nil,
   ) {
     self.text = text
     self.style = style
     self.words = words
     self.reveal = reveal
     self.word = word
+    self.path = path
   }
 
   // MARK: Public
@@ -31,6 +33,8 @@ public struct TextContent: Hashable, Sendable {
   /// The one word this clip shows (counting from 0), where it sits in the whole text: a
   /// per-word layer. `nil` shows every word.
   public var word: Int?
+  /// The path the text follows, instead of sitting in lines.
+  public var path: TextPath?
 
   /// The text's words, split on spaces.
   public var wordList: [Substring] {
@@ -60,6 +64,7 @@ extension TextContent: Codable {
       words: container.decodeIfPresent([TimedWord].self, forKey: .words),
       reveal: container.decodeIfPresent(TextReveal.self, forKey: .reveal) ?? .none,
       word: container.decodeIfPresent(Int.self, forKey: .word),
+      path: container.decodeIfPresent(TextPath.self, forKey: .path),
     )
   }
 
@@ -71,6 +76,7 @@ extension TextContent: Codable {
     case words
     case reveal
     case word
+    case path
   }
 
 }

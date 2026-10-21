@@ -85,7 +85,9 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
 
       case .text:
         let drawn = clip.text.flatMap { content in
-          instruction.renderContext.text(
+          var content = content
+          content.path?.offset = clip.value(of: .pathOffset, at: time)
+          return instruction.renderContext.text(
             content,
             at: clip.sourceTime(at: time).seconds,
             duration: clip.duration.seconds,

@@ -73,11 +73,11 @@ enum TextRenderer {
     let frame = CGSize(width: frameWidth, height: frameHeight)
     let fontSize = frame.height * style.size
     let fill = attributedText(content, states: states, fontSize: fontSize, isOutline: false)
-    let layout = layout(of: fill, style: style, states: states, frame: frame)
+    let layout = layout(of: fill, content: content, states: states, frame: frame)
     let outline = style.outline > 0
       ? self.layout(
         of: attributedText(content, states: states, fontSize: fontSize, isOutline: true),
-        style: style,
+        content: content,
         states: states,
         frame: frame,
       ).pieces
@@ -168,6 +168,10 @@ enum TextRenderer {
         .init(kCTFontAttributeName as String): font,
         wordKey: index,
       ]
+      // why: any kern value, even 0, replaces the font's own pair kerning.
+      if style.spacing != 0 {
+        attributes[.init(kCTKernAttributeName as String)] = style.spacing * fontSize
+      }
       // why: a stroke is centred on the letter's edge, so twice the width shows the asked
       // thickness outside the fill.
       if isOutline {
@@ -216,13 +220,41 @@ enum TextRenderer {
   }
 
   /// Where every stretch of the text goes: in lines wrapped to the frame, or letter by letter
-  /// along the arc.
+  /// along its path or arc.
   private static func layout(
     of string: NSAttributedString,
-    style: TextStyle,
+    content: TextContent,
     states: [WordState],
     frame: CGSize,
   ) -> TextLayout {
+    let style = content.style
+    if let path = content.path {
+      let line = CTLineCreateWithAttributedString(string)
+      let width = CTLineGetTypographicBounds(line, nil, nil, nil)
+      // why: the path is in the frame (y down); drawing space has y up.
+      let along = Polyline(path.points.map { point in
+        CGPoint(x: point.x * frame.width, y: (1 - point.y) * frame.height)
+      })
+      let room = along.length - CGFloat(width)
+      let aligned: CGFloat =
+        switch style.align {
+        case .left: 0
+        case .center: room / 2
+        case .right: room
+        }
+      let pieces = glyphs(
+        of: line,
+        along: along,
+        from: aligned + along.length * path.offset,
+        states: states,
+      )
+      return TextLayout(
+        pieces: pieces,
+        box: pieces.map(\.bounds).reduce(pieces.first?.bounds ?? .zero) { $0.union($1) }.integral,
+        anchor: CGPoint(x: frame.width / 2, y: frame.height / 2),
+        anchorOffset: .zero,
+      )
+    }
     if style.arc != 0 {
       let line = CTLineCreateWithAttributedString(string)
       let width = CTLineGetTypographicBounds(line, nil, nil, nil)

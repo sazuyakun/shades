@@ -31,9 +31,10 @@ public struct SetKeyframes: ToolCommand {
   public static let title = "Set Keyframes"
   public static let name = "set_keyframes"
   public static let summary = "Animate a clip's x, y, scale, rotation, tiltX, tiltY, depth, "
-    + "opacity, volume or speed: give the value at moments inside the clip, and the property "
-    + "moves between them. A keyframe's easing shapes the move to the next one (spring and "
-    + "bouncy overshoot). An animated property ignores its fixed value from set_clip. Each "
+    + "opacity, volume, speed or pathOffset (text travelling along its path): give the value at "
+    + "moments inside the clip, and the property moves between them. A keyframe's easing "
+    + "shapes the move to the next one (spring and bouncy overshoot). An animated property "
+    + "ignores its fixed value from set_clip. Each "
     + "keyframe sticks to the frame showing at its moment. Speed keyframes ramp a video or sound "
     + "clip's speed (0.1 to 10): it keeps its first and last frames, so it gets longer or "
     + "shorter and later clips on its track move with its end."
@@ -79,7 +80,7 @@ public struct SetKeyframes: ToolCommand {
       ))
     }
     for key in keyframes {
-      try validate(key.value, for: key.property)
+      try validate(key.value, for: key.property, on: original)
       if key.property == .speed {
         try project.requireSpeedChangeable(original)
       }
@@ -106,7 +107,11 @@ public struct SetKeyframes: ToolCommand {
 
   // MARK: Private
 
-  private func validate(_ value: Double, for property: AnimatedProperty) throws(CommandError) {
+  private func validate(
+    _ value: Double,
+    for property: AnimatedProperty,
+    on clip: Clip,
+  ) throws(CommandError) {
     switch property {
     case .opacity where !(0 ... 1).contains(value):
       throw rejected(.invalidValue("opacity goes from 0 to 1"))
@@ -123,6 +128,9 @@ public struct SetKeyframes: ToolCommand {
 
     case .depth where !(-10 ... 1.5).contains(value):
       throw rejected(.invalidValue("depth goes from -10 (far away) to 1.5 (close)"))
+
+    case .pathOffset where clip.text?.path == nil:
+      throw rejected(.invalidValue("pathOffset animates text on a path; set_text path first"))
 
     case .speed where !Clip.speeds.contains(value):
       throw rejected(.invalidValue(

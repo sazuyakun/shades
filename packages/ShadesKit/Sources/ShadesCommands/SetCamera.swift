@@ -28,8 +28,7 @@ public struct SetCamera: ToolCommand {
           [
             "property": JSONSchema.string(
               "What moves",
-              values: AnimatedProperty.allCases.filter { $0.isVisual && $0 != .opacity }
-                .map(\.rawValue),
+              values: AnimatedProperty.cameraMoves.map(\.rawValue),
             ),
             "at": Fields.time("When"),
             "value": JSONSchema.number("The value at that moment"),
@@ -54,8 +53,10 @@ public struct SetCamera: ToolCommand {
       project.timeline.camera = []
     }
     for key in keyframes {
-      guard key.property.isVisual, key.property != .opacity else {
-        throw rejected(.invalidValue("the camera has no opacity, volume or speed"))
+      guard AnimatedProperty.cameraMoves.contains(key.property) else {
+        throw rejected(.invalidValue(
+          "the camera moves only x, y, scale, rotation, tiltX, tiltY and depth"
+        ))
       }
       guard key.property != .scale || (0.1 ... 20).contains(key.value) else {
         throw rejected(.invalidValue("camera zoom (scale) goes from 0.1 to 20"))

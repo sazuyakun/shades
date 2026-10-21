@@ -4,7 +4,8 @@ import ShadesEngine
 import SwiftUI
 
 /// Draws over the viewer with the Draw tool: each drag is a stroke. A stroke starts a drawing at
-/// the playhead, or adds to the selected drawing when it's showing there.
+/// the playhead, adds to the selected drawing when it's showing there, or becomes the path the
+/// selected text follows.
 struct DrawingCanvas: View {
 
   // MARK: Internal
@@ -40,7 +41,10 @@ struct DrawingCanvas: View {
       Theme.secondaryText.opacity(0.6),
       style: StrokeStyle(lineWidth: 1, dash: [4, 4]),
     ))
-    .help("Draw Tool (P): drag to draw over the picture. Press P again to stop.")
+    .help(
+      "Draw Tool (P): drag to draw over the picture, or along the path selected text should "
+        + "follow. Press P again to stop."
+    )
   }
 
   // MARK: Private
@@ -59,10 +63,13 @@ struct DrawingCanvas: View {
     }
     let playhead = MediaTime(seconds: player.currentTime)
     let timeline = editor.project.timeline
-    let selected = editor.selection.compactMap(timeline.clip(withID:))
-      .first { $0.drawing != nil && $0.contains(playhead) }
+    let showing = editor.selection.compactMap(timeline.clip(withID:))
+      .filter { $0.contains(playhead) }
+    let selected = showing.first { $0.drawing != nil }
     do {
-      if let selected {
+      if let text = showing.first(where: { $0.text != nil }) {
+        try editor.perform(SetText(clipID: text.id, path: stroke))
+      } else if let selected {
         try editor.perform(SetDrawing(clipID: selected.id, addStrokes: [stroke]))
       } else {
         try editor.perform(AddDrawing(at: playhead, strokes: [stroke]))

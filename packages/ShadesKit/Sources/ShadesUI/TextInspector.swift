@@ -67,6 +67,25 @@ struct TextInspector: View {
         onEnd: editor.endCoalescing,
       )
       InspectorSlider(
+        label: "Spacing",
+        value: content.style.spacing,
+        range: -0.2 ... 1,
+        format: { "\(Int(($0 * 100).rounded()))%" },
+        onChange: change { $0.spacing = $1 },
+        onEnd: editor.endCoalescing,
+      )
+      if content.path == nil {
+        Text("Draw a line with the Draw tool (P) to lay the text along it.")
+          .font(.caption)
+          .foregroundStyle(Theme.secondaryText)
+      } else {
+        Button("Straighten") {
+          perform(SetText(clipID: clip.id, path: []), coalescing: nil)
+        }
+        .buttonStyle(CapsuleButtonStyle())
+        .help("Take the text off its path and back into lines")
+      }
+      InspectorSlider(
         label: "Bend",
         value: content.style.arc,
         range: -180 ... 180,

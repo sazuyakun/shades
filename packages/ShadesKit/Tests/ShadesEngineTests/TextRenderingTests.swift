@@ -140,6 +140,38 @@ struct TextRenderingTests {
     #expect(try GoldenFrame.matches(png, named: "words-as-layers", in: golden))
   }
 
+  @Test
+  func `text follows a wave, its letters turning with it`() async throws {
+    var style = TextStyle(size: 0.1, color: HexColor("#FFD84A") ?? .white, spacing: 0.1)
+    style.shadow = false
+    let wave = (0 ... 40).map { step in
+      let x = Double(step) / 40
+      return DrawingPoint(x: 0.05 + x * 0.9, y: 0.5 - 0.15 * sin(x * 2 * .pi))
+    }
+    let content = TextContent(text: "riding the wave", style: style, path: TextPath(points: wave))
+    let png = try await frame(content, at: 0.5)
+    #expect(try GoldenFrame.matches(png, named: "text-on-wave", in: golden))
+  }
+
+  @Test
+  func `keyframing the path offset moves text along its path`() async throws {
+    var style = TextStyle(size: 0.1, outline: 0, align: .left)
+    style.shadow = false
+    let line = TextPath(points: [DrawingPoint(x: 0, y: 0.5), DrawingPoint(x: 1, y: 0.5)])
+    let content = TextContent(text: "GO", style: style, path: line)
+    let png = try await frame(content, at: 1) { clip in
+      clip.keyframes = [
+        Keyframe(property: .pathOffset, time: .zero, value: 0),
+        Keyframe(property: .pathOffset, time: MediaTime(seconds: 2), value: 1),
+      ]
+    }
+    let lettered = try stride(from: 0.0, through: 1, by: 0.01).filter { x in
+      try PixelProbe.color(of: png, x: x, y: 0.46).green > 150
+    }
+    let left = try #require(lettered.first)
+    #expect(abs(left - 0.5) < 0.05, "halfway along at the halfway moment")
+  }
+
   // MARK: Private
 
   private let golden = URL(filePath: #filePath).deletingLastPathComponent()

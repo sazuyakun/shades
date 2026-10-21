@@ -21,7 +21,7 @@ struct ClipVideoInspector: View {
         DrawingInspector(clip: clip, drawing: drawing, onError: onError)
         Hairline()
       }
-      ForEach(AnimatedProperty.allCases.filter(\.isVisual), id: \.self) { property in
+      ForEach(AnimatedProperty.allCases.filter { $0.isShown(for: clip) }, id: \.self) { property in
         AnimatedSlider(clip: clip, property: property, onError: onError)
       }
       if clip.source != .adjustment {

@@ -103,6 +103,7 @@ extension Clip {
     case .opacity: opacity
     case .volume: volume
     case .speed: speed
+    case .pathOffset: text?.path?.offset ?? 0
     }
   }
 

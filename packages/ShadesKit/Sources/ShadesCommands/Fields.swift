@@ -37,6 +37,9 @@ public enum Fields {
     "arc": JSONSchema.number(
       "Bend the text along a circle, in degrees: positive arches up, negative dips (default 0)"
     ),
+    "spacing": JSONSchema.number(
+      "Extra room between letters as a fraction of the size; negative tightens (default 0)"
+    ),
   ])
   public static let reveal = JSONSchema.string(
     "How the words come on: none, pop (each pops in as it's said), highlight (the spoken word "

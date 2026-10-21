@@ -114,6 +114,12 @@ enum ProjectSummary {
       }
       fields["style"] = .string(content.style.font ?? "system bold")
       fields["reveal"] = .string(content.reveal.rawValue)
+      if let path = content.path {
+        fields["path"] = [
+          "points": .number(Double(path.points.count)),
+          "offset": rounded(path.offset),
+        ]
+      }
 
     case .drawing(let drawing):
       fields["drawing"] = [
