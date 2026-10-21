@@ -18,9 +18,28 @@ struct ShaderEffectTests {
         return float4(mix(color.rgb, 1.0 - color.rgb, amount), color.a);
       }
       """)
-    let png = try await frame(effects: Effects(shader: shader.path, shaderAmount: 1))
+    let red = try await VideoFixture.make(red: 255, green: 0, blue: 0)
+    let png = try await frame(of: red, height: 180, effects: Effects(
+      shader: shader.path,
+      shaderAmount: 1,
+    ))
     let center = try PixelProbe.color(of: png, x: 0.5, y: 0.5)
     #expect(center.red < 40 && center.green > 200 && center.blue > 200)
+  }
+
+  @Test
+  func `a shader effect can ripple the picture by where it is`() async throws {
+    let shader = try write("""
+      float4 effect(
+        float4 color, float2 uv, float time, float amount, texture2d<half> source, sampler s
+      ) {
+        float2 moved = uv + float2(sin(uv.y * 40.0) * 0.03 * amount, 0.0);
+        return float4(source.sample(s, moved));
+      }
+      """)
+    let chart = try await VideoFixture.makeChart()
+    let png = try await frame(of: chart, height: 240, effects: Effects(shader: shader.path))
+    #expect(try GoldenFrame.matches(png, named: "effect-shader-ripple", in: golden))
   }
 
   @Test
@@ -44,20 +63,22 @@ struct ShaderEffectTests {
 
   // MARK: Private
 
+  private let golden = URL(filePath: #filePath).deletingLastPathComponent()
+    .appending(path: "Golden")
+
   private func write(_ source: String) throws -> URL {
     let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).metal")
     try source.write(to: url, atomically: true, encoding: .utf8)
     return url
   }
 
-  /// A red clip with `effects`, rendered.
-  private func frame(effects: Effects) async throws -> Data {
-    let url = try await VideoFixture.make(red: 255, green: 0, blue: 0)
+  /// A 320-wide clip of the video at `url` with `effects`, rendered.
+  private func frame(of url: URL, height: Int, effects: Effects) async throws -> Data {
     let media = Media(
       url: url,
       duration: MediaTime(seconds: 1),
       width: 320,
-      height: 180,
+      height: height,
       hasAudio: false,
     )
     let clip = Clip(

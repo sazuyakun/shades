@@ -29,6 +29,21 @@ struct PerspectiveRenderingTests {
     let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
     #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.5).blue > 200)
     #expect(try PixelProbe.color(of: png, x: 0.33, y: 0.5).red > 200)
+    #expect(try GoldenFrame.matches(png, named: "layer-further-away", in: golden))
+  }
+
+  @Test
+  func `the 3D camera turns and tilts the whole scene`() async throws {
+    let project = try await blueOverRed { clip, timeline in
+      clip.transform = ClipTransform(x: 0.15, scale: 0.4, depth: 1)
+      timeline.camera = [
+        Keyframe(property: .tiltY, time: .zero, value: 25),
+        Keyframe(property: .tiltX, time: .zero, value: -10),
+        Keyframe(property: .scale, time: .zero, value: 0.8),
+      ]
+    }
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    #expect(try GoldenFrame.matches(png, named: "camera-turned", in: golden))
   }
 
   @Test

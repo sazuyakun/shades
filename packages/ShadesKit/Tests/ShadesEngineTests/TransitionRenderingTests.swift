@@ -38,13 +38,18 @@ struct TransitionRenderingTests {
     let png = try await frame(.iris, at: 1.0)
     #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.5).blue > 200)
     #expect(try PixelProbe.color(of: png, x: 0.05, y: 0.1).red > 200)
-    #expect(try GoldenFrame.matches(png, named: "transition-iris", in: golden))
   }
 
-  @Test
-  func `slices slide the next clip in band by band`() async throws {
-    let png = try await frame(.slices, at: 1.05)
-    #expect(try GoldenFrame.matches(png, named: "transition-slices", in: golden))
+  @Test(arguments: TransitionKind.allCases)
+  func `every transition at mid-progress matches its golden frame`(
+    kind: TransitionKind
+  ) async throws {
+    let png = try await frame(kind, at: 1.0)
+    #expect(try GoldenFrame.matches(
+      png,
+      named: "transition-\(kind.rawValue.lowercased())",
+      in: golden,
+    ))
   }
 
   // MARK: Private

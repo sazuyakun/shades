@@ -60,6 +60,51 @@ public enum VideoFixture {
     return try await write(seconds: seconds, width: width, height: height) { _ in frame }
   }
 
+  /// Writes a `.mov` of a test chart: six colour bars (red, yellow, green, cyan, blue, magenta)
+  /// over a grey ramp from black to white, so grades and effects show on every hue and level.
+  public static func makeChart(
+    seconds: Int = 1,
+    width: Int = 320,
+    height: Int = 240,
+  ) async throws(FixtureError) -> URL {
+    let bars: [(red: Double, green: Double, blue: Double)] = [
+      (1, 0, 0),
+      (1, 1, 0),
+      (0, 1, 0),
+      (0, 1, 1),
+      (0, 0, 1),
+      (1, 0, 1),
+    ]
+    let rampHeight = Double(height) / 3
+    let frame = try picture(width: width, height: height) { context in
+      let barWidth = Double(width) / Double(bars.count)
+      for (index, bar) in bars.enumerated() {
+        context.setFillColor(CGColor(red: bar.red, green: bar.green, blue: bar.blue, alpha: 1))
+        context.fill(CGRect(
+          x: Double(index) * barWidth,
+          y: rampHeight,
+          width: barWidth,
+          height: Double(height) - rampHeight,
+        ))
+      }
+      let ramp = CGGradient(
+        colorsSpace: CGColorSpaceCreateDeviceRGB(),
+        colors: [CGColor(gray: 0, alpha: 1), CGColor(gray: 1, alpha: 1)] as CFArray,
+        locations: [0, 1],
+      )
+      context.clip(to: CGRect(x: 0, y: 0, width: Double(width), height: rampHeight))
+      if let ramp {
+        context.drawLinearGradient(
+          ramp,
+          start: .zero,
+          end: CGPoint(x: Double(width), y: 0),
+          options: [],
+        )
+      }
+    }
+    return try await write(seconds: seconds, width: width, height: height) { _ in frame }
+  }
+
   /// Writes a `.mov` of a checkered square sliding from the left third to the right third of a
   /// dark frame over its length, staying vertically centred (or, `diagonal`, also sliding from
   /// the top third to the bottom third): something to track or blur.
