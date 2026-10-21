@@ -6,8 +6,8 @@ import SwiftUI
 
 // MARK: - ClipColorInspector
 
-/// Color tab for a clip: its grade, LUT, film-look effects, key and blend mode. For an
-/// adjustment clip these change everything under it.
+/// Color tab for a clip: its grade, LUT, curves, the colours or shape it's limited to, film-look
+/// effects, key and blend mode. For an adjustment clip these change everything under it.
 struct ClipColorInspector: View {
 
   // MARK: Internal
@@ -45,6 +45,35 @@ struct ClipColorInspector: View {
         set(grade: changed)
       }
       Hairline()
+      CurvesEditor(
+        curves: grade.curves ?? Curves(),
+        onChange: { curves in
+          var changed = grade
+          changed.curves = curves
+          set(grade: changed)
+        },
+        onEnd: editor.endCoalescing,
+      )
+      Hairline()
+      QualifierControls(
+        qualifier: grade.qualifier,
+        onChange: { qualifier in
+          var changed = grade
+          changed.qualifier = qualifier
+          set(grade: changed)
+        },
+        onEnd: editor.endCoalescing,
+      )
+      GradeWindowControls(
+        window: grade.window,
+        onChange: { window in
+          var changed = grade
+          changed.window = window
+          set(grade: changed)
+        },
+        onEnd: editor.endCoalescing,
+      )
+      Hairline()
       ForEach(EffectControl.allCases, id: \.self) { control in
         InspectorSlider(
           label: control.label,
@@ -59,11 +88,15 @@ struct ClipColorInspector: View {
           onEnd: editor.endCoalescing,
         )
       }
-      Toggle("Key out green", isOn: Binding(get: { effects.key != nil }, set: { isOn in
-        var changed = effects
-        changed.key = isOn ? ChromaKey() : nil
-        set(effects: changed)
-      }))
+      ChromaKeyControls(
+        key: effects.key,
+        onChange: { key in
+          var changed = effects
+          changed.key = key
+          set(effects: changed)
+        },
+        onEnd: editor.endCoalescing,
+      )
       Picker("Blend", selection: Binding(
         get: { clip.blend },
         set: { perform(SetLook(clipIDs: [clip.id], blend: $0), coalescing: nil) },

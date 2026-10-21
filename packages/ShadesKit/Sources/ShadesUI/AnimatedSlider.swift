@@ -3,8 +3,8 @@ import ShadesCore
 import ShadesEngine
 import SwiftUI
 
-/// A slider for one animatable property, with a diamond that adds or removes a keyframe at the
-/// playhead. Once the property has keyframes, dragging sets the keyframe at the playhead.
+/// A clip's slider for one animatable property. Once the property has keyframes, dragging sets
+/// the keyframe at the playhead.
 struct AnimatedSlider: View {
 
   // MARK: Internal
@@ -17,26 +17,20 @@ struct AnimatedSlider: View {
     let playhead = MediaTime(seconds: player.currentTime)
       .roundedToFrame(at: editor.project.timeline.format.framesPerSecond)
     let isInside = clip.timelineStart <= playhead && playhead <= clip.timelineEnd
-    let keyHere = keys.contains { $0.time == clip.sourceTime(at: playhead) }
-    HStack(alignment: .bottom, spacing: 8) {
-      InspectorSlider(
-        label: property.label,
-        value: clip.value(of: property, at: playhead),
-        range: property.range,
-        format: property.format,
-        onChange: { change(to: $0, at: playhead, isInside: isInside) },
-        onEnd: editor.endCoalescing,
-      )
-      Button {
-        toggleKeyframe(at: playhead, removing: keyHere)
-      } label: {
-        Image(systemName: keyHere ? "diamond.fill" : "diamond")
-          .foregroundStyle(keys.isEmpty ? Theme.faintText : Theme.text)
-      }
-      .buttonStyle(.plain)
-      .disabled(!isInside)
-      .help(keyHere ? "Remove the keyframe at the playhead" : "Add a keyframe at the playhead")
-    }
+    let keyHere = keys.first { $0.time == clip.sourceTime(at: playhead) }
+    KeyframeSlider(
+      property: property,
+      value: clip.value(of: property, at: playhead),
+      keyHere: keyHere,
+      isAnimated: !keys.isEmpty,
+      canKey: isInside,
+      onChange: { change(to: $0, at: playhead, isInside: isInside) },
+      onEnd: editor.endCoalescing,
+      onToggleKey: { toggleKeyframe(at: playhead, removing: keyHere != nil) },
+      onEase: { key, easing in
+        perform(setKey(key.value, at: playhead, easing: easing), coalescing: nil)
+      },
+    )
   }
 
   // MARK: Private
@@ -65,8 +59,13 @@ struct AnimatedSlider: View {
     }
   }
 
-  private func setKey(_ value: Double, at playhead: MediaTime) -> SetKeyframes {
-    let easing = keys.last { $0.time <= clip.sourceTime(at: playhead) }?.easing
+  /// A keyframe at the playhead; without an easing it keeps the one in force there.
+  private func setKey(
+    _ value: Double,
+    at playhead: MediaTime,
+    easing: Easing? = nil,
+  ) -> SetKeyframes {
+    let easing = easing ?? keys.last { $0.time <= clip.sourceTime(at: playhead) }?.easing
     return SetKeyframes(clipID: clip.id, keyframes: [
       SetKeyframes.Key(property: property, at: playhead, value: value, easing: easing)
     ])

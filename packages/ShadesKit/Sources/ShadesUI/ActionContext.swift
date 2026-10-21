@@ -61,6 +61,13 @@ struct ActionContext {
     try editor.perform(commands, title: title)
   }
 
+  /// Applies `command` and selects the clips it added.
+  func add(_ command: some Command) throws(CommandError) {
+    let before = Set(timeline.allClips.map(\.id))
+    try editor.perform(command)
+    editor.selection = Set(timeline.allClips.map(\.id)).subtracting(before)
+  }
+
   /// Moves the playhead, keeping it on the timeline.
   func seek(to time: MediaTime) {
     Task { await player.seek(toSeconds: time.seconds) }

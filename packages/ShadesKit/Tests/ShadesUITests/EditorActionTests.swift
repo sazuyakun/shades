@@ -123,6 +123,57 @@ struct EditorActionTests {
     #expect(throws: CommandError.self) { try EditorAction.removeShort.perform(in: context) }
   }
 
+  @Test
+  func `adding text places a title at the playhead and selects it`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 1)
+    try EditorAction.addText.perform(in: context)
+    let text = try #require(editor.project.timeline.allClips.first { $0.text != nil })
+    #expect(text.timelineStart == MediaTime(seconds: 1))
+    #expect(text.text?.style.anchor == .center)
+    #expect(editor.selection == [text.id])
+  }
+
+  @Test
+  func `an adjustment clip covers the selected clips`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 0)
+    editor.selection = Set(editor.project.timeline.tracks[0].clips.map(\.id))
+    try EditorAction.addAdjustment.perform(in: context)
+    let adjustment = try #require(editor.project.timeline.allClips.first {
+      $0.source == .adjustment
+    })
+    #expect(adjustment.timelineStart == .zero)
+    #expect(adjustment.duration == MediaTime(seconds: 4))
+  }
+
+  @Test
+  func `a dissolve goes only on a clip that follows another`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 0)
+    let clips = editor.project.timeline.tracks[0].clips
+    editor.selection = [clips[0].id]
+    #expect(throws: CommandError.self) { try EditorAction.addTransition.perform(in: context) }
+    editor.selection = [clips[1].id]
+    try EditorAction.addTransition.perform(in: context)
+    #expect(editor.project.timeline.clip(withID: clips[1].id)?.transitionIn?.kind == .dissolve)
+  }
+
+  @Test
+  func `removing a marker takes the one at the playhead`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 1)
+    #expect(throws: CommandError.self) { try EditorAction.removeMarker.perform(in: context) }
+    try EditorAction.addMarker.perform(in: context)
+    try EditorAction.removeMarker.perform(in: context)
+    #expect(editor.project.timeline.markers.isEmpty)
+  }
+
+  @Test
+  func `the track and draw tools turn each other off`() async throws {
+    let (_, context) = try await editing(seconds: 2, playhead: 0)
+    try EditorAction.drawTool.perform(in: context)
+    try EditorAction.trackTool.perform(in: context)
+    #expect(context.settings.wrappedValue.isTracking)
+    #expect(!context.settings.wrappedValue.isDrawing)
+  }
+
   // MARK: Private
 
   /// An editor with a test clip placed twice on V1, playing at `playhead` seconds.

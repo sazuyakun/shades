@@ -1,11 +1,13 @@
 import ShadesCore
 
-/// How the editor is being worked on: the timeline tool, drawing in the viewer, snapping, zoom
-/// and the short being worked on.
+/// How the editor is being worked on: the timeline tool, drawing or tracking in the viewer,
+/// snapping, zoom and the short being worked on.
 struct TimelineSettings {
   var tool = TimelineTool.select
   /// Dragging in the viewer draws lines (the Draw tool, P).
   var isDrawing = false
+  /// Dragging in the viewer draws a box to track (the Track tool, ⌥T).
+  var isTracking = false
   /// The scopes show beside the viewer.
   var showsScopes = false
   var isSnapping = true

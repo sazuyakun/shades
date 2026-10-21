@@ -145,26 +145,12 @@ struct TextInspector: View {
 
   /// A binding to one style colour, through SwiftUI's colour picker.
   private func color(_ field: WritableKeyPath<TextStyle, HexColor>) -> Binding<Color> {
-    Binding(get: {
-      let color = content.style[keyPath: field]
-      return Color(
-        .sRGB,
-        red: color.red,
-        green: color.green,
-        blue: color.blue,
-        opacity: color.alpha,
-      )
-    }, set: { picked in
-      guard let rgb = NSColor(picked).usingColorSpace(.sRGB) else {
+    Binding(get: { content.style[keyPath: field].color }, set: { picked in
+      guard let hex = HexColor(picked) else {
         return
       }
       var style = content.style
-      style[keyPath: field] = HexColor(
-        red: rgb.redComponent,
-        green: rgb.greenComponent,
-        blue: rgb.blueComponent,
-        alpha: rgb.alphaComponent,
-      )
+      style[keyPath: field] = hex
       perform(SetText(clipID: clip.id, style: style), coalescing: "\(clip.id).textColor")
     })
   }

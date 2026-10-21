@@ -70,6 +70,13 @@ public protocol ProjectHost: AnyObject {
     blend: BlendMode,
     opacity: Double,
   ) async throws(ToolError) -> String
+  /// Places a sound effect (a plugin's sound by name, or a sound file's path) at `time` on a
+  /// free audio track, importing it if needed; returns what was placed.
+  func addSound(
+    named sound: String,
+    at time: MediaTime,
+    volume: Double?,
+  ) async throws(ToolError) -> String
   /// Sets the master level so the mix plays at `target` LUFS; returns what was measured.
   func normalizeLoudness(target: Double) async throws(ToolError) -> String
   /// Sets clips to play noise-reduced sound (strength 0 restores the original); returns what

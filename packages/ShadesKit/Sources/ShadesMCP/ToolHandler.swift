@@ -768,7 +768,12 @@ public final class ToolHandler {
       ))
 
     case "add_sound":
-      return try await addSound(decode(SoundArguments.self, from: arguments, tool: name))
+      let request = try decode(SoundArguments.self, from: arguments, tool: name)
+      return try await .text(host().addSound(
+        named: request.sound,
+        at: request.at,
+        volume: request.volume,
+      ))
 
     case "add_overlay":
       let request = try decode(OverlayArguments.self, from: arguments, tool: name)
@@ -986,40 +991,6 @@ public final class ToolHandler {
     }
     return .text("Exporting to \(folder.path): " + files.joined(separator: ", ")
       + ". get_jobs shows progress.")
-  }
-
-  /// Imports a plugin's sound (or a sound file) if it isn't yet, and places it on a free audio
-  /// track, in one undo step.
-  private func addSound(_ request: SoundArguments) async throws(ToolError) -> ToolResult {
-    let url = try host().plugins.sound(named: request.sound)
-      ?? (FileManager.default.fileExists(atPath: request.sound)
-        ? URL(filePath: request.sound)
-        : nil)
-    guard let url else {
-      throw .commandFailed(.invalidArguments(
-        "there's no sound called \(request.sound); list_plugins shows the sounds"
-      ))
-    }
-    var commands = [any Command]()
-    let media: Media
-    if let existing = editor.project.media.first(where: { $0.url == url }) {
-      media = existing
-    } else {
-      do {
-        media = try await MediaLoader.load(url)
-      } catch {
-        throw .mediaFailed(error)
-      }
-      commands.append(AddMedia(media: media))
-    }
-    guard media.hasAudio, !media.hasVideo else {
-      throw .commandFailed(.invalidArguments("\(request.sound) isn't a sound-only file"))
-    }
-    commands.append(PlaceOnTop(mediaID: media.id, at: request.at, volume: request.volume))
-    try perform { () throws(CommandError) in try editor.perform(commands, title: "Add Sound") }
-    return .text(
-      "Placed \(media.name) at \(request.at.seconds) s (\(media.duration.seconds) s long)."
-    )
   }
 
   /// Saves the subject of one frame as a PNG in the project and imports it.

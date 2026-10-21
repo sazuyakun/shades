@@ -1,6 +1,7 @@
 import ShadesCommands
 import ShadesCore
 import ShadesMatting
+import ShadesMCP
 import ShadesPolish
 import SwiftUI
 
@@ -20,6 +21,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case bladeTool
   case trimTool
   case drawTool
+  case trackTool
   case toggleSnapping
   case split
   case rippleTrimStart
@@ -54,6 +56,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case shortStartToPlayhead
   case shortEndToPlayhead
   case removeShort
+  case removeMarker
   case markIn
   case markOut
   case clearMarks
@@ -69,8 +72,16 @@ enum EditorAction: CaseIterable, Identifiable {
   case toggleTranscript
   case polishSelection
   case cutOutSubject
+  case cutOutObject
   case reframe
   case reframeLocked
+  case addText
+  case addSticker
+  case addAdjustment
+  case addTransition
+  case analyzeAudio
+  case duckMusic
+  case normalizeLoudness
 
   // MARK: Internal
 
@@ -93,6 +104,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .bladeTool: "Blade Tool"
     case .trimTool: "Trim Tool"
     case .drawTool: "Draw Tool"
+    case .trackTool: "Track Tool (drag a box in the viewer to follow it)"
     case .toggleSnapping: "Snapping On / Off"
     case .split: "Split at Playhead"
     case .rippleTrimStart: "Ripple Trim Start to Playhead"
@@ -127,6 +139,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .shortStartToPlayhead: "Move Short Start to Playhead"
     case .shortEndToPlayhead: "Move Short End to Playhead"
     case .removeShort: "Remove Short"
+    case .removeMarker: "Remove Marker at Playhead"
     case .markIn: "Mark In (hovering a media clip)"
     case .markOut: "Mark Out (hovering a media clip)"
     case .clearMarks: "Clear Marks"
@@ -141,9 +154,17 @@ enum EditorAction: CaseIterable, Identifiable {
     case .toggleScopes: "Show / Hide Scopes"
     case .toggleTranscript: "Show / Hide Transcript"
     case .polishSelection: "Polish Selection"
-    case .cutOutSubject: "Cut Out Subject of Selected Clips"
+    case .cutOutSubject: "Cut Out Person in Selected Clips"
+    case .cutOutObject: "Cut Out Any Object in Selected Clips"
     case .reframe: "Reframe Selected Clips (Pan with Subject)"
     case .reframeLocked: "Reframe Selected Clips (Locked)"
+    case .addText: "Add Text at Playhead"
+    case .addSticker: "Add Chosen Picture as a Sticker"
+    case .addAdjustment: "Add Adjustment Clip"
+    case .addTransition: "Add Dissolve into Selected Clips"
+    case .analyzeAudio: "Find Speech and Beats"
+    case .duckMusic: "Duck Music Under Speech"
+    case .normalizeLoudness: "Normalize Loudness to -14 LUFS"
     }
   }
 
@@ -162,6 +183,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .bladeTool: Shortcut("b")
     case .trimTool: Shortcut("t")
     case .drawTool: Shortcut("p")
+    case .trackTool: Shortcut("t", .option)
     case .toggleSnapping: Shortcut("n")
     case .split: Shortcut("s")
     case .rippleTrimStart: Shortcut("q")
@@ -196,6 +218,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .shortStartToPlayhead: Shortcut("i", .option)
     case .shortEndToPlayhead: Shortcut("o", .option)
     case .removeShort: Shortcut("m", [.option, .shift])
+    case .removeMarker: Shortcut("m", .control)
     case .markIn: Shortcut("i")
     case .markOut: Shortcut("o")
     case .clearMarks: Shortcut("x", .option)
@@ -211,8 +234,16 @@ enum EditorAction: CaseIterable, Identifiable {
     case .toggleTranscript: Shortcut("t", [.command, .option])
     case .polishSelection: Shortcut("p", .option)
     case .cutOutSubject: Shortcut("u", .option)
+    case .cutOutObject: Shortcut("u", [.option, .shift])
     case .reframe: Shortcut("r", .option)
     case .reframeLocked: Shortcut("r", [.option, .shift])
+    case .addText: Shortcut("t", .control)
+    case .addSticker: Shortcut("c", .shift)
+    case .addAdjustment: Shortcut("a", .option)
+    case .addTransition: Shortcut("t", .command)
+    case .analyzeAudio: Shortcut("b", .option)
+    case .duckMusic: Shortcut("d", .option)
+    case .normalizeLoudness: Shortcut("l", .option)
     }
   }
 
@@ -234,6 +265,7 @@ enum EditorAction: CaseIterable, Identifiable {
          .bladeTool,
          .trimTool,
          .drawTool,
+         .trackTool,
          .toggleSnapping,
          .zoomIn,
          .zoomOut,
@@ -266,12 +298,21 @@ enum EditorAction: CaseIterable, Identifiable {
          .removeShort:
       try short(in: context)
 
-    case .cutOutSubject:
+    case .cutOutSubject,
+         .cutOutObject:
       let media = Array(Set(context.selectedClips.compactMap(\.mediaID)))
       guard !media.isEmpty else {
         throw .invalidArguments("select the clips to cut out first")
       }
-      _ = context.workspace.makeCutouts(media, engine: .visionPerson)
+      _ = context.workspace.makeCutouts(
+        media,
+        engine: self == .cutOutObject ? .visionForeground : .visionPerson,
+      )
+
+    case .analyzeAudio,
+         .duckMusic,
+         .normalizeLoudness:
+      try sound(in: context)
 
     case .reframe,
          .reframeLocked:
@@ -335,16 +376,25 @@ enum EditorAction: CaseIterable, Identifiable {
     case .selectTool:
       settings.wrappedValue.tool = .select
       settings.wrappedValue.isDrawing = false
+      settings.wrappedValue.isTracking = false
 
     case .bladeTool:
       settings.wrappedValue.tool = .blade
       settings.wrappedValue.isDrawing = false
+      settings.wrappedValue.isTracking = false
 
     case .trimTool:
       settings.wrappedValue.tool = .trim
       settings.wrappedValue.isDrawing = false
+      settings.wrappedValue.isTracking = false
 
-    case .drawTool: settings.wrappedValue.isDrawing.toggle()
+    case .drawTool:
+      settings.wrappedValue.isDrawing.toggle()
+      settings.wrappedValue.isTracking = false
+
+    case .trackTool:
+      settings.wrappedValue.isTracking.toggle()
+      settings.wrappedValue.isDrawing = false
 
     case .toggleScopes: settings.wrappedValue.showsScopes.toggle()
 
@@ -451,8 +501,36 @@ enum EditorAction: CaseIterable, Identifiable {
     }
   }
 
-  /// R, Z, ⌥Z and C: places the chosen media, just its I / O part when marked.
+  /// Works on the timeline's sound: finds speech and beats (in the selected clips, or whatever
+  /// isn't analysed yet), ducks the music (the selected audio track's, or the one that sounds
+  /// like music) or sets the master level for -14 LUFS.
+  private func sound(in context: ActionContext) throws(CommandError) {
+    let workspace = context.workspace
+    switch self {
+    case .analyzeAudio:
+      let media = context.selectedClips.compactMap(\.mediaID)
+      if workspace.analyzeAudio(media.isEmpty ? nil : media).isEmpty {
+        throw .invalidArguments("there's no sound left to analyse; select clips to analyse again")
+      }
 
+    case .duckMusic:
+      let timeline = context.timeline
+      let music = context.selectedClips.lazy.compactMap { timeline.location(ofClip: $0.id) }
+        .map { timeline.tracks[$0.track] }.first { $0.kind == .audio }
+      _ = try workspace.duckMusic(track: music.map(timeline.label(of:)), level: 0.25)
+
+    default:
+      Task {
+        do throws(ToolError) {
+          _ = try await workspace.normalizeLoudness(target: -14)
+        } catch {
+          workspace.errorMessage = error.errorDescription
+        }
+      }
+    }
+  }
+
+  /// R, Z, ⌥Z and C: places the chosen media, just its I / O part when marked.
   private func place(in context: ActionContext, at time: MediaTime) throws(CommandError) {
     let media = try context.requireMedia()
     let marks = context.marks(of: media)
@@ -636,6 +714,40 @@ enum EditorAction: CaseIterable, Identifiable {
 
     case .addMarker:
       try context.editor.perform(AddMarker(at: time))
+
+    case .removeMarker:
+      guard let marker = context.timeline.markers.first(where: { $0.time == time }) else {
+        throw .invalidArguments(
+          "move the playhead onto a marker first, or right-click the marker on the ruler"
+        )
+      }
+      try context.editor.perform(RemoveMarker(markerID: marker.id))
+
+    case .addText:
+      try context.add(AddText(
+        text: "Title",
+        at: time,
+        duration: MediaTime(seconds: 3),
+        style: TextStyle(anchor: .center),
+      ))
+
+    case .addSticker:
+      try context.add(AddSticker(mediaID: context.requireMedia(), at: time))
+
+    case .addAdjustment:
+      let start = selected.map(\.timelineStart).min() ?? time
+      let end = selected.map(\.timelineEnd).max() ?? time + MediaTime(seconds: 5)
+      try context.add(AddAdjustment(at: start, duration: end - start))
+
+    case .addTransition:
+      let cuts = selected.filter { context.timeline.clip(cuttingInto: $0) != nil }
+      guard !cuts.isEmpty else {
+        throw .invalidArguments("select a clip that starts right where another ends")
+      }
+      try context.perform(
+        cuts.map { SetTransition(clipID: $0.id, kind: .dissolve) },
+        title: SetTransition.title,
+      )
 
     default:
       break

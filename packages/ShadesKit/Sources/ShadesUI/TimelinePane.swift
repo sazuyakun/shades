@@ -133,6 +133,7 @@ struct TimelinePane: View {
           scale: scale,
           markers: editor.project.timeline.markers,
           visibleStart: visibleStart,
+          onError: onError,
         )
         .frame(width: max(width - Self.headerWidth, 1))
         .offset(x: visibleStart)

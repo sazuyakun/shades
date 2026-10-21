@@ -1,8 +1,11 @@
+import ShadesCommands
 import ShadesCore
 import SwiftUI
 
-/// Time labels, ticks and markers above the tracks. Only the visible stretch is drawn, so deep
-/// zoom stays cheap.
+// MARK: - TimelineRuler
+
+/// Time labels, ticks and named markers above the tracks; right-click a marker to remove it.
+/// Only the visible stretch is drawn, so deep zoom stays cheap.
 struct TimelineRuler: View {
 
   // MARK: Internal
@@ -13,6 +16,7 @@ struct TimelineRuler: View {
   let markers: [Marker]
   /// The scroll position: how far into the timeline the visible stretch starts, in points.
   let visibleStart: Double
+  let onError: (String) -> Void
 
   var body: some View {
     Canvas { context, size in
@@ -32,15 +36,17 @@ struct TimelineRuler: View {
         )
         seconds += step
       }
-      for marker in markers {
-        let x = scale.x(at: marker.time) - visibleStart
-        var flag = Path()
-        flag.move(to: CGPoint(x: x - 4, y: size.height - 9))
-        flag.addLine(to: CGPoint(x: x + 4, y: size.height - 9))
-        flag.addLine(to: CGPoint(x: x, y: size.height - 2))
-        context.fill(flag, with: .color(Theme.marker))
+    }
+    .overlay(alignment: .bottomLeading) {
+      ForEach(markers) { marker in
+        MarkerFlag(name: marker.name)
+          .offset(x: scale.x(at: marker.time) - visibleStart - MarkerFlag.halfWidth)
+          .contextMenu {
+            Button("Remove Marker") { remove(marker) }
+          }
       }
     }
+    .clipped()
     .frame(height: Self.height)
   }
 
@@ -48,5 +54,48 @@ struct TimelineRuler: View {
 
   /// Tick spacings to choose from, in seconds; the first one at least 70 points wide wins.
   private static let steps: [Double] = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300]
+
+  @Environment(Editor.self) private var editor
+
+  private func remove(_ marker: Marker) {
+    do {
+      try editor.perform(RemoveMarker(markerID: marker.id))
+    } catch {
+      onError(error.errorDescription ?? "The marker couldn't be removed.")
+    }
+  }
+
+}
+
+// MARK: - MarkerFlag
+
+/// A marker's flag, with its name beside it.
+private struct MarkerFlag: View {
+
+  static let halfWidth = 4.0
+
+  let name: String
+
+  var body: some View {
+    HStack(alignment: .bottom, spacing: 3) {
+      Path { flag in
+        flag.move(to: CGPoint(x: 0, y: 0))
+        flag.addLine(to: CGPoint(x: Self.halfWidth * 2, y: 0))
+        flag.addLine(to: CGPoint(x: Self.halfWidth, y: 7))
+      }
+      .fill(Theme.marker)
+      .frame(width: Self.halfWidth * 2, height: 7)
+      .padding(.bottom, 2)
+      if !name.isEmpty {
+        Text(name)
+          .font(.system(size: 10))
+          .foregroundStyle(Theme.marker)
+          .lineLimit(1)
+          .padding(.bottom, 1)
+      }
+    }
+    .contentShape(.rect)
+    .help(name.isEmpty ? "Marker" : name)
+  }
 
 }

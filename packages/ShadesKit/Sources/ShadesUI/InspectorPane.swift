@@ -3,7 +3,7 @@ import ShadesCore
 import SwiftUI
 
 /// The selected clip (or, with none, the media chosen in the browser) under Video / Color /
-/// Audio / Info tabs.
+/// Audio / Info tabs. With no clip selected, the Video tab moves the timeline's camera.
 struct InspectorPane: View {
 
   // MARK: Internal
@@ -54,10 +54,10 @@ struct InspectorPane: View {
         hint("An adjustment changes everything under it. Set its look in the Color tab.")
       } else if let clip, kind == .video || kind == .text {
         ClipVideoInspector(clip: clip, onError: onError)
+      } else if clip == nil {
+        CameraInspector(onError: onError)
       } else {
-        hint(clip == nil
-          ? "Select a clip on the timeline to adjust it."
-          : "Sound clips have no picture.")
+        hint("Sound clips have no picture.")
       }
 
     case .color:

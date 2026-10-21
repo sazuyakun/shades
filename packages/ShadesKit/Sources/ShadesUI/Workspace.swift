@@ -748,6 +748,38 @@ extension Workspace: ProjectHost {
       + "\(blend.rawValue)."
   }
 
+  /// Places a sound effect (a plugin's sound by `plugin/name` or `name`, or a sound file's path)
+  /// at `time` on a free audio track, importing it if it isn't yet. One undo step. Returns what
+  /// was placed.
+  public func addSound(
+    named sound: String,
+    at time: MediaTime,
+    volume: Double?,
+  ) async throws(ToolError) -> String {
+    let url = plugins.sound(named: sound)
+      ?? (FileManager.default.fileExists(atPath: sound) ? URL(filePath: sound) : nil)
+    guard let url else {
+      throw .commandFailed(.invalidArguments(
+        "there's no sound called \(sound); list_plugins shows the sounds"
+      ))
+    }
+    let (media, imported) = try await importing(url)
+    guard media.hasAudio, !media.hasVideo else {
+      throw .commandFailed(.invalidArguments("\(sound) isn't a sound-only file"))
+    }
+    var commands = [any Command]()
+    if let imported {
+      commands.append(imported)
+    }
+    commands.append(PlaceOnTop(mediaID: media.id, at: time, volume: volume))
+    do {
+      try editor.perform(commands, title: "Add Sound")
+    } catch {
+      throw .commandFailed(error)
+    }
+    return "Placed \(media.name) at \(time.seconds) s (\(media.duration.seconds) s long)."
+  }
+
   /// Ducks a music track (`track`, or the one that sounds like music) under everyone's speech,
   /// to `level` of its own volume. Returns what was done.
   public func duckMusic(track label: String?, level: Double) throws(CommandError) -> String {
@@ -953,26 +985,29 @@ extension Workspace: ProjectHost {
 
   // MARK: Internal
 
-  /// Makes a layer follow the subject of the topmost video under it that has a cut-out.
-  func followSubject(_ clipID: Clip.ID) throws(CommandError) {
-    let timeline = editor.project.timeline
-    guard let clip = timeline.clip(withID: clipID) else {
+  /// The tracked paths in the videos showing under a layer, by name.
+  func paths(under clipID: Clip.ID) -> [String] {
+    Set(videos(under: clipID).flatMap { clip in
+      clip.mediaID.flatMap { analysis.analyses[$0]?.tracks?.keys.sorted() } ?? []
+    }).sorted()
+  }
+
+  /// Makes a layer follow the topmost video under it that has the tracked path called `name`,
+  /// or, when `nil`, a cut-out subject.
+  func follow(_ clipID: Clip.ID, path name: String?) throws(CommandError) {
+    guard editor.project.timeline.clip(withID: clipID) != nil else {
       throw .clipNotFound(clipID)
     }
-    let target = timeline.tracks.reversed().filter { $0.kind == .video }.lazy
-      .compactMap { track in
-        track.clips.first { candidate in
-          candidate.id != clipID && candidate.timelineStart < clip.timelineEnd
-            && clip.timelineStart < candidate.timelineEnd
-            && candidate.mediaID.flatMap { self.analysis.analyses[$0]?.subjectPath } != nil
-        }
-      }.first
-    guard let target else {
-      throw .invalidArguments(
-        "there's no cut-out video under this layer; cut out its subject first"
-      )
+    let target = videos(under: clipID).first { candidate in
+      let found = candidate.mediaID.flatMap { analysis.analyses[$0] }
+      return name.map { found?.tracks?[$0] != nil } ?? (found?.subjectPath != nil)
     }
-    try follow(clipID: clipID, targetID: target.id, path: nil)
+    guard let target else {
+      throw .invalidArguments(name.map {
+        "there's no video under this layer with the path \($0)"
+      } ?? "there's no cut-out video under this layer; cut out its subject first")
+    }
+    try follow(clipID: clipID, targetID: target.id, path: name)
   }
 
   // MARK: Private
@@ -1046,6 +1081,21 @@ extension Workspace: ProjectHost {
       return (loaded, AddMedia(media: loaded))
     } catch {
       throw .mediaFailed(error)
+    }
+  }
+
+  /// The media clips on video tracks that show while `clipID` does, topmost first.
+  private func videos(under clipID: Clip.ID) -> [Clip] {
+    let timeline = editor.project.timeline
+    guard let clip = timeline.clip(withID: clipID) else {
+      return []
+    }
+    return timeline.tracks.reversed().filter { $0.kind == .video }.flatMap { track in
+      track.clips.filter { candidate in
+        candidate.id != clipID && candidate.mediaID != nil
+          && candidate.timelineStart < clip.timelineEnd && clip.timelineStart < candidate
+          .timelineEnd
+      }
     }
   }
 

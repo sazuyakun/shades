@@ -458,3 +458,18 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A GPU draws shapes from triangles. In a triangle strip every new vertex makes a triangle with the two before it, so `2 × (n + 1)` vertices cover a row of `n` quads. A vertex shader can make its corners up from `[[vertex_id]]` (0, 1, 2, …) instead of reading a vertex buffer.
 **JS/TS analogy:** Like WebGL's `gl.TRIANGLE_STRIP` with positions computed from `gl_VertexID` in the shader.
 **In Shades:** `layerVertex` cuts each layer into a strip of columns and moves each corner onto a cylinder, which is how `bend` curves a flat picture in 3D.
+
+## Key paths (`\Type.field`, `WritableKeyPath`)
+**What it is:** `\Qualifier.hue` is a value that *points at* a field. `thing[keyPath: path]` reads it and, for a `WritableKeyPath`, writes it. They can reach into arrays too: `\Qualifier.brightness[0]`. Swift checks the type, so a path to a `Double` can only ever read or write a `Double`.
+**JS/TS analogy:** Like passing the string `"hue"` and doing `obj[key]`, but typed: TypeScript's `keyof T` plus the value type, checked at compile time.
+**In Shades:** The colour inspector's slider enums (`GradeControl`, `QualifierField`, `WindowField`, `CurveChannel`) each hand back a key path, so one `ForEach` draws every slider and writes the right field.
+
+## `Menu`, inline `Picker` and `.contextMenu`
+**What it is:** `Menu` is a button that opens a list of actions. Putting a `Picker` inside it with `.pickerStyle(.inline)` turns the list into choices with a checkmark on the current one. `.contextMenu { … }` attaches a right-click menu to any view.
+**JS/TS analogy:** A dropdown component; `.contextMenu` is like handling `onContextMenu` and showing your own menu, without writing the menu yourself.
+**In Shades:** `KeyframeSlider`'s easing menu (a `Picker` inside a `Menu`), the timeline bar's Motion and Sounds menus, and the ruler's right-click "Remove Marker" on each marker flag.
+
+## `DragGesture` with a start location
+**What it is:** A drag reports `startLocation` (where the press began) and `location` (where the pointer is now) on every change, then once more when it ends. From the two you can grab what was under the press, or span a box between them.
+**JS/TS analogy:** `pointerdown` remembering its coordinates, then `pointermove` and `pointerup`, rolled into one value.
+**In Shades:** `CurvesEditor` grabs (or adds) the curve point under the press and moves it; `TrackingCanvas` draws the box to track from the press to the pointer.

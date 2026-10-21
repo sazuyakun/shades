@@ -28,9 +28,13 @@ public struct EditorView: View {
             onAppend: { run(.append) },
           )
           .frame(minWidth: 220, idealWidth: 280, maxWidth: 420)
-          ViewerPane(isDrawing: timelineSettings.isDrawing, onError: { errorMessage = $0 })
-            .frame(minWidth: 400, maxWidth: .infinity)
-            .layoutPriority(1)
+          ViewerPane(
+            isDrawing: timelineSettings.isDrawing,
+            isTracking: timelineSettings.isTracking,
+            onError: { errorMessage = $0 },
+          )
+          .frame(minWidth: 400, maxWidth: .infinity)
+          .layoutPriority(1)
           if timelineSettings.showsScopes {
             ScopesPanel()
               .frame(minWidth: 240, idealWidth: 300, maxWidth: 360)

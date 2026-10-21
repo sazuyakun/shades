@@ -1,9 +1,10 @@
 import ShadesCommands
 import ShadesCore
+import ShadesMatting
 import SwiftUI
 
 /// Video tab for a clip: where it sits, how big, its rotation, opacity (each animatable), crop,
-/// depth slot and motion blur.
+/// depth slot, motion blur, the transition into it, and its cut-out and what it follows.
 struct ClipVideoInspector: View {
 
   // MARK: Internal
@@ -44,6 +45,9 @@ struct ClipVideoInspector: View {
       }
       .help("Where this layer sits relative to the person cut out of the clips below it")
       MotionBlurControls(clip: clip, onError: onError)
+      if let outgoing = editor.project.timeline.clip(cuttingInto: clip) {
+        TransitionControls(clip: clip, outgoing: outgoing, onError: onError)
+      }
       HStack {
         Button("Reset Transform") {
           resetTransform()
@@ -57,13 +61,29 @@ struct ClipVideoInspector: View {
           .menuStyle(.button)
           .fixedSize()
           .help("Zoom to fill the 4:3 frame, panning with the subject (or locked on it)")
-          Button(hasCutout ? "Cut Out Again" : "Cut Out Subject") { cutOut() }
-            .help("Find the subject so layers can go behind or inside it")
         }
-        Button("Follow Subject") { followSubject() }
-          .help("Move with the cut-out subject of the video under this layer")
       }
       .buttonStyle(CapsuleButtonStyle())
+      HStack {
+        if clip.mediaID != nil {
+          Menu(hasCutout ? "Cut Out Again" : "Cut Out") {
+            Button("A Person") { cutOut(.visionPerson) }
+            Button("Any Object") { cutOut(.visionForeground) }
+          }
+          .help("Find the subject so layers can go behind or inside it")
+        }
+        Menu("Follow") {
+          Button("The Cut-Out Subject") { follow(path: nil) }
+          ForEach(workspace.paths(under: clip.id), id: \.self) { name in
+            Button("Tracked \(name)") { follow(path: name) }
+          }
+        }
+        .help("Move with something in the video under this layer: its cut-out subject, or a "
+          + "path drawn with the Track tool (⌥T)")
+      }
+      .menuStyle(.button)
+      .buttonStyle(CapsuleButtonStyle())
+      .fixedSize()
     }
   }
 
@@ -90,19 +110,19 @@ struct ClipVideoInspector: View {
     }
   }
 
-  private func followSubject() {
+  private func follow(path: String?) {
     do {
-      try workspace.followSubject(clip.id)
+      try workspace.follow(clip.id, path: path)
     } catch {
-      onError(error.errorDescription ?? "The layer couldn't follow the subject.")
+      onError(error.errorDescription ?? "The layer couldn't follow that.")
     }
   }
 
-  private func cutOut() {
+  private func cutOut(_ engine: MatteEngine) {
     guard let mediaID = clip.mediaID else {
       return
     }
-    _ = workspace.makeCutouts([mediaID], engine: .visionPerson)
+    _ = workspace.makeCutouts([mediaID], engine: engine)
   }
 
   /// Puts the clip back upright, centered and solid, dropping its motion (its speed stays).

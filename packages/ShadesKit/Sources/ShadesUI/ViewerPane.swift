@@ -8,6 +8,7 @@ struct ViewerPane: View {
   // MARK: Internal
 
   let isDrawing: Bool
+  let isTracking: Bool
   let onError: (String) -> Void
 
   var body: some View {
@@ -17,6 +18,8 @@ struct ViewerPane: View {
         .overlay {
           if isDrawing {
             DrawingCanvas(onError: onError)
+          } else if isTracking {
+            TrackingCanvas(onError: onError)
           }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

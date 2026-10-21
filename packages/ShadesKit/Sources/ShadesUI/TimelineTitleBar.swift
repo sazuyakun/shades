@@ -3,7 +3,7 @@ import ShadesEngine
 import SwiftUI
 
 /// The bar above the timeline: the timeline's name and its shorts, the tools and snapping, plugin
-/// templates, and the timeline's length.
+/// templates, motion presets and sounds, and the timeline's length.
 struct TimelineTitleBar: View {
 
   // MARK: Internal
@@ -47,9 +47,18 @@ struct TimelineTitleBar: View {
         Button("Blade", systemImage: "scissors") { settings.tool = .blade }
           .buttonStyle(CapsuleButtonStyle(isOn: settings.tool == .blade))
           .help("Blade tool (B)")
-        Button("Draw", systemImage: "pencil.tip") { settings.isDrawing.toggle() }
-          .buttonStyle(CapsuleButtonStyle(isOn: settings.isDrawing))
-          .help("Draw tool: drag in the viewer to draw over the picture (P)")
+        Button("Draw", systemImage: "pencil.tip") {
+          settings.isDrawing.toggle()
+          settings.isTracking = false
+        }
+        .buttonStyle(CapsuleButtonStyle(isOn: settings.isDrawing))
+        .help("Draw tool: drag in the viewer to draw over the picture (P)")
+        Button("Track", systemImage: "viewfinder") {
+          settings.isTracking.toggle()
+          settings.isDrawing = false
+        }
+        .buttonStyle(CapsuleButtonStyle(isOn: settings.isTracking))
+        .help("Track tool: drag a box in the viewer around something to follow it (⌥T)")
       }
       .labelStyle(.iconOnly)
       Button("Snapping", systemImage: "arrow.right.to.line") { settings.isSnapping.toggle() }
@@ -58,6 +67,8 @@ struct TimelineTitleBar: View {
         .help("Snapping (N)")
       TemplatesMenu(onError: onError)
       OverlaysMenu(onError: onError)
+      MotionMenu(onError: onError)
+      SoundsMenu(onError: onError)
       Spacer()
       Text(Timecode.full(
         editor.project.timeline.duration.seconds,
