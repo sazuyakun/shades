@@ -39,6 +39,18 @@ struct ExportSheet: View {
       Text(detail)
         .foregroundStyle(Theme.secondaryText)
         .fixedSize(horizontal: false, vertical: true)
+      if kind == .shorts {
+        ForEach(editor.project.timeline.shorts) { short in
+          LabeledContent(short.name) {
+            Text(
+              "\(Timecode.short(short.range.start.seconds))–"
+                + "\(Timecode.short(short.range.end.seconds)) · "
+                + Timecode.short(short.range.duration.seconds)
+            )
+            .monospacedDigit()
+          }
+        }
+      }
       if let problem {
         Text(problem).foregroundStyle(.red)
       }
@@ -97,11 +109,11 @@ struct ExportSheet: View {
 
     case .shorts:
       guard !timeline.shorts.isEmpty else {
-        return "No shorts are marked, so the whole timeline exports on 1080×1920. Mark shorts "
-          + "with Claude (add_short)."
+        return "No shorts are marked, so the whole timeline exports on 1080×1920. Mark one by "
+          + "selecting its clips and pressing ⌥M, or ask Claude (add_short)."
       }
       return "\(timeline.shorts.count) short\(timeline.shorts.count == 1 ? "" : "s"), each its "
-        + "own file on 1080×1920: " + timeline.shorts.map(\.name).joined(separator: ", ") + "."
+        + "own file on 1080×1920:"
 
     case .frame:
       return "The frame at the playhead (\(Timecode.short(player.currentTime))) as a full-size PNG."

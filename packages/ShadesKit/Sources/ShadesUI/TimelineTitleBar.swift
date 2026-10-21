@@ -1,14 +1,16 @@
 import ShadesCommands
+import ShadesEngine
 import SwiftUI
 
-/// The bar above the timeline: the timeline's name, the tools and snapping, plugin templates, and
-/// the timeline's length.
+/// The bar above the timeline: the timeline's name and its shorts, the tools and snapping, plugin
+/// templates, and the timeline's length.
 struct TimelineTitleBar: View {
 
   // MARK: Internal
 
   @Binding var settings: TimelineSettings
 
+  let onRun: (EditorAction) -> Void
   let onError: (String) -> Void
 
   var body: some View {
@@ -19,6 +21,22 @@ struct TimelineTitleBar: View {
         .frame(height: 24)
         .background(Theme.raised, in: .capsule)
         .overlay(Capsule().strokeBorder(Theme.strongHairline))
+      ForEach(editor.project.timeline.shorts) { short in
+        Button(short.name) {
+          settings.selectedShort = short.id
+          Task { await player.seek(toSeconds: short.range.start.seconds) }
+        }
+        .buttonStyle(.plain)
+        .font(.callout)
+        .lineLimit(1)
+        .foregroundStyle(settings.selectedShort == short.id ? Theme.text : Theme.secondaryText)
+        .help("Pick this short and jump to it")
+      }
+      Button("+ range") { onRun(.markShort) }
+        .buttonStyle(.plain)
+        .font(.callout)
+        .foregroundStyle(Theme.faintText)
+        .help("Mark the selected clips' stretch as a short (⌥M)")
       CapsuleGroup {
         Button("Select", systemImage: "cursorarrow") { settings.tool = .select }
           .buttonStyle(CapsuleButtonStyle(isOn: settings.tool == .select))
@@ -54,5 +72,6 @@ struct TimelineTitleBar: View {
   // MARK: Private
 
   @Environment(Editor.self) private var editor
+  @Environment(Player.self) private var player
 
 }

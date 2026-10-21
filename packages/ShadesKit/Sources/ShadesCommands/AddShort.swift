@@ -31,13 +31,7 @@ public struct AddShort: ToolCommand {
   public let end: MediaTime
 
   public func apply(to project: inout Project) throws(CommandError) {
-    let range = TimeRange(start: project.onFrame(start), end: project.onFrame(end))
-    guard range.start >= .zero, range.end > range.start else {
-      throw rejected(.invalidRange("a short needs an end after its start"))
-    }
-    guard range.end <= project.timeline.duration else {
-      throw rejected(.invalidRange("the short ends after the timeline does"))
-    }
+    let range = try project.shortRange(from: start, to: end)
     project.timeline.shorts.append(Short(name: name, range: range))
   }
 

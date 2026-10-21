@@ -76,6 +76,38 @@ struct EditorActionTests {
     #expect(placed.duration == MediaTime(seconds: 1))
   }
 
+  @Test
+  func `marking a short covers the selected clips and picks it`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 0)
+    #expect(throws: CommandError.self) { try EditorAction.markShort.perform(in: context) }
+    let last = try #require(editor.project.timeline.tracks[0].clips.last)
+    editor.selection = [last.id]
+    try EditorAction.markShort.perform(in: context)
+    let short = try #require(editor.project.timeline.shorts.first)
+    #expect(short.name == "Short 1")
+    #expect(short.range == TimeRange(start: last.timelineStart, end: last.timelineEnd))
+    #expect(context.settings.wrappedValue.selectedShort == short.id)
+    try EditorAction.renameShort.perform(in: context)
+    #expect(context.renamingShort.wrappedValue == short.id)
+  }
+
+  @Test
+  func `the short under the playhead moves its ends to the playhead and can be removed`()
+    async throws
+  {
+    let (editor, context) = try await editing(seconds: 2, playhead: 1)
+    try editor.perform(AddShort(name: "Short 1", start: .zero, end: MediaTime(seconds: 3)))
+    try EditorAction.shortStartToPlayhead.perform(in: context)
+    #expect(editor.project.timeline.shorts.first?.range.start == MediaTime(seconds: 1))
+    await context.player.seek(toSeconds: 2)
+    try EditorAction.shortEndToPlayhead.perform(in: context)
+    #expect(editor.project.timeline.shorts.first?.range.end == MediaTime(seconds: 2))
+    await context.player.seek(toSeconds: 1.5)
+    try EditorAction.removeShort.perform(in: context)
+    #expect(editor.project.timeline.shorts.isEmpty)
+    #expect(throws: CommandError.self) { try EditorAction.removeShort.perform(in: context) }
+  }
+
   // MARK: Private
 
   /// An editor with a test clip placed twice on V1, playing at `playhead` seconds.
@@ -109,6 +141,7 @@ struct EditorActionTests {
     var flag = false
     var marks = [Media.ID: SourceMarks]()
     var hover: MediaHover?
+    var renaming: Short.ID?
     let context = ActionContext(
       editor: editor,
       player: player,
@@ -120,6 +153,7 @@ struct EditorActionTests {
       isImporting: Binding(get: { flag }, set: { flag = $0 }),
       marks: Binding(get: { marks }, set: { marks = $0 }),
       hover: Binding(get: { hover }, set: { hover = $0 }),
+      renamingShort: Binding(get: { renaming }, set: { renaming = $0 }),
     )
     return (editor, context)
   }

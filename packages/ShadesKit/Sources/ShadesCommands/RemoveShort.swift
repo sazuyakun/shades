@@ -22,10 +22,7 @@ public struct RemoveShort: ToolCommand {
   public let shortID: Short.ID
 
   public func apply(to project: inout Project) throws(CommandError) {
-    guard project.timeline.shorts.contains(where: { $0.id == shortID }) else {
-      throw rejected(.shortNotFound(shortID))
-    }
-    project.timeline.shorts.removeAll { $0.id == shortID }
+    try project.timeline.shorts.remove(at: project.requireShort(shortID))
   }
 
 }

@@ -16,6 +16,8 @@ struct ActionContext {
   let isImporting: Binding<Bool>
   let marks: Binding<[Media.ID: SourceMarks]>
   let hover: Binding<MediaHover?>
+  /// The short whose name is being edited, if any.
+  let renamingShort: Binding<Short.ID?>
 
   var timeline: Timeline {
     editor.project.timeline
@@ -39,6 +41,14 @@ struct ActionContext {
     return candidates.filter { $0.timelineStart < time && time < $0.timelineEnd }
   }
 
+  /// The short the short actions change: the one clicked above the timeline, or else the one
+  /// under the playhead.
+  var currentShort: Short? {
+    let shorts = timeline.shorts
+    return shorts.first { $0.id == settings.wrappedValue.selectedShort }
+      ?? shorts.first { $0.range.start <= playhead && playhead < $0.range.end }
+  }
+
   var selectedClips: [Clip] {
     timeline.allClips.filter { editor.selection.contains($0.id) }
   }
@@ -56,7 +66,16 @@ struct ActionContext {
     Task { await player.seek(toSeconds: time.seconds) }
   }
 
+  /// The short the short actions change, or an error saying how to pick one.
+  func requireShort() throws(CommandError) -> Short {
+    guard let short = currentShort else {
+      throw .invalidArguments("click a short above the timeline, or move the playhead into one")
+    }
+    return short
+  }
+
   /// The media chosen in the browser, to place with R, Z, ⌥Z or C.
+
   func requireMedia() throws(CommandError) -> Media.ID {
     guard let id = mediaSelection.wrappedValue else {
       throw .invalidArguments("pick a clip in the media browser first")

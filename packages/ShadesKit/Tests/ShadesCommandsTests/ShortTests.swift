@@ -40,6 +40,35 @@ struct ShortTests {
     }
   }
 
+  @Test
+  func `a short can be renamed and its ends moved, one field at a time`() throws {
+    var project = try timeline()
+    try AddShort(name: "Short 1", start: seconds(0), end: seconds(2)).apply(to: &project)
+    let id = try #require(project.timeline.shorts.first?.id)
+    try SetShort(shortID: id, name: "Chul ka keeda").apply(to: &project)
+    try SetShort(shortID: id, end: seconds(3.01)).apply(to: &project)
+    try SetShort(shortID: id, start: seconds(1)).apply(to: &project)
+    let short = try #require(project.timeline.shorts.first)
+    #expect(short.name == "Chul ka keeda")
+    #expect(short.range == TimeRange(start: seconds(1), end: seconds(3)))
+  }
+
+  @Test
+  func `a changed short still has to fit and have a name`() throws {
+    var project = try timeline()
+    try AddShort(name: "Short 1", start: seconds(1), end: seconds(2)).apply(to: &project)
+    let id = try #require(project.timeline.shorts.first?.id)
+    #expect(throws: CommandError.invalidRange("a short needs an end after its start")) {
+      try SetShort(shortID: id, start: seconds(2.5)).apply(to: &project)
+    }
+    #expect(throws: CommandError.invalidRange("the short ends after the timeline does")) {
+      try SetShort(shortID: id, end: seconds(5)).apply(to: &project)
+    }
+    #expect(throws: CommandError.invalidValue("a short needs a name")) {
+      try SetShort(shortID: id, name: " ").apply(to: &project)
+    }
+  }
+
   // MARK: Private
 
   private func timeline() throws -> Project {

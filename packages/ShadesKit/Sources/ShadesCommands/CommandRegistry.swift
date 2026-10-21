@@ -40,7 +40,9 @@ public enum CommandRegistry {
     AddMarker.self,
     RemoveMarker.self,
     AddShort.self,
+    SetShort.self,
     RemoveShort.self,
+
     RemoveMedia.self,
   ]
 

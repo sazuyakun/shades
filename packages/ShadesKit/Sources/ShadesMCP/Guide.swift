@@ -85,8 +85,11 @@ enum Guide {
     list_plugins.
 
     Export
-    - add_short marks a stretch as a Reel/Short by name. export kind youtube (16:9), shorts \
-    (each short on 9:16), frame, gif or srt; it runs in the background and chimes when done.
+    - add_short marks a stretch as a Reel/Short by name; set_short renames it or moves its \
+    ends, remove_short unmarks it. The user sees shorts above the timeline and can change \
+    them too. export kind youtube (16:9), shorts (each short on 9:16), frame, gif or srt; it \
+    runs in the background and chimes when done.
+
 
     Projects: list_projects, new_project and open_project. Point the user at clips with \
     select_clips. Heavy footage plays from proxies; render_frame always uses the originals.

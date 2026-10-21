@@ -12,7 +12,8 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | Format | Every timeline is a 4:3 picture. Clips of any shape are fitted inside it upright (16:9 iPhone footage is auto-reframed to 4:3). The 9:16 and 16:9 versions are only canvases added at export |
 | Importing | Media stays where it is on disk; Shades links to it and copies nothing. "Collect media" copies into the project later if wanted |
 | Background work | Thumbnails, waveforms, transcripts and proxies run quietly. A progress ring sits in the toolbar; click it for details. Nothing blocks editing |
-| Shorts | Marked as named ranges on the master timeline ("Short 1 · Chul ka keeda") and exported in a batch on the 9:16 canvas |
+| Shorts | Marked as named ranges on the master timeline ("Short 1 · Chul ka keeda") and exported in a batch on the 9:16 canvas. They show as capsules above the ruler and as tabs in the timeline's title bar: click one to pick it (its stretch is tinted across the tracks), drag its ends to adjust it, right-click to rename or remove it. **+ range** (⌥M) marks the selected clips' stretch. The short actions change the picked short, or else the one under the playhead |
+
 
 ## Editing by hand
 - **Choosing a range:** hover-scrub a thumbnail in the media browser and press **I** / **O** to mark just the part you want. There's no separate source viewer.
@@ -46,6 +47,9 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | ⌥↑ · ⌥↓ | Move clip up / down a track |
 | ⌘= · ⌘− · ⇧Z | Zoom in / out / fit |
 | ⇧⌘L | Link / unlink audio and video |
+| ⌥R · ⇧⌥R | Reframe the selected clips: pan with the subject · locked on one framing |
+| ⌥M · ⌥N · ⇧⌥M | Mark the selected clips' stretch as a short · Rename the short · Remove it |
+| ⌥I · ⌥O | Move the short's start / end to the playhead |
 | ⌘S · ⌘E | Named checkpoint · Export |
 | ⌘K | Command palette: every action by name |
 | ⌘L | Show or hide the History pane |

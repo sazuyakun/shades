@@ -3,8 +3,10 @@ import ShadesCore
 import ShadesEngine
 import SwiftUI
 
-/// The timeline: a title bar, the ruler, and the tracks (video stacked upward, then audio) with
-/// the playhead. Scrolls both ways; track headers and the ruler stay put.
+// MARK: - TimelinePane
+
+/// The timeline: a title bar, the shorts and the ruler, and the tracks (video stacked upward,
+/// then audio) with the playhead. Scrolls both ways; track headers and the ruler stay put.
 struct TimelinePane: View {
 
   // MARK: Internal
@@ -14,12 +16,13 @@ struct TimelinePane: View {
 
   @Binding var settings: TimelineSettings
 
+  let onRun: (EditorAction) -> Void
   let onError: (String) -> Void
 
   var body: some View {
     VStack(spacing: 0) {
       Hairline()
-      TimelineTitleBar(settings: $settings, onError: onError)
+      TimelineTitleBar(settings: $settings, onRun: onRun, onError: onError)
       Hairline()
       GeometryReader { geometry in
         let scale = scale(fitting: geometry.size.width)
@@ -48,6 +51,17 @@ struct TimelinePane: View {
           }
           .frame(width: Self.headerWidth + contentWidth, alignment: .topLeading)
           .frame(minHeight: geometry.size.height, alignment: .top)
+          .overlay(alignment: .topLeading) {
+            if
+              let short = editor.project.timeline.shorts.first(where: {
+                $0.id == settings.selectedShort
+              })
+            {
+              ShortBand(width: scale.x(at: short.range.duration))
+                .offset(x: Self.headerWidth + scale.x(at: short.range.start))
+                .allowsHitTesting(false)
+            }
+          }
           .overlay(alignment: .topLeading) {
             Playhead()
               .offset(x: Self.headerWidth + scale.x(atSeconds: player.currentTime) - 6)
@@ -92,27 +106,47 @@ struct TimelinePane: View {
     ))
   }
 
-  /// The ruler, pinned on top: click or drag in it to move the playhead.
+  /// The shorts and the ruler, pinned on top: click or drag in the ruler to move the playhead.
   private func rulerRow(scale: TimelineScale, width: Double) -> some View {
-    HStack(spacing: 0) {
-      Color.clear.frame(width: Self.headerWidth)
-      TimelineRuler(
-        scale: scale,
-        markers: editor.project.timeline.markers,
-        visibleStart: visibleStart,
-      )
-      .frame(width: max(width - Self.headerWidth, 1))
-      .offset(x: visibleStart)
-      .contentShape(.rect)
-      .gesture(
-        DragGesture(minimumDistance: 0).onChanged { drag in
-          let seconds = scale.seconds(atX: drag.location.x + visibleStart)
-          Task { await player.seek(toSeconds: seconds) }
+    let shorts = editor.project.timeline.shorts
+    return VStack(spacing: 0) {
+      if !shorts.isEmpty {
+        HStack(spacing: 0) {
+          Color.clear.frame(width: Self.headerWidth)
+          ShortLane(
+            shorts: shorts,
+            scale: scale,
+            visibleStart: visibleStart,
+            selection: $settings.selectedShort,
+            onRun: onRun,
+            onError: onError,
+          )
+          .frame(width: max(width - Self.headerWidth, 1))
+          .offset(x: visibleStart)
+          Spacer(minLength: 0)
         }
-      )
-      Spacer(minLength: 0)
+        .frame(height: ShortLane.height)
+      }
+      HStack(spacing: 0) {
+        Color.clear.frame(width: Self.headerWidth)
+        TimelineRuler(
+          scale: scale,
+          markers: editor.project.timeline.markers,
+          visibleStart: visibleStart,
+        )
+        .frame(width: max(width - Self.headerWidth, 1))
+        .offset(x: visibleStart)
+        .contentShape(.rect)
+        .gesture(
+          DragGesture(minimumDistance: 0).onChanged { drag in
+            let seconds = scale.seconds(atX: drag.location.x + visibleStart)
+            Task { await player.seek(toSeconds: seconds) }
+          }
+        )
+        Spacer(minLength: 0)
+      }
+      .frame(height: TimelineRuler.height)
     }
-    .frame(height: TimelineRuler.height)
     .background(Theme.background)
     .overlay(alignment: .bottom) { Hairline() }
   }
@@ -126,4 +160,20 @@ struct TimelinePane: View {
     scrollPosition.scrollTo(x: max(x - 80, 0))
   }
 
+}
+
+// MARK: - ShortBand
+
+/// The picked short's stretch, tinted across every track.
+private struct ShortBand: View {
+  let width: Double
+
+  var body: some View {
+    Rectangle()
+      .fill(Color.accentColor.opacity(0.07))
+      .overlay(alignment: .leading) { Color.accentColor.opacity(0.7).frame(width: 1) }
+      .overlay(alignment: .trailing) { Color.accentColor.opacity(0.7).frame(width: 1) }
+      .frame(width: max(width, 1))
+      .frame(maxHeight: .infinity)
+  }
 }

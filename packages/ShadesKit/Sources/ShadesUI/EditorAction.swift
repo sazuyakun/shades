@@ -46,6 +46,11 @@ enum EditorAction: CaseIterable, Identifiable {
   case deselect
   case matchFrame
   case addMarker
+  case markShort
+  case renameShort
+  case shortStartToPlayhead
+  case shortEndToPlayhead
+  case removeShort
   case markIn
   case markOut
   case clearMarks
@@ -62,12 +67,12 @@ enum EditorAction: CaseIterable, Identifiable {
   case polishSelection
   case cutOutSubject
   case reframe
+  case reframeLocked
 
   // MARK: Internal
 
   var id: Self {
     self
-  case reframeLocked
   }
 
   var title: String {
@@ -111,6 +116,11 @@ enum EditorAction: CaseIterable, Identifiable {
     case .deselect: "Deselect All"
     case .matchFrame: "Match Frame"
     case .addMarker: "Add Marker"
+    case .markShort: "Mark Short from Selection"
+    case .renameShort: "Rename Short…"
+    case .shortStartToPlayhead: "Move Short Start to Playhead"
+    case .shortEndToPlayhead: "Move Short End to Playhead"
+    case .removeShort: "Remove Short"
     case .markIn: "Mark In (hovering a media clip)"
     case .markOut: "Mark Out (hovering a media clip)"
     case .clearMarks: "Clear Marks"
@@ -172,6 +182,11 @@ enum EditorAction: CaseIterable, Identifiable {
     case .deselect: Shortcut(.escape)
     case .matchFrame: Shortcut("f")
     case .addMarker: Shortcut("m")
+    case .markShort: Shortcut("m", .option)
+    case .renameShort: Shortcut("n", .option)
+    case .shortStartToPlayhead: Shortcut("i", .option)
+    case .shortEndToPlayhead: Shortcut("o", .option)
+    case .removeShort: Shortcut("m", [.option, .shift])
     case .markIn: Shortcut("i")
     case .markOut: Shortcut("o")
     case .clearMarks: Shortcut("x", .option)
@@ -188,6 +203,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .polishSelection: Shortcut("p", .option)
     case .cutOutSubject: Shortcut("u", .option)
     case .reframe: Shortcut("r", .option)
+    case .reframeLocked: Shortcut("r", [.option, .shift])
     }
   }
 
@@ -203,7 +219,6 @@ enum EditorAction: CaseIterable, Identifiable {
          .previousEdit,
          .nextEdit:
       transport(in: context)
-    case .reframeLocked: Shortcut("r", [.option, .shift])
 
     case .selectTool,
          .bladeTool,
@@ -233,6 +248,13 @@ enum EditorAction: CaseIterable, Identifiable {
 
     case .polishSelection:
       try polish(in: context)
+
+    case .markShort,
+         .renameShort,
+         .shortStartToPlayhead,
+         .shortEndToPlayhead,
+         .removeShort:
+      try short(in: context)
 
     case .cutOutSubject:
       let media = Array(Set(context.selectedClips.compactMap(\.mediaID)))
@@ -383,7 +405,39 @@ enum EditorAction: CaseIterable, Identifiable {
     )
   }
 
+  /// ⌥M marks the selected clips' span as a new short; the others change the current short.
+  private func short(in context: ActionContext) throws(CommandError) {
+    if self == .markShort {
+      let selected = context.selectedClips
+      guard
+        let start = selected.map(\.timelineStart).min(),
+        let end = selected.map(\.timelineEnd).max()
+      else {
+        throw .invalidArguments("select the clips the short covers first")
+      }
+      let name = "Short \(context.timeline.shorts.count + 1)"
+      try context.editor.perform(AddShort(name: name, start: start, end: end))
+      context.settings.wrappedValue.selectedShort = context.timeline.shorts.last?.id
+      return
+    }
+    let short = try context.requireShort()
+    switch self {
+    case .renameShort:
+      context.renamingShort.wrappedValue = short.id
+
+    case .shortStartToPlayhead:
+      try context.editor.perform(SetShort(shortID: short.id, start: context.playhead))
+
+    case .shortEndToPlayhead:
+      try context.editor.perform(SetShort(shortID: short.id, end: context.playhead))
+
+    default:
+      try context.editor.perform(RemoveShort(shortID: short.id))
+    }
+  }
+
   /// R, Z, ⌥Z and C: places the chosen media, just its I / O part when marked.
+
   private func place(in context: ActionContext, at time: MediaTime) throws(CommandError) {
     let media = try context.requireMedia()
     let marks = context.marks(of: media)

@@ -46,7 +46,7 @@ public struct EditorView: View {
           .frame(minWidth: 240, idealWidth: 300, maxWidth: 380)
         }
         .frame(minHeight: 320, idealHeight: 560)
-        TimelinePane(settings: $timelineSettings, onError: { errorMessage = $0 })
+        TimelinePane(settings: $timelineSettings, onRun: run, onError: { errorMessage = $0 })
           .frame(minHeight: 200, idealHeight: 300)
       }
     }
@@ -64,6 +64,18 @@ public struct EditorView: View {
     }
     .sheet(isPresented: $isShowingPalette, onDismiss: { isFocused = true }) {
       CommandPalette(onRun: run)
+    }
+    .sheet(
+      isPresented: Binding(get: { renamingShort != nil }, set: {
+        if !$0 {
+          renamingShort = nil
+        }
+      }),
+      onDismiss: { isFocused = true },
+    ) {
+      if let renamingShort {
+        ShortNameSheet(shortID: renamingShort)
+      }
     }
     .background(Theme.background)
     .foregroundStyle(Theme.text)
@@ -136,6 +148,7 @@ public struct EditorView: View {
   @State private var isShowingPalette = false
   @State private var sourceMarks = [Media.ID: SourceMarks]()
   @State private var mediaHover: MediaHover?
+  @State private var renamingShort: Short.ID?
   @FocusState private var isFocused: Bool
 
   private var actionContext: ActionContext {
@@ -150,6 +163,7 @@ public struct EditorView: View {
       isImporting: $isImporting,
       marks: $sourceMarks,
       hover: $mediaHover,
+      renamingShort: $renamingShort,
     )
   }
 

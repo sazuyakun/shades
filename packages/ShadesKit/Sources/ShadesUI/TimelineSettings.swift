@@ -1,4 +1,7 @@
-/// How the editor is being worked on: the timeline tool, drawing in the viewer, snapping and zoom.
+import ShadesCore
+
+/// How the editor is being worked on: the timeline tool, drawing in the viewer, snapping, zoom
+/// and the short being worked on.
 struct TimelineSettings {
   var tool = TimelineTool.select
   /// Dragging in the viewer draws lines (the Draw tool, P).
@@ -8,4 +11,6 @@ struct TimelineSettings {
   var isSnapping = true
   /// Zoom in points per second, or `nil` to fit the whole timeline.
   var pointsPerSecond: Double?
+  /// The short clicked above the timeline, which the short actions change.
+  var selectedShort: Short.ID?
 }
