@@ -41,10 +41,13 @@ struct PlacementTests {
   }
 
   @Test
-  func `video can't go on an audio track`() {
-    var project = Project(media: [video])
+  func `a video's sound alone can go on an audio track, but a silent video can't`() throws {
+    let silent = makeMedia(seconds: 2, hasAudio: false)
+    var project = Project(media: [video, silent])
+    try AppendClip(mediaID: video.id, track: "A1").apply(to: &project)
+    #expect(project.timeline.tracks[1].clips.map(\.mediaID) == [video.id])
     #expect(throws: CommandError.wrongTrackKind(track: "A1", needs: .video)) {
-      try AppendClip(mediaID: video.id, track: "A1").apply(to: &project)
+      try AppendClip(mediaID: silent.id, track: "A1").apply(to: &project)
     }
   }
 

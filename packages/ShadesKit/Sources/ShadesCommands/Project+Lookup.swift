@@ -31,12 +31,14 @@ extension Project {
   }
 
   /// The track a clip of `media` goes on: the one labeled `label`, or the first track of the
-  /// right kind (created if the timeline has none).
+  /// right kind (created if the timeline has none). A video with sound may go on an audio track,
+  /// where only its sound plays.
   mutating func track(for media: Media, labeled label: String?) throws(CommandError) -> Int {
     let kind: TrackKind = media.hasVideo ? .video : .audio
     if let label {
       let index = try requireTrack(label)
-      guard timeline.tracks[index].kind == kind else {
+      let isSoundOnly = timeline.tracks[index].kind == .audio && media.hasAudio
+      guard timeline.tracks[index].kind == kind || isSoundOnly else {
         throw rejected(.wrongTrackKind(track: label.uppercased(), needs: kind))
       }
       return index
