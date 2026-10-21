@@ -201,12 +201,14 @@ final class MetalRenderer: Sendable {
       texture2d<half> backdrop [[texture(2)]],
       texture3d<float> lut [[texture(3)]],
       texture2d<float> curves [[texture(4)]],
-      constant LayerLook &look [[buffer(0)]]
+      constant LayerLook &look [[buffer(0)]],
+      constant LayerMaskShape *masks [[buffer(1)]],
+      constant float2 *points [[buffer(2)]]
     ) {
       constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
       float2 uv = look.isAdjustment != 0 ? in.screen : in.uv;
       texture2d<half> picture = look.isAdjustment != 0 ? backdrop : source;
-      float4 shaded = shade(in, picture, uv, lut, curves, look, linearSampler);
+      float4 shaded = shade(in, picture, uv, lut, curves, look, masks, points, linearSampler);
       float4 changed = effect(
         shaded, uv, look.effectTime, look.effectAmount, picture, linearSampler
       );
@@ -218,10 +220,12 @@ final class MetalRenderer: Sendable {
       texture2d<half> source [[texture(0)]],
       texture3d<float> lut [[texture(3)]],
       texture2d<float> curves [[texture(4)]],
-      constant LayerLook &look [[buffer(0)]]
+      constant LayerLook &look [[buffer(0)]],
+      constant LayerMaskShape *masks [[buffer(1)]],
+      constant float2 *points [[buffer(2)]]
     ) {
       constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-      float4 shaded = shade(in, source, in.uv, lut, curves, look, linearSampler);
+      float4 shaded = shade(in, source, in.uv, lut, curves, look, masks, points, linearSampler);
       float4 changed = effect(
         shaded, in.uv, look.effectTime, look.effectAmount, source, linearSampler
       );
@@ -517,6 +521,7 @@ final class MetalRenderer: Sendable {
         grade: layer.grade,
         effects: layer.effects,
         crop: layer.crop,
+        masks: layer.masks,
         transition: layer.transition,
         clipTime: layer.clipTime,
       )
@@ -547,6 +552,7 @@ final class MetalRenderer: Sendable {
       grade: nil,
       effects: nil,
       crop: .none,
+      maskCount: 0,
       blend: layer.blend,
       isMasked: isMasked,
       isAdjustment: false,
@@ -622,11 +628,13 @@ final class MetalRenderer: Sendable {
   ) throws(EngineError) {
     let lut = layer.grade?.lut.flatMap { lutTexture(at: URL(filePath: $0)) }
     let curveTexture = layer.grade?.curves.flatMap(curvesTexture)
+    let masks = LayerMaskShape.shapes(of: layer.masks)
     var look = LayerLook(
       size: CGSize(width: size.width / scale, height: size.height / scale),
       grade: layer.grade,
       effects: layer.effects,
       crop: layer.crop,
+      maskCount: masks.shapes.count,
       blend: layer.blend,
       isMasked: isMasked,
       isAdjustment: layer.isAdjustment,
@@ -640,6 +648,8 @@ final class MetalRenderer: Sendable {
     encoder.setFragmentTexture(lut ?? neutral.0, index: 3)
     encoder.setFragmentTexture(curveTexture ?? neutral.1, index: 4)
     encoder.setFragmentBytes(&look, length: MemoryLayout<LayerLook>.stride, index: 0)
+    try encoder.setFragmentBuffer(buffer(of: masks.shapes), offset: 0, index: 1)
+    try encoder.setFragmentBuffer(buffer(of: masks.points), offset: 0, index: 2)
     try placeQuad(layer, size: size, backdrop: backdrop, encoder: encoder)
   }
 
@@ -668,6 +678,21 @@ final class MetalRenderer: Sendable {
     encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
     encoder.setFragmentTexture(picture, index: 0)
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: uniforms.vertexCount)
+  }
+
+  /// `values` in a GPU buffer, which holds at least one (blank) value so it can always be bound.
+  private func buffer<Value>(of values: [Value]) throws(EngineError) -> any MTLBuffer {
+    let length = max(values.count, 1) * MemoryLayout<Value>.stride
+    guard let buffer = device.makeBuffer(length: length, options: .storageModeShared) else {
+      logger.error("frame.renderFailed reason=buffer")
+      throw .renderFailed
+    }
+    values.withUnsafeBytes { bytes in
+      if let base = bytes.baseAddress {
+        buffer.contents().copyMemory(from: base, byteCount: bytes.count)
+      }
+    }
+    return buffer
   }
 
   /// The LUT at `url` on the GPU, read the first time it's used and again after the file
@@ -799,6 +824,7 @@ struct RenderLayer {
     grade: Grade? = nil,
     effects: Effects? = nil,
     crop: Crop = .none,
+    masks: [LayerMask] = [],
     blend: BlendMode = .normal,
     transition: TransitionStyle? = nil,
     clipTime: Double = 0,
@@ -815,6 +841,7 @@ struct RenderLayer {
     self.grade = grade
     self.effects = effects
     self.crop = crop
+    self.masks = masks
     self.blend = blend
     self.transition = transition
     self.clipTime = clipTime
@@ -838,6 +865,8 @@ struct RenderLayer {
   let effects: Effects?
   /// What's cut off the edges of its upright picture.
   let crop: Crop
+  /// Shapes hiding or revealing parts of its picture, placed for this frame.
+  let masks: [LayerMask]
   let blend: BlendMode
   /// How a transition it's part of shapes it this frame.
   let transition: TransitionStyle?

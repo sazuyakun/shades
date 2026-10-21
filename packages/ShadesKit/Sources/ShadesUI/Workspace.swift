@@ -659,15 +659,25 @@ extension Workspace: ProjectHost {
   /// Makes a layer follow a path through a video clip: the tracked path called `name`, or the
   /// cut-out's subject.
   public func follow(clipID: Clip.ID, targetID: Clip.ID, path name: String?) throws(CommandError) {
-    let analysis = editor.project.timeline.clip(withID: targetID)?.mediaID
-      .flatMap { self.analysis.analyses[$0] }
-    let path = name.map { analysis?.tracks?[$0] } ?? analysis?.subjectPath
-    guard let path else {
-      throw .invalidArguments(name.map {
-        "there's no path called \($0) on that clip's media; run track_motion first"
-      } ?? "that clip has no cut-out yet; run make_cutout first")
-    }
-    try editor.perform(FollowPath(clipID: clipID, targetID: targetID, path: path))
+    try editor.perform(FollowPath(
+      clipID: clipID,
+      targetID: targetID,
+      path: path(named: name, through: targetID),
+    ))
+  }
+
+  /// Makes one of a clip's masks, or its grade window, follow a path through the clip: the
+  /// tracked path called `name`, or the cut-out's subject.
+  public func followShape(
+    clipID: Clip.ID,
+    shape: FollowShape.Target,
+    path name: String?,
+  ) throws(CommandError) {
+    try editor.perform(FollowShape(
+      clipID: clipID,
+      shape: shape,
+      path: path(named: name, through: clipID),
+    ))
   }
 
   /// Places a plugin's template (`plugin/name` or `name`) at `time` with its text fields filled,
@@ -1097,6 +1107,20 @@ extension Workspace: ProjectHost {
           .timelineEnd
       }
     }
+  }
+
+  /// The tracked path called `name` through a clip's media, or its cut-out's subject.
+  private func path(named name: String?, through clipID: Clip.ID) throws(CommandError)
+    -> [SubjectPoint]
+  {
+    let analysis = editor.project.timeline.clip(withID: clipID)?.mediaID
+      .flatMap { self.analysis.analyses[$0] }
+    guard let path = name.map({ analysis?.tracks?[$0] }) ?? analysis?.subjectPath else {
+      throw .invalidArguments(name.map {
+        "there's no path called \($0) on that clip's media; run track_motion first"
+      } ?? "that clip has no cut-out yet; run make_cutout first")
+    }
+    return path
   }
 
   /// Starts using a finished noise-reduced sound in playback.

@@ -59,7 +59,8 @@ enum Guide {
     - set_camera moves a camera over the whole picture (zoom, pan, rotate, tilt, dolly) with \
     keyframes; video tracks follow it, captions stay put.
     - track_motion follows a box through a video clip (a background job) and saves a named \
-    path; follow then makes any layer move with it, or with the cut-out's subject.
+    path; follow then makes any layer move with it, or with the cut-out's subject. follow \
+    with mask or window moves one of a clip's own masks, or its grade window, instead.
     - Anything that moves blurs like film: set_shutter sets the timeline's shutter angle (180 \
     by default, 0 for none) and set_clip motion_blur scales it for one clip (0 keeps a layer \
     sharp, 2 doubles its smear).
@@ -81,6 +82,12 @@ enum Guide {
     - set_look grades clips (exposure, contrast, saturation, temperature, tint, lift, gamma, \
     gain, curves, a LUT), adds grain, vignette, halation, blur or a green-screen key, and sets \
     blend modes (screen for flares on black, multiply for paper, overlay for grain plates).
+    - set_window limits a clip's grade to a soft ellipse or rectangle in the frame (light a \
+    face, darken a sky) and keyframes it with at.
+    - set_mask hides or reveals part of a layer: rectangles, ellipses or free paths (points or \
+    SVG path data, on the layer's own picture, so they move with it), each with feather, \
+    expansion, invert and opacity, joined in order by add or subtract. Keyframe a mask with \
+    at; get_project lists each clip's masks.
     - add_adjustment puts a grade or film look over everything under it; captions stay clean.
     - Write your own effects: a .metal file defining float4 effect(float4 color, float2 uv, \
     float time, float amount, texture2d<half> source, sampler s) that returns the new colour. \

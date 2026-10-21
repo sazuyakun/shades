@@ -7,14 +7,15 @@ struct LayerLook {
 
   // MARK: Lifecycle
 
-  /// The look of a layer whose source is `size` pixels: its grade, effects, crop and blend,
-  /// whether it's masked by the subject or an adjustment clip, a `seed` that changes each frame,
-  /// and how a transition it's part of shapes it.
+  /// The look of a layer whose source is `size` pixels: its grade, effects, crop, how many
+  /// masks are bound and blend, whether it's masked by the subject or an adjustment clip, a
+  /// `seed` that changes each frame, and how a transition it's part of shapes it.
   init(
     size: CGSize,
     grade: Grade?,
     effects: Effects?,
     crop: Crop,
+    maskCount: Int,
     blend: BlendMode,
     isMasked: Bool,
     isAdjustment: Bool,
@@ -74,6 +75,7 @@ struct LayerLook {
     cropRight = Float(crop.right)
     cropTop = Float(crop.top)
     cropBottom = Float(crop.bottom)
+    self.maskCount = Int32(maskCount)
     effectTime = Float(clipTime)
     effectAmount = Float(effects.shaderAmount)
     wipe =
@@ -136,5 +138,6 @@ struct LayerLook {
   let cropRight: Float
   let cropTop: Float
   let cropBottom: Float
+  let maskCount: Int32
 
 }

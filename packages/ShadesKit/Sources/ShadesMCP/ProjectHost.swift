@@ -100,4 +100,11 @@ public protocol ProjectHost: AnyObject {
   /// Makes a layer follow a path through a video clip: a tracked path's `name`, or the
   /// cut-out's subject when `nil`.
   func follow(clipID: Clip.ID, targetID: Clip.ID, path name: String?) throws(CommandError)
+  /// Makes one of a clip's masks, or its grade window, follow a path through the clip: a tracked
+  /// path's `name`, or the cut-out's subject when `nil`.
+  func followShape(
+    clipID: Clip.ID,
+    shape: FollowShape.Target,
+    path name: String?,
+  ) throws(CommandError)
 }

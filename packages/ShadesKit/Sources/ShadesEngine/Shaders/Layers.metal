@@ -20,6 +20,7 @@ struct VertexOut {
   float4 position [[position]];
   float2 uv;
   float2 upright;     // where in the upright picture, 0…1 from its top left
+  float aspect [[flat]]; // the upright picture's width over its height
   float2 screen [[center_no_perspective]]; // where in the frame, 0…1 from the top left
   float opacity;
 };
@@ -47,6 +48,7 @@ vertex VertexOut layerVertex(uint id [[vertex_id]], constant FrameUniforms &u [[
     u.matrix.y * upright.x + u.matrix.w * upright.y + u.offset.y
   );
   out.upright = upright;
+  out.aspect = (u.fit.x * u.frameSize.x) / max(u.fit.y * u.frameSize.y, 1.0);
   float2 onScreen = position.xy / position.w;
   out.screen = float2(onScreen.x * 0.5 + 0.5, 0.5 - onScreen.y * 0.5);
   out.opacity = u.opacity;
@@ -104,6 +106,23 @@ struct LayerLook {
   float cropRight;
   float cropTop;
   float cropBottom;
+  int maskCount;             // how many of the layer's masks are bound
+};
+
+// Must match `LayerMaskShape` in LayerMaskShape.swift: one layer mask, placed for this frame.
+struct LayerMaskShape {
+  float x;            // centre and box size, fractions of the upright picture
+  float y;
+  float width;
+  float height;
+  float feather;      // fractions of the picture's height
+  float expansion;
+  float opacity;
+  int kind;           // 0 rectangle, 1 ellipse, 2 path
+  int inverted;
+  int subtracts;
+  int firstPoint;     // where its outline starts in the points buffer (box fractions)
+  int pointCount;
 };
 
 static float hash(float2 p) {
@@ -232,13 +251,65 @@ static float cropCoverage(float2 p, constant LayerLook &look) {
   return low.x * low.y * high.x * high.y;
 }
 
+// How far `p` is from a closed polygon's edge (negative inside), in `p`'s units.
+static float polygonDistance(float2 p, float2 size, constant float2 *points, int count) {
+  float2 first = (points[0] - 0.5) * size;
+  float distance = dot(p - first, p - first);
+  float side = 1.0;
+  for (int i = 0, j = count - 1; i < count; j = i, i++) {
+    float2 a = (points[i] - 0.5) * size;
+    float2 b = (points[j] - 0.5) * size;
+    float2 edge = b - a;
+    float2 toPoint = p - a;
+    float2 nearest = toPoint - edge * saturate(dot(toPoint, edge) / max(dot(edge, edge), 1e-10));
+    distance = min(distance, dot(nearest, nearest));
+    bool3 crossing = bool3(p.y >= a.y, p.y < b.y, edge.x * toPoint.y > edge.y * toPoint.x);
+    if (all(crossing) || all(!crossing)) {
+      side = -side;
+    }
+  }
+  return side * sqrt(distance);
+}
+
+// How much of the layer its masks show at the upright picture's point `p`: each shape's soft
+// coverage, inverted and faded as asked, added to or taken from the masks before it.
+static float maskCoverage(float2 p, float aspect, constant LayerLook &look, constant LayerMaskShape *masks, constant float2 *points) {
+  if (look.maskCount == 0) {
+    return 1.0;
+  }
+  // why: distances are measured in picture heights, so circles stay round on any picture.
+  float2 scale = float2(aspect, 1.0);
+  float coverage = masks[0].subtracts != 0 ? 1.0 : 0.0;
+  for (int i = 0; i < look.maskCount; i++) {
+    LayerMaskShape mask = masks[i];
+    float2 size = float2(mask.width, mask.height) * scale;
+    float2 q = (p - float2(mask.x, mask.y)) * scale;
+    float distance;
+    if (mask.kind == 0) {
+      float2 outside = abs(q) - size * 0.5;
+      distance = length(max(outside, 0.0)) + min(max(outside.x, outside.y), 0.0);
+    } else if (mask.kind == 1) {
+      float2 radius = max(size * 0.5, 1e-5);
+      distance = (length(q / radius) - 1.0) * min(radius.x, radius.y);
+    } else {
+      distance = polygonDistance(q, size, points + mask.firstPoint, mask.pointCount);
+    }
+    distance -= mask.expansion;
+    float soft = max(mask.feather, fwidth(distance));
+    float inside = 1.0 - smoothstep(-soft * 0.5, soft * 0.5, distance);
+    inside = (mask.inverted != 0 ? 1.0 - inside : inside) * mask.opacity;
+    coverage = mask.subtracts != 0 ? coverage * (1.0 - inside) : coverage + inside - coverage * inside;
+  }
+  return coverage;
+}
+
 // The layer's picture keyed, graded and given its effects: straight colour and alpha, before
 // it's masked, wiped or mixed with what's under it.
-static float4 shade(VertexOut in, texture2d<half> picture, float2 uv, texture3d<float> lut, texture2d<float> curves, constant LayerLook &look, sampler s) {
+static float4 shade(VertexOut in, texture2d<half> picture, float2 uv, texture3d<float> lut, texture2d<float> curves, constant LayerLook &look, constant LayerMaskShape *masks, constant float2 *points, sampler s) {
   float4 color = sampleSoft(picture, s, uv, look);
   float alpha = color.a;
   float3 rgb = alpha > 0 ? color.rgb / alpha : color.rgb;
-  alpha *= cropCoverage(in.upright, look);
+  alpha *= cropCoverage(in.upright, look) * maskCoverage(in.upright, in.aspect, look, masks, points);
   if (look.keyTolerance > 0) {
     float distance = length(rgb - float3(look.keyRed, look.keyGreen, look.keyBlue));
     alpha *= smoothstep(look.keyTolerance, look.keyTolerance + max(look.keySoftness, 0.001), distance);
@@ -290,12 +361,14 @@ fragment float4 layerFragment(
   texture2d<half> backdrop [[texture(2)]],
   texture3d<float> lut [[texture(3)]],
   texture2d<float> curves [[texture(4)]],
-  constant LayerLook &look [[buffer(0)]]
+  constant LayerLook &look [[buffer(0)]],
+  constant LayerMaskShape *masks [[buffer(1)]],
+  constant float2 *points [[buffer(2)]]
 ) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
   float2 uv = look.isAdjustment != 0 ? in.screen : in.uv;
   texture2d<half> picture = look.isAdjustment != 0 ? backdrop : source;
-  float4 shaded = shade(in, picture, uv, lut, curves, look, linearSampler);
+  float4 shaded = shade(in, picture, uv, lut, curves, look, masks, points, linearSampler);
   return composite(shaded, in, mask, backdrop, look, linearSampler);
 }
 
@@ -312,10 +385,12 @@ fragment float4 sampleFragment(
   texture2d<half> source [[texture(0)]],
   texture3d<float> lut [[texture(3)]],
   texture2d<float> curves [[texture(4)]],
-  constant LayerLook &look [[buffer(0)]]
+  constant LayerLook &look [[buffer(0)]],
+  constant LayerMaskShape *masks [[buffer(1)]],
+  constant float2 *points [[buffer(2)]]
 ) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-  return weighted(shade(in, source, in.uv, lut, curves, look, linearSampler), in);
+  return weighted(shade(in, source, in.uv, lut, curves, look, masks, points, linearSampler), in);
 }
 
 // Draws a moving layer's trail (its moments summed, so averaged) over the frame, then masks,

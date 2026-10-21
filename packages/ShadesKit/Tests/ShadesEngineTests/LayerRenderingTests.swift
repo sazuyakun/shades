@@ -59,6 +59,64 @@ struct LayerRenderingTests {
   }
 
   @Test
+  func `an ellipse mask shows the layer inside it, minus a subtracted square`() async throws {
+    let project = try await twoLayers {
+      $0.masks = [
+        LayerMask(shape: .ellipse, width: 0.8, height: 0.8),
+        LayerMask(shape: .rectangle, x: 0.5, y: 0.5, width: 0.2, height: 0.2, mode: .subtract),
+      ]
+    }
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    #expect(try PixelProbe.color(of: png, x: 0.3, y: 0.5).blue > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.5).red > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.03, y: 0.03).red > 200)
+    #expect(try GoldenFrame.matches(png, named: "v2-ellipse-mask-minus-square", in: golden))
+  }
+
+  @Test
+  func `a mask's expansion grows its edge and its opacity fades what it reveals`() async throws {
+    let grown = try await twoLayers {
+      $0.masks = [LayerMask(shape: .rectangle, width: 0.4, height: 0.4, expansion: 0.1)]
+    }
+    let png = try await FrameRenderer.png(of: grown, atSeconds: 0.5, maxSide: 320)
+    #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.25).blue > 200, "pushed out past its box")
+    #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.1).red > 200)
+    let faint = try await twoLayers { $0.masks = [LayerMask(width: 2, height: 2, opacity: 0.5)] }
+    let faded = try await FrameRenderer.png(of: faint, atSeconds: 0.5, maxSide: 320)
+    let half = try PixelProbe.color(of: faded, x: 0.5, y: 0.5)
+    #expect((100 ... 160).contains(half.red) && (100 ... 160).contains(half.blue))
+  }
+
+  @Test
+  func `a feathered inverted path mask moves with its keyframes and its layer`() async throws {
+    let triangle = [DrawingPoint(x: 0.5, y: 0), DrawingPoint(x: 1, y: 1), DrawingPoint(x: 0, y: 1)]
+    let project = try await twoLayers {
+      $0.transform.x = 0.1
+      $0.masks = [LayerMask(
+        shape: .path,
+        points: triangle,
+        feather: 0.08,
+        inverted: true,
+        keyframes: [
+          ShapeKeyframe(time: .zero, x: 0.3, y: 0.5, width: 0.4, height: 0.6, points: triangle),
+          ShapeKeyframe(
+            time: MediaTime(seconds: 1),
+            x: 0.7,
+            y: 0.5,
+            width: 0.4,
+            height: 0.6,
+            points: triangle,
+          ),
+        ],
+      )]
+    }
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    #expect(try PixelProbe.color(of: png, x: 0.6, y: 0.6).red > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.25, y: 0.5).blue > 200)
+    #expect(try GoldenFrame.matches(png, named: "v2-feathered-path-mask", in: golden))
+  }
+
+  @Test
   func `keyframes move a clip across the frame over time`() async throws {
     let project = try await twoLayers {
       $0.transform.scale = 0.3

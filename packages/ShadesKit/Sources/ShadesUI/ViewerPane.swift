@@ -20,6 +20,8 @@ struct ViewerPane: View {
             DrawingCanvas(onError: onError)
           } else if isTracking {
             TrackingCanvas(onError: onError)
+          } else {
+            MaskOverlay(onError: onError)
           }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

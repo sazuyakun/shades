@@ -26,6 +26,8 @@ public enum CommandRegistry {
     AddDrawing.self,
     SetDrawing.self,
     SetLook.self,
+    SetWindow.self,
+    SetMask.self,
     AddAdjustment.self,
     SetTransition.self,
     SetMasterGain.self,

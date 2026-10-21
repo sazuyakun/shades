@@ -98,6 +98,19 @@ struct LookRenderingTests {
   }
 
   @Test
+  func `a keyframed window moves across the frame with time`() async throws {
+    var window = GradeWindow(width: 0.3, height: 0.3, softness: 0.05)
+    window.keyframes = [
+      ShapeKeyframe(time: .zero, x: 0.2, y: 0.5, width: 0.3, height: 0.3),
+      ShapeKeyframe(time: MediaTime(seconds: 1), x: 0.6, y: 0.5, width: 0.3, height: 0.3),
+    ]
+    let png = try await splitFrame(grade: Grade(exposure: -4, window: window))
+    #expect(try PixelProbe.color(of: png, x: 0.4, y: 0.5).red < 40, "the window is midway")
+    #expect(try PixelProbe.color(of: png, x: 0.15, y: 0.5).red > 200, "it has left the start")
+    #expect(try GoldenFrame.matches(png, named: "grade-window-keyframed", in: golden))
+  }
+
+  @Test
   func `grain is the same for the same frame`() async throws {
     let first = try await frame(top: nil) { $0.effects = Effects(grain: 1) }
     let again = try await frame(top: nil) { $0.effects = Effects(grain: 1) }

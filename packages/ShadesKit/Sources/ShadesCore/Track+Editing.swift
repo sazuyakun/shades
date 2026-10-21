@@ -104,6 +104,7 @@ extension Clip {
       footageBlur: footageBlur,
       speed: speed,
       crop: crop,
+      masks: masks,
     )
   }
 

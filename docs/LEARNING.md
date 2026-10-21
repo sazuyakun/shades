@@ -473,3 +473,23 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A drag reports `startLocation` (where the press began) and `location` (where the pointer is now) on every change, then once more when it ends. From the two you can grab what was under the press, or span a box between them.
 **JS/TS analogy:** `pointerdown` remembering its coordinates, then `pointermove` and `pointerup`, rolled into one value.
 **In Shades:** `CurvesEditor` grabs (or adds) the curve point under the press and moves it; `TrackingCanvas` draws the box to track from the press to the pointer.
+
+## Generic functions (`func eased<Value>(…) -> Value?`)
+**What it is:** A function with a type placeholder in angle brackets. Each call fills `Value` in from what you pass (here, from what the `hold` and `blend` closures return), and the compiler checks it all lines up.
+**JS/TS analogy:** TypeScript generics, `function eased<V>(…, hold: (e: E) => V): V | undefined`.
+**In Shades:** `Array.eased(at:time:hold:blend:)` finds where a moment falls among keyframes once, for both clip keyframes (a `Double`) and mask and window keyframes (a whole `ShapeKeyframe`).
+
+## Signed distance fields (masks in the shader)
+**What it is:** Instead of drawing a shape's pixels, each pixel works out how far it is from the shape's edge: negative inside, positive outside. A soft edge is then just "fade over this distance", growing the shape is "subtract a distance", and inverting is "1 − coverage".
+**JS/TS analogy:** None built in; it's like testing `isPointInPath` for every pixel, but getting a distance back instead of a yes/no.
+**In Shades:** `maskCoverage` in Layers.metal measures each mask (box, ellipse or polygon) this way, which gives feather, expansion, invert, opacity and add/subtract in a few lines.
+
+## `MTLBuffer` and `[[flat]]` (more data for a shader)
+**What it is:** `setFragmentBytes` copies a small struct (up to 4 KB) to the GPU for one draw; an `MTLBuffer` is GPU memory of any size you fill yourself and bind by index. `[[flat]]` on a vertex output means "don't blend it across the triangle", for values that are the same everywhere.
+**JS/TS analogy:** Like a WebGL uniform versus a uniform buffer or texture holding a whole array.
+**In Shades:** `MetalRenderer` puts a layer's masks and their path points in buffers 1 and 2; the picture's aspect ratio reaches the fragment shader as a `[[flat]]` value.
+
+## Named coordinate spaces and `DragGesture`
+**What it is:** `.coordinateSpace(.named("masks"))` names a view's space; a `DragGesture(coordinateSpace: .named("masks"))` inside it then reports the finger's location in that space, wherever the dragged view sits.
+**JS/TS analogy:** Like reading `event.clientX` minus the container's `getBoundingClientRect()` on every `pointermove`, done for you.
+**In Shades:** `MaskOverlay` measures handle drags and the Draw Mask lasso in the viewer's space, then turns them into points of the clip's picture.

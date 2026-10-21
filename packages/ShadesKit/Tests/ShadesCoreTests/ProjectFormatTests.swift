@@ -5,7 +5,7 @@ import Testing
 /// Saved projects must keep opening as the model grows.
 struct ProjectFormatTests {
   @Test
-  func `a clip saved before text clips, motion blur and crop loads as uncropped media`(
+  func `a clip saved before text clips, motion blur, crop and masks loads as plain media`(
   ) throws {
     let json = """
       {"id":"6A1F2B4C-0000-4000-8000-000000000001","mediaID":"6A1F2B4C-0000-4000-8000-000000000002",
@@ -19,6 +19,17 @@ struct ProjectFormatTests {
     #expect(clip.motionBlur == 1)
     #expect(clip.footageBlur == false)
     #expect(clip.crop == .none)
+    #expect(clip.masks.isEmpty)
+  }
+
+  @Test
+  func `a grade window saved before window keyframes stays put`() throws {
+    let json = #"{"shape":"rectangle","x":0.3,"y":0.4,"width":0.2,"height":0.2,"softness":0.1,"#
+      + #""inverted":true}"#
+    let window = try JSONDecoder().decode(GradeWindow.self, from: Data(json.utf8))
+    #expect(window.keyframes.isEmpty)
+    #expect(window.placed(at: MediaTime(seconds: 3)) == window)
+    #expect(!window.isEllipse && window.inverted)
   }
 
   @Test
@@ -55,6 +66,15 @@ struct ProjectFormatTests {
       motionBlur: 0.5,
       footageBlur: true,
       crop: Crop(left: 0.1, bottom: 0.2),
+      masks: [
+        LayerMask(
+          shape: .path,
+          points: [DrawingPoint(x: 0, y: 0), DrawingPoint(x: 1, y: 0), DrawingPoint(x: 0, y: 1)],
+          feather: 0.05,
+          mode: .subtract,
+          keyframes: [ShapeKeyframe(time: .zero, x: 0.4, y: 0.5, width: 0.3, height: 0.2)],
+        )
+      ],
     )
     let text = Clip(
       source: .text(TextContent(text: "hi")),

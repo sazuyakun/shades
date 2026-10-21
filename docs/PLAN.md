@@ -64,6 +64,7 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 
 | # | Issue | Fix in |
 |---|---|---|
+| 34 | The viewer's mask handles place the picture by the clip's position, scale and rotation only: they ignore the timeline camera and 3D tilt, and don't show on text clips (whose masks are set in the inspector or over MCP) | After M9 |
 | 33 | Pan only moves stereo sound: a mono track stays centred whatever its pan, because AVFoundation's audio tap sees mono sound as one channel. Needs mono clips played from a stereo copy when their track is panned | After M9 |
 | 32 | Sped-up sound can lose its last ~70 ms at the very end of the mix: AVFoundation's pitch-keeping stretcher (`.spectral`) doesn't always flush its tail there (seen under heavy load in `MixReaderTests`) | After M9 |
 | 31 | Plugins can't ship video overlay packs (`stickers/` takes pictures only), and an edited `.cube` LUT stays cached until restart (cached by URL, not modification date) | After M9 |
@@ -77,7 +78,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 20 | Type & motion gaps: no endless-zoom portals, "3D type" is flat text tilted in space (no extrusion or 3D bend), and text on paths follows only a circular arc (not any path) | After M9 |
 | 17 | The History pane has no per-request undo: rows only offer Show, there's no request grouping, the log is in memory and cleared when a project opens, and edits applied later by background jobs aren't logged | After M9 |
 | 16 | Cut-outs have no edge refinement (no feather or choke): the Vision mask is only resized and blended with the previous frame | After M9 |
-| 15 | No layer masks: nothing hides or reveals part of a layer by a shape. Grade windows exist but are only ellipses and rectangles, fixed in place (no keyframes or tracking) | After M9 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 
 ## 3. Constraints & setup notes

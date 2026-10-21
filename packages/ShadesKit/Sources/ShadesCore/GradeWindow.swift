@@ -13,6 +13,7 @@ public struct GradeWindow: Hashable, Sendable {
     height: Double = 0.5,
     softness: Double = 0.2,
     inverted: Bool = false,
+    keyframes: [ShapeKeyframe] = [],
   ) {
     self.isEllipse = isEllipse
     self.x = x
@@ -21,6 +22,7 @@ public struct GradeWindow: Hashable, Sendable {
     self.height = height
     self.softness = softness
     self.inverted = inverted
+    self.keyframes = keyframes
   }
 
   // MARK: Public
@@ -37,6 +39,35 @@ public struct GradeWindow: Hashable, Sendable {
   public var softness: Double
   /// Grade outside the shape instead of inside.
   public var inverted: Bool
+  /// Where it is and how big over time (in its clip's source time, centre and size as fractions
+  /// of the frame), overriding the fixed ones while present.
+  public var keyframes: [ShapeKeyframe]
+
+  /// The window as it is at `time` (in its clip's source time), moved by its keyframes.
+  public func placed(at time: MediaTime) -> GradeWindow {
+    guard let key = keyframes.shape(at: time) else {
+      return self
+    }
+    var placed = self
+    placed.x = key.x
+    placed.y = key.y
+    placed.width = key.width
+    placed.height = key.height
+    return placed
+  }
+
+  /// Where it is now, as a keyframe at `time`.
+  public func keyframe(at time: MediaTime, easing: Easing = .linear) -> ShapeKeyframe {
+    let now = placed(at: time)
+    return ShapeKeyframe(
+      time: time,
+      x: now.x,
+      y: now.y,
+      width: now.width,
+      height: now.height,
+      easing: easing,
+    )
+  }
 
 }
 
@@ -59,6 +90,7 @@ extension GradeWindow: Codable {
       height: container.decodeIfPresent(Double.self, forKey: .height) ?? base.height,
       softness: container.decodeIfPresent(Double.self, forKey: .softness) ?? base.softness,
       inverted: container.decodeIfPresent(Bool.self, forKey: .inverted) ?? base.inverted,
+      keyframes: container.decodeIfPresent([ShapeKeyframe].self, forKey: .keyframes) ?? [],
     )
   }
 
@@ -73,6 +105,7 @@ extension GradeWindow: Codable {
     try container.encode(height, forKey: .height)
     try container.encode(softness, forKey: .softness)
     try container.encode(inverted, forKey: .inverted)
+    try container.encode(keyframes, forKey: .keyframes)
   }
 
   // MARK: Internal
@@ -85,6 +118,7 @@ extension GradeWindow: Codable {
     case height
     case softness
     case inverted
+    case keyframes
   }
 
 }

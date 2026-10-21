@@ -1,6 +1,7 @@
 // MARK: - DrawingPoint
 
-/// A point of a drawn stroke, as fractions of the frame from its top left. Written as `[x, y]`.
+/// A point as fractions of an area from its top left: the frame for a drawn stroke, the box of
+/// a path mask. Written as `[x, y]`.
 public struct DrawingPoint: Hashable, Sendable {
   public init(x: Double, y: Double) {
     self.x = x

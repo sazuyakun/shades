@@ -32,6 +32,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     footageBlur: Bool = false,
     speed: Double = 1,
     crop: Crop = .none,
+    masks: [LayerMask] = [],
   ) {
     self.init(
       id: id,
@@ -57,6 +58,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       footageBlur: footageBlur,
       speed: speed,
       crop: crop,
+      masks: masks,
     )
   }
 
@@ -85,6 +87,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     footageBlur: Bool = false,
     speed: Double = 1,
     crop: Crop = .none,
+    masks: [LayerMask] = [],
   ) {
     self.id = id
     self.source = source
@@ -109,6 +112,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.footageBlur = footageBlur
     self.speed = speed
     self.crop = crop
+    self.masks = masks
   }
 
   // MARK: Public
@@ -159,6 +163,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var speed: Double
   /// What's cut off the edges of its picture.
   public var crop: Crop
+  /// Shapes that hide or reveal parts of its picture, joined in order.
+  public var masks: [LayerMask]
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -231,6 +237,7 @@ extension Clip: Codable {
       footageBlur: container.decodeIfPresent(Bool.self, forKey: .footageBlur) ?? false,
       speed: container.decodeIfPresent(Double.self, forKey: .speed) ?? 1,
       crop: container.decodeIfPresent(Crop.self, forKey: .crop) ?? .none,
+      masks: container.decodeIfPresent([LayerMask].self, forKey: .masks) ?? [],
     )
   }
 
@@ -261,6 +268,7 @@ extension Clip: Codable {
     try container.encode(footageBlur, forKey: .footageBlur)
     try container.encode(speed, forKey: .speed)
     try container.encode(crop, forKey: .crop)
+    try container.encode(masks, forKey: .masks)
   }
 
   // MARK: Private
@@ -291,6 +299,7 @@ extension Clip: Codable {
     case footageBlur
     case speed
     case crop
+    case masks
   }
 
 }

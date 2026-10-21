@@ -4,7 +4,7 @@ import ShadesMatting
 import SwiftUI
 
 /// Video tab for a clip: where it sits, how big, its rotation, opacity (each animatable), crop,
-/// depth slot, motion blur, the transition into it, and its cut-out and what it follows.
+/// masks, depth slot, motion blur, the transition into it, and its cut-out and what it follows.
 struct ClipVideoInspector: View {
 
   // MARK: Internal
@@ -34,6 +34,9 @@ struct ClipVideoInspector: View {
       } else if isMoving {
         AnimatedSlider(clip: clip, property: .speed, onError: onError)
       }
+      Hairline()
+      MaskInspector(clip: clip, onError: onError)
+      Hairline()
       Picker("Depth", selection: Binding(
         get: { clip.depth },
         set: { perform([SetClip(clipID: clip.id, depthSlot: $0)], title: SetClip.title) },

@@ -370,14 +370,19 @@ public final class ToolHandler {
       name: "follow",
       summary: "Make a layer (text, sticker, video) follow something moving in a video clip, "
         + "keeping where it sits now relative to it: x and y keyframes along a track_motion path, "
-        + "or along the subject of the clip's cut-out when no path is named.",
+        + "or along the subject of the clip's cut-out when no path is named. With mask or "
+        + "window, one of the clip's own masks or its grade window follows instead.",
       parameters: JSONSchema.object(
         [
           "clip_id": JSONSchema.string("The layer that moves"),
-          "target_id": JSONSchema.string("The video clip with the moving thing"),
+          "target_id": JSONSchema.string(
+            "The video clip with the moving thing (not used with mask or window)"
+          ),
           "path": JSONSchema.string("A track_motion path's name; leave out to follow the subject"),
+          "mask": JSONSchema.number("Make this mask of the clip (from 0) follow instead"),
+          "window": JSONSchema.boolean("Make the clip's grade window follow instead"),
         ],
-        required: ["clip_id", "target_id"],
+        required: ["clip_id"],
       ),
       kind: .edit,
     ),
@@ -746,14 +751,22 @@ public final class ToolHandler {
       let request = try decode(FollowArguments.self, from: arguments, tool: name)
       let projectHost = try host()
       try perform { () throws(CommandError) in
-        try projectHost.follow(
-          clipID: request.clipID,
-          targetID: request.targetID,
-          path: request.path,
-        )
+        if
+          let shape = request.mask.map(FollowShape.Target.mask)
+          ?? (request.window == true ? .window : nil)
+        {
+          try projectHost.followShape(clipID: request.clipID, shape: shape, path: request.path)
+          return
+        }
+        guard let targetID = request.targetID else {
+          throw .invalidArguments("name the video clip to follow with target_id")
+        }
+        try projectHost.follow(clipID: request.clipID, targetID: targetID, path: request.path)
       }
+      let follower = request.mask.map { "Mask \($0)" }
+        ?? (request.window == true ? "The window" : "The layer")
       return .text(
-        "The layer now follows \(request.path ?? "the subject"). Check it with render_frame."
+        "\(follower) now follows \(request.path ?? "the subject"). Check it with render_frame."
       )
 
     case "list_plugins":
@@ -1593,8 +1606,10 @@ private struct TrackArguments: Decodable {
 
 private struct FollowArguments: Decodable {
   let clipID: UUID
-  let targetID: UUID
+  let targetID: UUID?
   let path: String?
+  let mask: Int?
+  let window: Bool?
 }
 
 // MARK: - ReframeArguments

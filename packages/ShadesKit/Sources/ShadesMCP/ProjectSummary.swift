@@ -156,8 +156,39 @@ enum ProjectSummary {
     if clip.blend != .normal {
       fields["blend"] = .string(clip.blend.rawValue)
     }
+    if clip.crop != .none {
+      fields["crop"] = [
+        "left": rounded(clip.crop.left),
+        "right": rounded(clip.crop.right),
+        "top": rounded(clip.crop.top),
+        "bottom": rounded(clip.crop.bottom),
+      ]
+    }
+    if !clip.masks.isEmpty {
+      fields["masks"] = .array(clip.masks.map { mask in
+        .object([
+          "shape": .string(mask.shape.rawValue),
+          "x": rounded(mask.x),
+          "y": rounded(mask.y),
+          "width": rounded(mask.width),
+          "height": rounded(mask.height),
+          "points": .number(Double(mask.points.count)),
+          "feather": rounded(mask.feather),
+          "expansion": rounded(mask.expansion),
+          "inverted": .bool(mask.inverted),
+          "opacity": rounded(mask.opacity),
+          "mode": .string(mask.mode.rawValue),
+          "keyframes": shapeKeyframes(mask.keyframes, of: clip),
+        ])
+      })
+    }
+    if let keys = clip.grade?.window?.keyframes, !keys.isEmpty {
+      fields["window_keyframes"] = shapeKeyframes(keys, of: clip)
+    }
+    var grade = clip.grade
+    grade?.window?.keyframes = []
     // why: our own value types always encode; a failure would only drop the field from the summary.
-    fields["grade"] = clip.grade.flatMap { try? JSONValue(encoding: $0) }
+    fields["grade"] = grade.flatMap { try? JSONValue(encoding: $0) }
     fields["effects"] = clip.effects.flatMap { try? JSONValue(encoding: $0) }
     fields["sticker"] = clip.sticker.flatMap { try? JSONValue(encoding: $0) }
     if !clip.keyframes.isEmpty {
@@ -171,6 +202,20 @@ enum ProjectSummary {
       })
     }
     return .object(fields)
+  }
+
+  /// A mask's or window's keyframes, at timeline times.
+  private static func shapeKeyframes(_ keys: [ShapeKeyframe], of clip: Clip) -> JSONValue {
+    .array(keys.map { key in
+      .object([
+        "at": seconds(clip.timelineTime(atSource: key.time)),
+        "x": rounded(key.x),
+        "y": rounded(key.y),
+        "width": rounded(key.width),
+        "height": rounded(key.height),
+        "easing": .string(key.easing.rawValue),
+      ])
+    })
   }
 
   private static func seconds(_ time: MediaTime) -> JSONValue {

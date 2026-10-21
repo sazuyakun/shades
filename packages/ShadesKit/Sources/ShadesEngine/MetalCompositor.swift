@@ -53,6 +53,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         return nil
       }
       let clip = style.clip
+      let source = clip.sourceTime(at: time)
       var offset = CGPoint.zero
       let picture: LayerPicture?
       let rotation: CGAffineTransform
@@ -75,7 +76,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         picture = clip.drawing.flatMap { drawing in
           instruction.renderContext.drawing(
             drawing,
-            at: clip.sourceTime(at: time).seconds,
+            at: source.seconds,
             duration: clip.duration.seconds,
             width: width,
             height: height,
@@ -93,7 +94,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           content.path?.offset = clip.value(of: .pathOffset, at: time)
           return instruction.renderContext.text(
             content,
-            at: clip.sourceTime(at: time).seconds,
+            at: source.seconds,
             duration: clip.duration.seconds,
             width: width,
             height: height,
@@ -132,16 +133,21 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           depth: clip.depth,
           matte: matte,
           isNaturalSize: isText,
-          grade: clip.grade,
+          grade: clip.grade.map { grade in
+            var placed = grade
+            placed.window = grade.window?.placed(at: source)
+            return placed
+          },
           effects: transition.map { style in
             var effects = clip.effects ?? Effects()
             effects.blur = max(effects.blur, style.blur)
             return effects
           } ?? clip.effects,
           crop: clip.crop,
+          masks: clip.masks.map { $0.placed(at: source) },
           blend: clip.blend,
           transition: transition,
-          clipTime: clip.sourceTime(at: time).seconds,
+          clipTime: source.seconds,
           shutter: isAdjustment
             ? []
             : Shutter.poses(
