@@ -49,6 +49,13 @@ extension Project {
     return addTrack(kind)
   }
 
+  /// The lowest track of `kind` with nothing from `start` to `end`, added if none is free.
+  mutating func freeTrack(_ kind: TrackKind, from start: MediaTime, to end: MediaTime) -> Int {
+    timeline.tracks.indices.first { index in
+      timeline.tracks[index].kind == kind && timeline.tracks[index].isClear(from: start, to: end)
+    } ?? addTrack(kind)
+  }
+
   /// The lowest track of `kind` above the first (V2 up, A2 up) with nothing from `start` to
   /// `end`, added if none is free.
   mutating func freeUpperTrack(_ kind: TrackKind, from start: MediaTime, to end: MediaTime) -> Int {

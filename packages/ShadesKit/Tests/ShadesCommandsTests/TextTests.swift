@@ -15,13 +15,26 @@ struct TextTests {
   }
 
   @Test
-  func `new text replaces text already there`() throws {
+  func `new text on a named track replaces text already there`() throws {
     var project = Project()
     try AddText(text: "one", at: seconds(0), duration: seconds(2)).apply(to: &project)
-    try AddText(text: "two", at: seconds(1), duration: seconds(2)).apply(to: &project)
+    try AddText(text: "two", at: seconds(1), duration: seconds(2), track: "T1").apply(to: &project)
     let clips = try #require(project.timeline.tracks.first { $0.kind == .text }?.clips)
     #expect(clips.map { $0.text?.text } == ["one", "two"])
     #expect(clips[0].duration == seconds(1))
+  }
+
+  @Test
+  func `new text without a track goes where it covers nothing, like over captions`() throws {
+    var project = Project()
+    try AddText(text: "caption", at: seconds(0), duration: seconds(2)).apply(to: &project)
+    try AddText(text: "next caption", at: seconds(2), duration: seconds(1)).apply(to: &project)
+    try AddText(text: "TITLE", at: seconds(1), duration: seconds(2)).apply(to: &project)
+    let tracks = project.timeline.tracks.filter { $0.kind == .text }
+    #expect(tracks.map { $0.clips.map { $0.text?.text } } == [
+      ["caption", "next caption"],
+      ["TITLE"],
+    ])
   }
 
   @Test

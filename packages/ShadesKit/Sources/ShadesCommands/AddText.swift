@@ -27,9 +27,10 @@ public struct AddText: ToolCommand {
 
   public static let title = "Add Text"
   public static let name = "add_text"
-  public static let summary = "Place text on screen from a time for a duration, on a text track "
-    + "(T1 by default, added if missing), replacing text already there. Give a style for titles "
-    + "(anchor center) and a reveal for kinetic type."
+  public static let summary = "Place text on screen from a time for a duration: on the named "
+    + "text track (replacing text already there), or by default on the first text track free "
+    + "then (added if none is). Give a style for titles (anchor center) and a reveal for kinetic "
+    + "type."
   public static let parameters = JSONSchema.object(
     [
       "text": JSONSchema.string("The words to show"),
@@ -56,10 +57,15 @@ public struct AddText: ToolCommand {
       throw rejected(.invalidValue("the text is empty"))
     }
     try style?.validate()
-    let index = try project.textTrack(labeled: track)
     let start = project.onFrame(at)
     let length = max(project.onFrame(duration), project.timeline.format.frameDuration)
-    project.timeline.tracks[index].clear(from: start, to: start + length)
+    let index: Int
+    if let track {
+      index = try project.textTrack(labeled: track)
+      project.timeline.tracks[index].clear(from: start, to: start + length)
+    } else {
+      index = project.freeTrack(.text, from: start, to: start + length)
+    }
     project.timeline.tracks[index].add(Clip(
       source: .text(TextContent(
         text: text,
