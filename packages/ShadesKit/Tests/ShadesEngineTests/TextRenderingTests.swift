@@ -103,6 +103,43 @@ struct TextRenderingTests {
     #expect(try GoldenFrame.matches(png, named: "words-popping", in: golden))
   }
 
+  @Test
+  func `words split into layers draw where they sat in the line`() async throws {
+    var content = TextContent(text: "one two three", style: TextStyle(size: 0.12, anchor: .center))
+    content.style.shadow = false
+    let whole = try await frame(layers: [textClip(content)], at: 0.5)
+    let split = try await frame(layers: (0 ..< 3).map { index in
+      var word = content
+      word.word = index
+      return textClip(word)
+    }, at: 0.5)
+    for x in stride(from: 0.05, through: 0.95, by: 0.03) {
+      for y in stride(from: 0.4, through: 0.6, by: 0.02) {
+        let expected = try PixelProbe.color(of: whole, x: x, y: y)
+        let actual = try PixelProbe.color(of: split, x: x, y: y)
+        #expect(abs(Int(expected.green) - Int(actual.green)) < 40, "at \(x), \(y)")
+      }
+    }
+  }
+
+  @Test
+  func `each word layer moves and turns about its own centre`() async throws {
+    let content = TextContent(text: "one two three", style: TextStyle(size: 0.12, anchor: .center))
+    let png = try await frame(layers: (0 ..< 3).map { index in
+      var word = content
+      word.word = index
+      var clip = textClip(word)
+      if index == 1 {
+        clip.transform = ClipTransform(y: -0.2, rotation: 20)
+      }
+      if index == 2 {
+        clip.transform = ClipTransform(scale: 1.5)
+      }
+      return clip
+    }, at: 0.5)
+    #expect(try GoldenFrame.matches(png, named: "words-as-layers", in: golden))
+  }
+
   // MARK: Private
 
   private let golden = URL(filePath: #filePath).deletingLastPathComponent()
@@ -121,6 +158,23 @@ struct TextRenderingTests {
     at seconds: Double,
     change: (inout Clip) -> Void = { _ in },
   ) async throws -> Data {
+    var text = textClip(content)
+    change(&text)
+    return try await frame(layers: [text], at: seconds)
+  }
+
+  /// A 2-second text clip from the start.
+  private func textClip(_ content: TextContent) -> Clip {
+    Clip(
+      source: .text(content),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 2),
+      timelineStart: .zero,
+    )
+  }
+
+  /// Text clips, each on its own track, over a blue background, rendered at `seconds`.
+  private func frame(layers: [Clip], at seconds: Double) async throws -> Data {
     let url = try await VideoFixture.make(red: 0, green: 0, blue: 255, seconds: 2)
     let media = Media(
       url: url,
@@ -129,23 +183,20 @@ struct TextRenderingTests {
       height: 180,
       hasAudio: false,
     )
-    var text = Clip(
-      source: .text(content),
-      sourceStart: .zero,
-      duration: MediaTime(seconds: 2),
-      timelineStart: .zero,
-    )
-    change(&text)
     let video = Clip(
       mediaID: media.id,
       sourceStart: .zero,
       duration: media.duration,
       timelineStart: .zero,
     )
-    let project = Project(media: [media], timeline: Timeline(format: .half, tracks: [
-      Track(kind: .video, clips: [video]),
-      Track(kind: .text, clips: [text]),
-    ]))
+    let project = Project(
+      media: [media],
+      timeline: Timeline(
+        format: .half,
+        tracks: [Track(kind: .video, clips: [video])] + layers
+          .map { Track(kind: .text, clips: [$0]) },
+      ),
+    )
     return try await FrameRenderer.png(of: project, atSeconds: seconds, maxSide: 480)
   }
 

@@ -44,6 +44,19 @@ public enum Fields {
     values: TextReveal.allCases.map(\.rawValue),
   )
 
+  public static let words = JSONSchema.array(
+    "When each word is said, in order, one per word of the text, in seconds from the clip's "
+      + "start (the reveal follows them; without them words are spread over the start)",
+    items: JSONSchema.object(
+      [
+        "text": JSONSchema.string("The word"),
+        "start": JSONSchema.number("When it starts", minimum: 0),
+        "end": JSONSchema.number("When it ends", minimum: 0),
+      ],
+      required: ["text", "start", "end"],
+    ),
+  )
+
   /// A time on the timeline, in seconds.
   public static func time(_ description: String) -> JSONValue {
     JSONSchema.number(description + ", in seconds on the timeline", minimum: 0)

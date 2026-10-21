@@ -12,11 +12,13 @@ public struct TextContent: Hashable, Sendable {
     style: TextStyle = .caption,
     words: [TimedWord]? = nil,
     reveal: TextReveal = .none,
+    word: Int? = nil,
   ) {
     self.text = text
     self.style = style
     self.words = words
     self.reveal = reveal
+    self.word = word
   }
 
   // MARK: Public
@@ -26,6 +28,20 @@ public struct TextContent: Hashable, Sendable {
   /// When each word is said (from the transcript), for revealing them in time.
   public var words: [TimedWord]?
   public var reveal: TextReveal
+  /// The one word this clip shows (counting from 0), where it sits in the whole text: a
+  /// per-word layer. `nil` shows every word.
+  public var word: Int?
+
+  /// The text's words, split on spaces.
+  public var wordList: [Substring] {
+    text.split(separator: " ", omittingEmptySubsequences: true)
+  }
+
+  /// What the clip shows: its one word, or all of its text.
+  public var shownText: String {
+    let words = wordList
+    return word.flatMap { words.indices.contains($0) ? String(words[$0]) : nil } ?? text
+  }
 
 }
 
@@ -43,6 +59,7 @@ extension TextContent: Codable {
       style: container.decodeIfPresent(TextStyle.self, forKey: .style) ?? .caption,
       words: container.decodeIfPresent([TimedWord].self, forKey: .words),
       reveal: container.decodeIfPresent(TextReveal.self, forKey: .reveal) ?? .none,
+      word: container.decodeIfPresent(Int.self, forKey: .word),
     )
   }
 
@@ -53,6 +70,7 @@ extension TextContent: Codable {
     case style
     case words
     case reveal
+    case word
   }
 
 }

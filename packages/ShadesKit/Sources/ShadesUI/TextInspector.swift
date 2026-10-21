@@ -20,6 +20,11 @@ struct TextInspector: View {
         .onSubmit { perform(SetText(clipID: clip.id, text: words), coalescing: nil) }
         .onAppear { words = content.text }
         .onChange(of: content.text) { words = content.text }
+      if content.word == nil, content.wordList.count > 1 {
+        Button("Split into Words") { split() }
+          .buttonStyle(CapsuleButtonStyle())
+          .help("One layer per word, each where it sat, to move and animate on its own (⌥⌘W)")
+      }
       if !pluginStyles.isEmpty {
         Menu("Plugin Style") {
           ForEach(pluginStyles, id: \.name) { item in
@@ -151,6 +156,14 @@ struct TextInspector: View {
       var style = content.style
       edit(&style, value)
       perform(SetText(clipID: clip.id, style: style), coalescing: "\(clip.id).textStyle")
+    }
+  }
+
+  private func split() {
+    do {
+      try editor.perform(SplitWords(clipID: clip.id))
+    } catch {
+      onError(error.errorDescription ?? "The text couldn't be split into words.")
     }
   }
 

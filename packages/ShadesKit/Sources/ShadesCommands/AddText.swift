@@ -30,7 +30,7 @@ public struct AddText: ToolCommand {
   public static let summary = "Place text on screen from a time for a duration: on the named "
     + "text track (replacing text already there), or by default on the first text track free "
     + "then (added if none is). Give a style for titles (anchor center) and a reveal for kinetic "
-    + "type."
+    + "type; words (each word's timing, e.g. from get_transcript) time the reveal to speech."
   public static let parameters = JSONSchema.object(
     [
       "text": JSONSchema.string("The words to show"),
@@ -39,6 +39,7 @@ public struct AddText: ToolCommand {
       "track": JSONSchema.string("A text track like T1 or T2"),
       "style": Fields.textStyle,
       "reveal": Fields.reveal,
+      "words": Fields.words,
     ],
     required: ["text", "at", "duration"],
   )
@@ -57,6 +58,15 @@ public struct AddText: ToolCommand {
       throw rejected(.invalidValue("the text is empty"))
     }
     try style?.validate()
+    if let words {
+      let count = text.split(separator: " ", omittingEmptySubsequences: true).count
+      guard words.count == count else {
+        throw rejected(.invalidValue("give one timing per word: the text has \(count) words"))
+      }
+      guard words.allSatisfy({ .zero <= $0.start && $0.start <= $0.end }) else {
+        throw rejected(.invalidValue("each word's start must be 0 or more and before its end"))
+      }
+    }
     let start = project.onFrame(at)
     let length = max(project.onFrame(duration), project.timeline.format.frameDuration)
     let index: Int

@@ -42,6 +42,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | , . · ⇧, ⇧. | Nudge 1 frame · 5 frames |
 | N | Snapping on / off (on by default) |
 | ⌥⌘J | Join clips |
+| ⌥⌘W | Split text into words: one layer per word, each where it sat in the line |
 | ⌥↑ · ⌥↓ | Move clip up / down a track |
 | ⌘= · ⌘− · ⇧Z | Zoom in / out / fit |
 | ⇧⌘L | Link / unlink audio and video |

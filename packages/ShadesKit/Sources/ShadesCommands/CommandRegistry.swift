@@ -32,6 +32,7 @@ public enum CommandRegistry {
     SetShutter.self,
     AddText.self,
     SetText.self,
+    SplitWords.self,
     DetachAudio.self,
     AddTrack.self,
     RemoveTrack.self,

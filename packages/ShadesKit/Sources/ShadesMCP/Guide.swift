@@ -27,7 +27,10 @@ enum Guide {
     6. If something went wrong, undo. Every tool call is one undo step.
 
     Text, speech and cut-outs
-    - Text clips live on text tracks (T1, T2…), drawn above the video: add_text, set_text.
+    - Text clips live on text tracks (T1, T2…), drawn above the video: add_text, set_text. \
+    add_text takes words (each word's start and end) to time its reveal to speech.
+    - split_words turns a text or caption clip into one clip per word, each still where it sat: \
+    then move, keyframe, tilt or set the depth slot of each word on its own (per-word layers).
     - transcribe, then get_transcript for word timings; add_captions turns them into text clips. \
     polish_propose finds silences, fillers, retakes and jump cuts; polish_apply applies them.
     - make_cutout finds the subject of a clip's media (a background job; watch get_jobs). Then \

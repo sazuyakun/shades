@@ -373,3 +373,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** `CVPixelBufferGetBaseAddress` hands back an untyped `UnsafeMutableRawPointer` to the frame's bytes. `assumingMemoryBound(to: Float.self)` reads those bytes as floats, and `pointer + n` moves along by bytes. There's no bounds checking, so the code must stay inside the buffer's rows.
 **JS/TS analogy:** Like taking an `ArrayBuffer` and wrapping a slice of it in a `Float32Array` view at a byte offset.
 **In Shades:** `FlowEstimator.encoded` reads Vision's two-floats-a-pixel flow buffer row by row.
+
+## Core Text lines, runs and glyphs (`CTLine`, `CTRun`)
+**What it is:** Core Text turns a styled string into a `CTLine` (one line of laid-out text), which is split into `CTRun`s (stretches with the same font and colour), each holding glyphs (the font's drawn shapes) with their positions and advances (widths). `CTRunDraw` draws a run, or just some of its glyphs.
+**JS/TS analogy:** Like measuring text with canvas `measureText` and then `fillText` letter by letter, except Core Text hands you every letter's position for free.
+**In Shades:** `TextRenderer` draws text piece by piece: whole words in wrapped lines, or each glyph stood on a path and turned to follow it (arcs, any path), and crops a single word for per-word layers.
+
+## Transparency layers (`beginTransparencyLayer`)
+**What it is:** A Core Graphics group: everything drawn between `beginTransparencyLayer` and `endTransparencyLayer` is composited as one picture, so a shadow (or alpha) applies to the group once instead of to each piece.
+**JS/TS analogy:** Like wrapping elements in a `<div>` with `filter: drop-shadow(...)` instead of giving each child its own `box-shadow`.
+**In Shades:** `TextRenderer` draws letters one at a time; the layer gives the text a single shadow, so neighbouring letters' shadows don't double up where they overlap.

@@ -108,6 +108,10 @@ enum ProjectSummary {
 
     case .text(let content):
       fields["text"] = .string(content.text)
+      if let word = content.word {
+        fields["word"] = .string(content.shownText)
+        fields["word_index"] = .number(Double(word))
+      }
       fields["style"] = .string(content.style.font ?? "system bold")
       fields["reveal"] = .string(content.reveal.rawValue)
 

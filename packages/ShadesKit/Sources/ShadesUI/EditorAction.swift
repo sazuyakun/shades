@@ -34,6 +34,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case closeGaps
   case join
   case detachAudio
+  case splitWords
   case nudgeLeft
   case nudgeRight
   case nudgeLeftFive
@@ -97,6 +98,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .closeGaps: "Close All Gaps"
     case .join: "Join Clips"
     case .detachAudio: "Detach Audio"
+    case .splitWords: "Split Text into Words"
     case .nudgeLeft: "Nudge Left 1 Frame"
     case .nudgeRight: "Nudge Right 1 Frame"
     case .nudgeLeftFive: "Nudge Left 5 Frames"
@@ -156,6 +158,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .closeGaps: Shortcut("d")
     case .join: Shortcut("j", [.option, .command])
     case .detachAudio: Shortcut("l", [.shift, .command])
+    case .splitWords: Shortcut("w", [.option, .command])
     case .nudgeLeft: Shortcut(",")
     case .nudgeRight: Shortcut(".")
     case .nudgeLeftFive: Shortcut(",", .shift)
@@ -490,6 +493,13 @@ enum EditorAction: CaseIterable, Identifiable {
 
     case .detachAudio:
       try context.perform(selected.map { DetachAudio(clipID: $0.id) }, title: DetachAudio.title)
+
+    case .splitWords:
+      let texts = selected.filter { $0.text != nil && $0.text?.word == nil }
+      guard !texts.isEmpty else {
+        throw .invalidArguments("select the text clips to split into words first")
+      }
+      try context.perform(texts.map { SplitWords(clipID: $0.id) }, title: SplitWords.title)
 
     case .nudgeLeft,
          .nudgeRight,
