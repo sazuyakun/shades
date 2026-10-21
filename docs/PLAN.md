@@ -61,6 +61,7 @@ Problems found but not fixed yet. When one is fixed, delete its row in the same 
 
 | # | Issue | Fix in |
 |---|---|---|
+| 12 | `normalize_loudness` can't reach −14 LUFS when sound effects pile up: without a limiter it holds the master back to keep peaks under −1 dBFS (the showcase landed at −17.4 LUFS). Needs a true-peak limiter on the mix (an audio tap on export and playback) | After M8 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 
 ## 3. Constraints & setup notes
