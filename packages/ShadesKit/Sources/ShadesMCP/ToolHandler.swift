@@ -14,7 +14,7 @@ import ShadesPolish
 
 /// Shades as Claude tools: the built-in ones (read, see, import, transport, undo, batch) plus
 /// every command in `CommandRegistry`. Each call that changes the project is one undo step and
-/// one History entry.
+/// one step of a request in the History.
 @MainActor
 public final class ToolHandler {
 
@@ -29,17 +29,26 @@ public final class ToolHandler {
 
   // MARK: Public
 
-  /// Runs before every call that may change the project, e.g. to snapshot it first.
-  public var beforeEdit: () -> Void = { }
+  /// Runs when a Claude request starts, before its first edit, e.g. to snapshot the project.
+  public var beforeRequest: (ClaudeRequest.ID) -> Void = { _ in }
   /// Who holds the open project, for the project tools.
   public weak var projectHost: (any ProjectHost)?
 
   /// Runs a tool. Failures come back as an error result Claude can read and act on.
   public func call(_ name: String, arguments: JSONValue) async -> ToolResult {
     let isEdit = (Self.builtIns.first { $0.name == name }?.kind ?? .edit) == .edit
+    var requestID: ClaudeRequest.ID?
     if isEdit {
-      beforeEdit()
+      let request = activity.requestForEdit()
+      if request.isNew {
+        beforeRequest(request.id)
+      }
+      requestID = request.id
+    } else {
+      activity.touch()
     }
+    activity.runningRequestID = requestID
+    let queued = Set(jobs.jobs.map(\.id))
     let before = editor.project
     let result: ToolResult
     do {
@@ -47,15 +56,22 @@ public final class ToolHandler {
     } catch {
       result = .failure(error.errorDescription ?? "The tool failed.")
     }
-    if isEdit, editor.project != before || result.isError {
-      let previous = Set(before.timeline.allClips)
-      activity.record(ActivityEntry(
-        title: title(of: name, arguments: arguments),
-        summary: result.text,
-        isError: result.isError,
-        changedClipIDs: Set(editor.project.timeline.allClips.filter { !previous.contains($0) }
-          .map(\.id)),
-      ))
+    activity.runningRequestID = nil
+    if let requestID {
+      let started = jobs.jobs.map(\.id).filter { !queued.contains($0) }
+      activity.attach(started, to: requestID)
+      if editor.project != before || result.isError || !started.isEmpty {
+        activity.record(
+          ActivityEntry(
+            title: title(of: name, arguments: arguments),
+            summary: result.text,
+            isError: result.isError,
+            from: before,
+            to: editor.project,
+          ),
+          in: requestID,
+        )
+      }
     }
     return result
   }
@@ -165,6 +181,34 @@ public final class ToolHandler {
         required: ["seconds"],
       ),
       kind: .read,
+    ),
+    Tool(
+      name: "start_request",
+      summary: "Name what the user just asked for, in their words (\"Make this part "
+        + "punchier\"), before its first edit. Your edits until the next start_request show "
+        + "under it in the History pane, where the user can undo them all at once.",
+      parameters: JSONSchema.object(
+        ["title": JSONSchema.string("What the user asked for, in a few words")],
+        required: ["title"],
+      ),
+      kind: .read,
+    ),
+    Tool(
+      name: "get_history",
+      summary: "List the requests in the History pane, newest first: their IDs, what each "
+        + "changed, its steps and any background work still running.",
+      parameters: JSONSchema.object([:]),
+      kind: .read,
+    ),
+    Tool(
+      name: "undo_request",
+      summary: "Take back everything one request changed (get_history), keeping the edits made "
+        + "since. It's refused when later edits changed the same things.",
+      parameters: JSONSchema.object(
+        ["request_id": JSONSchema.string("ID of a request, from get_history")],
+        required: ["request_id"],
+      ),
+      kind: .edit,
     ),
     Tool(
       name: "undo",
@@ -640,6 +684,23 @@ public final class ToolHandler {
       await player
         .seek(toSeconds: try decode(SeekArguments.self, from: arguments, tool: name).seconds)
       return .text("Playhead at \(player.currentTime) seconds.")
+
+    case "start_request":
+      let title = try decode(StartRequestArguments.self, from: arguments, tool: name).title
+      let request = activity.startRequest(named: title)
+      if request.isNew {
+        beforeRequest(request.id)
+      }
+      return .text("Started \"\(title)\". Its edits show together in the History pane.")
+
+    case "get_history":
+      return try json(history())
+
+    case "undo_request":
+      let id = try decode(RequestArguments.self, from: arguments, tool: name).requestID
+      let title = activity.requests.first { $0.id == id }?.title
+      try perform { () throws(CommandError) in try activity.undo(id, in: editor) }
+      return .text("Undid \"\(title ?? "the request")\", keeping the edits made since.")
 
     case "undo":
       let title = editor.undoTitle
@@ -1125,6 +1186,26 @@ public final class ToolHandler {
     return .text("Opened \(url.deletingPathExtension().lastPathComponent).")
   }
 
+  /// The History pane's requests as JSON, newest first.
+  private func history() -> JSONValue {
+    .array(activity.requests.filter { !$0.steps.isEmpty }.map { request in
+      let running = jobs.jobs.filter { job in
+        !job.state.isFinished && activity.jobs[request.id]?.contains(job.id) == true
+      }
+      return [
+        "id": .string(request.id.uuidString),
+        "title": .string(request.title),
+        "minutes_ago": .number((Date.now.timeIntervalSince(request.date) / 60).rounded()),
+        "clips_added": .number(Double(request.addedClipCount)),
+        "clips_removed": .number(Double(request.removedClipCount)),
+        "steps": .array(request.steps.map { step in
+          step.isError ? .string("failed: \(step.title): \(step.summary)") : .string(step.title)
+        }),
+        "running": .array(running.map { .string($0.title) }),
+      ]
+    })
+  }
+
   private func jobsReport() -> String {
     guard !jobs.jobs.isEmpty else {
       return "No background jobs."
@@ -1332,6 +1413,7 @@ public final class ToolHandler {
     case "add_overlay": AddOverlay.title
     case "export": "Export"
     case "undo": "Undo"
+    case "undo_request": "Undo Request"
     case "redo": "Redo"
     case "batch": "Batch of Edits"
     default: CommandRegistry.tools.first { $0.name == name }?.title ?? name
@@ -1612,6 +1694,18 @@ private struct FollowArguments: Decodable {
   let path: String?
   let mask: Int?
   let window: Bool?
+}
+
+// MARK: - StartRequestArguments
+
+private struct StartRequestArguments: Decodable {
+  let title: String
+}
+
+// MARK: - RequestArguments
+
+private struct RequestArguments: Decodable {
+  let requestID: UUID
 }
 
 // MARK: - ReframeArguments

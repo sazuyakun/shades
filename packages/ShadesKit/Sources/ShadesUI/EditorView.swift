@@ -33,6 +33,10 @@ public struct EditorView: View {
             isTracking: timelineSettings.isTracking,
             onError: { errorMessage = $0 },
           )
+          .overlay(alignment: .bottom) {
+            ClaudeToast(onError: { errorMessage = $0 })
+              .padding(.bottom, 64)
+          }
           .frame(minWidth: 400, maxWidth: .infinity)
           .layoutPriority(1)
           if timelineSettings.showsScopes {

@@ -29,14 +29,15 @@ public final class MCPServer {
   public static let defaultPort: UInt16 = 4747
 
   public let port: UInt16
-  /// What Claude has changed this session, for the History pane.
+  /// What Claude has changed in the open project, for the History pane.
+
   public let activity = ActivityLog()
   public private(set) var status = ServerStatus.starting
 
-  /// Runs before every Claude call that may change the project, e.g. to snapshot it first.
-  public var beforeEdit: () -> Void {
-    get { handler.beforeEdit }
-    set { handler.beforeEdit = newValue }
+  /// Runs when a Claude request starts, before its first edit, e.g. to snapshot the project.
+  public var beforeRequest: (ClaudeRequest.ID) -> Void {
+    get { handler.beforeRequest }
+    set { handler.beforeRequest = newValue }
   }
 
   /// Who holds the open project, so Claude can list, create and open projects.

@@ -27,6 +27,11 @@ enum Guide {
     4. For many changes at once use batch: one undo step, all or nothing.
     5. Check your work with render_frame at the moments you changed. Look before you say done.
     6. If something went wrong, undo. Every tool call is one undo step.
+    7. Start each thing the user asks for with start_request, named in their words ("Make \
+    this part punchier"). Its edits show together in the History pane, where the user can undo \
+    the whole request, even after later edits; get_history lists requests and undo_request \
+    takes one back the same way.
+
 
     Text, speech and cut-outs
     - Text clips live on text tracks (T1, T2…), drawn above the video: add_text, set_text. \

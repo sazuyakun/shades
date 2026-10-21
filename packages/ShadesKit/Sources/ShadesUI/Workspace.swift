@@ -17,8 +17,8 @@ import ShadesPolish
 // MARK: - Workspace
 
 /// The app's one open project and the services working on it: the editor, the player and
-/// Claude's server. It opens and creates projects, autosaves every change, and keeps snapshots
-/// (every 10 minutes and before Claude edits).
+/// Claude's server. It opens and creates projects, autosaves every change (and Claude's History),
+/// and keeps snapshots (every 10 minutes and before each Claude request).
 @MainActor
 @Observable
 public final class Workspace {
@@ -39,7 +39,7 @@ public final class Workspace {
     server = MCPServer(editor: editor, player: player, jobs: jobs, port: port)
     wasRecovered = defaults.bool(forKey: Keys.isOpen) && !defaults.bool(forKey: Keys.quitCleanly)
     defaults.set(false, forKey: Keys.quitCleanly)
-    server.beforeEdit = { [weak self] in self?.snapshotBeforeClaude() }
+    server.beforeRequest = { [weak self] id in self?.snapshotBeforeClaude(id) }
     server.projectHost = self
     server.start()
     Task { await plugins.start() }
@@ -51,8 +51,6 @@ public final class Workspace {
   public static let autosaveDelay = Duration.seconds(1)
   /// How often an automatic snapshot is kept.
   public static let snapshotInterval = Duration.seconds(600)
-  /// Claude's calls closer together than this belong to one request, with one snapshot before.
-  public static let claudeRequestGap = Duration.seconds(120)
 
   public let editor: Editor
   public let player: Player
@@ -171,7 +169,7 @@ public final class Workspace {
     }
   }
 
-  /// Saves the project and where the user is in it, if anything changed.
+  /// Saves the project, where the user is in it, and Claude's History if it changed.
   public func save() async {
     guard let documentURL else {
       return
@@ -179,9 +177,14 @@ public final class Workspace {
     let project = editor.project
     let playhead = player.currentTime.isFinite ? player.currentTime : 0
     let session = Session(playhead: playhead, selection: Array(editor.selection))
+    let history = server.activity.requests
     do {
       try await ProjectFile.write(project, session: session, to: documentURL)
       savedProject = project
+      if history != savedHistory {
+        try await ProjectFile.writeHistory(history, to: documentURL)
+        savedHistory = history
+      }
     } catch {
       errorMessage = error.errorDescription
     }
@@ -198,6 +201,17 @@ public final class Workspace {
       return []
     }
     return await ProjectFile.snapshots(in: documentURL)
+  }
+
+  /// Brings back the snapshot saved just before a Claude request, as one undoable edit.
+  public func revert(before request: ClaudeRequest) async {
+    let saved = await snapshots().first { $0.url.lastPathComponent == request.snapshot }
+    guard let saved else {
+      errorMessage = "The snapshot from before \"\(request.title)\" is gone. Pick another "
+        + "version in File › Revert To."
+      return
+    }
+    await revert(to: saved)
   }
 
   /// Brings back an earlier version as one undoable edit.
@@ -235,7 +249,8 @@ public final class Workspace {
   @ObservationIgnored private var queuedWaveforms = Set<Media.ID>()
   @ObservationIgnored private var queuedFlows = Set<Media.ID>()
   @ObservationIgnored private let notifier = ExportNotifier()
-  @ObservationIgnored private var lastClaudeSnapshot: ContinuousClock.Instant?
+  /// Claude's History as last saved, so an unchanged one isn't written again.
+  @ObservationIgnored private var savedHistory = [ClaudeRequest]()
 
   /// Queues a proxy for every heavy file that has none yet; playback switches to each as it's
   /// ready.
@@ -348,13 +363,23 @@ public final class Workspace {
     }
   }
 
-  private func snapshotBeforeClaude() {
-    let now = ContinuousClock.now
-    if let last = lastClaudeSnapshot, now - last < Self.claudeRequestGap {
+  /// Saves a snapshot as a Claude request starts, before it changes anything, so the request can
+  /// be reverted to even when it can't be undone on its own.
+  private func snapshotBeforeClaude(_ requestID: ClaudeRequest.ID) {
+    guard let documentURL else {
       return
     }
-    lastClaudeSnapshot = now
-    Task { await snapshot(label: "Before Claude") }
+    let project = editor.project
+    snapshotBase = project
+    Task {
+      do throws(DocumentError) {
+        let saved = try await ProjectFile.snapshot(project, label: "Before Claude", in: documentURL)
+
+        server.activity.setSnapshot(saved.url.lastPathComponent, for: requestID)
+      } catch {
+        errorMessage = error.errorDescription
+      }
+    }
   }
 
   /// Saves a snapshot unless nothing changed since the last one.
@@ -414,6 +439,7 @@ extension Workspace: ProjectHost {
 
   public func openProject(at url: URL) async throws(DocumentError) {
     let (project, session) = try await ProjectFile.read(at: url)
+    let history = await ProjectFile.readHistory([ClaudeRequest].self, at: url) ?? []
     await close()
     // why: the editor view loads playback when the project changes; it starts at the cue.
     player.cue(toSeconds: session.playhead)
@@ -429,7 +455,9 @@ extension Workspace: ProjectHost {
     }
     editor.load(project)
     editor.selection = Set(session.selection)
-    server.activity.clear()
+    server.activity.load(history)
+    savedHistory = history
+
     documentURL = url
     savedProject = project
     snapshotBase = project
@@ -1013,6 +1041,8 @@ extension Workspace: ProjectHost {
       throw .invalidArguments("pick clips that play sound (a detached video's sound clip, not "
         + "the video)")
     }
+    // why: when Claude asked, the stems' edit is logged under its request when the job lands.
+    let request = server.activity.runningRequestID
     for item in media {
       let saved = analysis.analyses[item.id]?.stems
       let heard = analysis.analyses[item.id]
@@ -1030,7 +1060,7 @@ extension Workspace: ProjectHost {
             ($0.key.rawValue, "\(item.id.uuidString)/\($0.value.lastPathComponent)")
           })
         }
-        let stems = try await self?.useStems(files, for: wanted) ?? []
+        let stems = try await self?.useStems(files, for: wanted, request: request) ?? []
         // why: the voice keeps the original's timing, so what was heard in it still applies.
         if let voice = stems.first, heard?.transcript != nil || heard?.speech != nil {
           try await self?.store(voice.id, in: package) { analysis in
@@ -1180,12 +1210,13 @@ extension Workspace: ProjectHost {
     try? await player.load(editor.project) // why: the editor shows playback errors.
   }
 
-  /// Lays separated voice and music under each of `clipIDs` still on the timeline, as one step,
-  /// and returns the stems' media (voice first).
+  /// Lays separated voice and music under each of `clipIDs` still on the timeline, as one step
+  /// (logged under Claude's `request` when it asked), and returns the stems' media (voice first).
   @discardableResult
   private func useStems(
     _ files: [Stem: URL],
     for clipIDs: [Clip.ID],
+    request: ClaudeRequest.ID?,
   ) async throws(JobError) -> [Media] {
     var stems = [Media]()
     for stem in Stem.allCases {
@@ -1204,10 +1235,21 @@ extension Workspace: ProjectHost {
     }
     let commands = clipIDs.filter { editor.project.timeline.clip(withID: $0) != nil }
       .map { UseStems(clipID: $0, stems: stems) }
+    let before = editor.project
     do {
       try editor.perform(commands, title: UseStems.title)
     } catch {
       throw .failed(error.errorDescription ?? "The separated sound couldn't be placed.")
+    }
+    if let request, editor.project != before {
+      server.activity.record(
+        UseStems.title,
+        summary: "Laid the separated voice and music under \(commands.count) clip"
+          + "\(commands.count == 1 ? "" : "s").",
+        from: before,
+        to: editor.project,
+        in: request,
+      )
     }
     return stems
   }

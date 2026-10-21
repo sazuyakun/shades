@@ -78,7 +78,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 22 | Colour isn't managed: Rec.709 is assumed and nothing reads the clip's colour tags, so an HDR (HLG/Dolby Vision) iPhone clip plays and exports wrong with no warning | After M9 |
 | 21 | Per-word type isn't per-word layers: words animate inside one text clip and can't get their own position, keyframes or depth; `add_text` takes no word timings | After M9 |
 | 20 | Type & motion gaps: no endless-zoom portals, "3D type" is flat text tilted in space (no extrusion or 3D bend), and text on paths follows only a circular arc (not any path) | After M9 |
-| 17 | The History pane has no per-request undo: rows only offer Show, there's no request grouping, the log is in memory and cleared when a project opens, and edits applied later by background jobs aren't logged | After M9 |
 | 16 | Cut-outs have no edge refinement (no feather or choke): the Vision mask is only resized and blended with the previous frame | After M9 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 

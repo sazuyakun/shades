@@ -61,6 +61,25 @@ struct ProjectFileTests {
     #expect(restored.timeline.name == "older")
   }
 
+  @Test
+  func `a snapshot names the file it was saved to`() async throws {
+    let saved = try await ProjectFile.snapshot(Project(), label: "Before Claude", in: package)
+    let listed = await ProjectFile.snapshots(in: package)
+    #expect(listed.map(\.url.lastPathComponent) == [saved.url.lastPathComponent])
+  }
+
+  @Test
+  func `Claude's History is kept with the project, and a project without one has none`()
+    async throws
+  {
+    try await ProjectFile.write(Project(), session: Session(), to: package)
+    #expect(await ProjectFile.readHistory([String].self, at: package) == nil)
+    try await ProjectFile.writeHistory(["Rough cut", "Add an ending"], to: package)
+    #expect(
+      await ProjectFile.readHistory([String].self, at: package) == ["Rough cut", "Add an ending"]
+    )
+  }
+
   // MARK: Private
 
   private let package = FileManager.default.temporaryDirectory

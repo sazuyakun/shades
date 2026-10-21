@@ -498,3 +498,23 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Video codecs store pictures as YCbCr (brightness plus two colour differences), not RGB. The file's colour tags say which maths turns that back into RGB: the YCbCr matrix (BT.601 or BT.709), the primaries and the transfer curve. Without tags, each Mac guesses, and a wrong matrix shifts saturated colours while greys stay put.
 **JS/TS analogy:** Like an image without an embedded colour profile: browsers may assume different profiles, so the same file looks slightly different on two machines.
 **In Shades:** `VideoFixture` tags its test videos as Rec.709, the same as iPhone footage, so golden frames match on the dev Mac and on CI. `PixelProbe` and `GoldenFrame` read frames in their own colour space so nothing gets colour-matched.
+
+## `indirect enum` (recursive enums)
+**What it is:** An enum whose cases can hold values of the enum itself, like a tree. `indirect` tells Swift to store those cases by reference so the type has a fixed size.
+**JS/TS analogy:** A recursive union type: `type Change = { value: … } | { fields: Record<string, Change> }`.
+**In Shades:** `ProjectChange` is a tree of what an edit changed: a field holds more changes, down to single values. Undoing a request walks the tree and puts back only those values.
+
+## Catching one case of a typed error (`catch .editedSince`)
+**What it is:** With typed throws the compiler knows the error's type, so a `catch` can match one case by name and leave the rest to a plain `catch`.
+**JS/TS analogy:** `catch (e) { if (e.kind === "editedSince") … else … }`, but checked by the compiler.
+**In Shades:** The History pane's Undo catches `.editedSince` to offer reverting to the snapshot, and shows any other error as is.
+
+## `@discardableResult`
+**What it is:** Marks a function whose return value callers may ignore without a compiler warning.
+**JS/TS analogy:** None needed in JS; every return value can be ignored silently there.
+**In Shades:** `ProjectFile.snapshot` returns the snapshot it saved. Claude's request snapshot keeps its name; the autosave timer ignores it.
+
+## `.alert(_:isPresented:presenting:)`
+**What it is:** An alert built from a value: while the value is set, the alert shows and its buttons and message get that value.
+**JS/TS analogy:** `{blocked && <Dialog request={blocked} />}` in React.
+**In Shades:** The History pane keeps the request Undo couldn't take back alone, and the alert offers to revert to its snapshot.

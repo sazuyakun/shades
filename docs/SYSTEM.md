@@ -80,6 +80,9 @@ Rule-based tools (no AI) that write ordinary, editable timeline items, starting 
   - **Smart:** Polish, captions and other propose/apply tools.
   - **Guide:** a built-in resource that teaches Claude the tools, the layer model and good practice.
 - Every MCP change shows live in the editor, glows purple, appears in the History pane, and is undoable per request.
+- **Requests:** Claude names each user request with `start_request`; without it, calls less than two minutes apart belong to one request. A snapshot is saved as each request starts. Every step stores what it changed (the saved JSON it replaced, field by field and item by item for lists with IDs), and edits that background jobs make later (stems landing under their clips) are logged under the request that started them. The log is saved with the project (`history.json`).
+- **Per-request undo** takes back only what that request changed, even after later edits: clips it added go, clips it removed come back in place, values it changed return. When a later edit changed the same things (or the result would overlap clips or lose media), it's refused and the History pane offers to revert to the snapshot from before the request instead. Over MCP: `get_history` and `undo_request`.
+
 
 ## 8. Plugins (taste lives here)
 - **A plugin is a folder with a manifest** that can contain: LUTs, grade recipes, type styles plus font files, title and motion templates (JSON), sticker and overlay packs, SFX packs, and **Metal shader effects** (compiled at runtime). No compiled code, so plugins are safe.

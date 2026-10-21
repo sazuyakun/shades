@@ -23,6 +23,7 @@ public enum CommandError: Error, Equatable {
   case invalidJSON
   case nothingToUndo
   case nothingToRedo
+  case editedSince
 }
 
 // MARK: LocalizedError
@@ -87,6 +88,11 @@ extension CommandError: LocalizedError {
 
     case .nothingToRedo:
       "There's nothing to redo."
+
+    case .editedSince:
+      "Later edits changed the same things, so this can't be undone on its own without undoing "
+        + "them too. Revert to the snapshot saved before it instead (the History pane offers "
+        + "it), or undo the later edits first."
     }
   }
 }

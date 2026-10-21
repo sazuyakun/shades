@@ -8,6 +8,7 @@ import ShadesCore
 ///     Name.shades/
 ///       project.json     the project (versioned)
 ///       session.json     playhead and selection
+///       history.json     Claude's requests, for the History pane
 ///       thumbnail.png    a frame, for the welcome window
 ///       snapshots/       earlier versions, one JSON file each
 ///       cache/           proxies and analysis (safe to delete)
@@ -60,20 +61,49 @@ public enum ProjectFile {
     return FileManager.default.fileExists(atPath: thumbnail.path) ? thumbnail : nil
   }
 
-  /// Saves the project as a snapshot labeled `label`.
+  /// Saves the project as a snapshot labeled `label`, and returns it.
   @concurrent
+  @discardableResult
   public static func snapshot(
     _ project: Project,
     label: String,
     in url: URL,
-  ) async throws(DocumentError) {
+  ) async throws(DocumentError) -> Snapshot {
     try createFolders(in: url)
-    let stamp = Int(Date.now.timeIntervalSince1970 * 1000)
+    let date = Date.now
+    let stamp = Int(date.timeIntervalSince1970 * 1000)
     let name = "\(stamp)-\(label.filter { $0.isLetter || $0.isNumber || $0 == " " })"
-    try write(
-      encode(SavedProject(project: project, label: label)),
-      to: url.appending(path: "snapshots/\(name).json"),
-    )
+    let file = url.appending(path: "snapshots/\(name).json")
+    try write(encode(SavedProject(project: project, label: label)), to: file)
+    return Snapshot(url: file, date: date, label: label)
+  }
+
+  /// Saves Claude's History (its owner decides the shape) next to the project.
+  @concurrent
+  public static func writeHistory(
+    _ history: some Encodable & Sendable,
+    to url: URL,
+  ) async throws(DocumentError) {
+    try write(encode(history), to: url.appending(path: "history.json"))
+  }
+
+  /// Reads Claude's History, or `nil` when there's none or it can't be read.
+  @concurrent
+  public static func readHistory<History: Decodable & Sendable>(
+    _: History.Type,
+    at url: URL,
+  ) async -> History? {
+    // why: no file means Claude hasn't changed this project yet.
+    guard let data = try? Data(contentsOf: url.appending(path: "history.json")) else {
+      return nil
+    }
+    do {
+      return try JSONDecoder().decode(History.self, from: data)
+    } catch {
+      // why: a damaged History only loses the log; the project opens without it.
+      logger.error("history.readFailed reason=damaged path=\(url.path, privacy: .private)")
+      return nil
+    }
   }
 
   /// Every snapshot, newest first.

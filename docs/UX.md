@@ -75,7 +75,8 @@ All shortcuts are remappable.
 There's no AI inside Shades: Claude Code edits over MCP ([SYSTEM.md](SYSTEM.md)), and the app shows what it did.
 1. **Edits appear live** on the timeline while Claude works. Changed clips glow soft purple, then fade.
 2. **A toast** summarises each request ("Claude · removed 47 pauses") with **Undo**. The whole request is one undo step.
-3. **The History pane (⌘L)** swaps the inspector for a read-only list of every change Claude made: the request, its result ("+2 clips", "−47 cuts"), and **Undo** / **Show** per request. It's an edit log, not a chat.
+3. **The History pane (⌘L)** swaps the inspector for a read-only list of every change Claude made: the request, its result ("+2 clips", "−47 cuts"), and **Undo** / **Show** per request. It's an edit log, not a chat. The newest request lists its steps (✓ done, ✗ failed, ◌ still running in the background, with **Stop**). **Undo** takes back just that request, keeping edits made since; when a later edit changed the same things, it explains why and offers to revert to the snapshot saved before the request. The History is saved with the project.
+
 
 **Connection status:** a pill in the toolbar shows **● Claude ready** (green) or **● Claude offline** (red). Clicking it explains why and what to do, e.g. "port 4747 is already in use, usually by another copy of Shades. Quit it, then reopen Shades." In the v2 restyle it becomes the dot on the ✦ Claude capsule.
 
