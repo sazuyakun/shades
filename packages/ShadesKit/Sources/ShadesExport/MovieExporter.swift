@@ -9,8 +9,8 @@ public enum MovieExporter {
   // MARK: Public
 
   /// Writes `range` of the project (default: all of it) to `url` (`.mp4` or `.mov`) on `canvas`,
-  /// with cut-outs from `mattes` and noise-reduced sound from `cleanSound`. A file already at
-  /// `url` goes to the Trash.
+  /// with cut-outs from `mattes`, optical flow from `flows` (footage blur) and noise-reduced sound
+  /// from `cleanSound`. A file already at `url` goes to the Trash.
   @MainActor
   public static func export(
     _ project: Project,
@@ -19,6 +19,7 @@ public enum MovieExporter {
     range: TimeRange? = nil,
     codec: VideoCodec = .hevc,
     mattes: [Media.ID: URL] = [:],
+    flows: [Media.ID: URL] = [:],
     cleanSound: [Media.ID: URL] = [:],
     progress: @escaping @Sendable (Double) -> Void,
   ) async throws(ExportError) {
@@ -32,6 +33,7 @@ public enum MovieExporter {
       composition = try await Composition.forRendering(
         project,
         mattes: mattes,
+        flows: flows,
         cleanSound: cleanSound,
         canvas: canvas == .picture ? nil : canvas.size(for: timeline.format),
       )

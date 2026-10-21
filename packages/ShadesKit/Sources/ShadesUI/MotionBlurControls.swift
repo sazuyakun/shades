@@ -2,7 +2,8 @@ import ShadesCommands
 import ShadesCore
 import SwiftUI
 
-/// A clip's motion blur, as a share of the timeline's shutter, and the timeline's shutter itself.
+/// A clip's motion blur, as a share of the timeline's shutter, whether its footage blurs along its
+/// own motion, and the timeline's shutter itself.
 struct MotionBlurControls: View {
 
   // MARK: Internal
@@ -22,6 +23,17 @@ struct MotionBlurControls: View {
         onEnd: editor.endCoalescing,
       )
       .help("How long this clip blurs as it moves, as a share of the timeline's shutter")
+      if let footage {
+        Toggle("Blur movement in the footage", isOn: Binding(
+          get: { clip.footageBlur },
+          set: { perform(SetClip(clipID: clip.id, footageBlur: $0), key: nil) },
+        ))
+        .help("Smear what moves inside the video (a pan, a running subject) along its motion")
+        if clip.footageBlur, workspace.analysis.analyses[footage.id]?.flow == nil {
+          Text("Measuring the motion first; the blur shows when it's done.")
+            .foregroundStyle(Theme.faintText)
+        }
+      }
       InspectorSlider(
         label: "Timeline Shutter",
         value: shutter,
@@ -37,8 +49,16 @@ struct MotionBlurControls: View {
   // MARK: Private
 
   @Environment(Editor.self) private var editor
+  @Environment(Workspace.self) private var workspace
 
-  private func perform(_ command: some Command, key: String) {
+  /// The clip's video, when it plays some (footage blur needs moving pictures).
+  private var footage: Media? {
+    clip.mediaID.flatMap(editor.project.media(withID:)).flatMap { media in
+      media.hasVideo && !media.isStill ? media : nil
+    }
+  }
+
+  private func perform(_ command: some Command, key: String?) {
     do {
       try editor.perform(command, coalescing: key)
     } catch {

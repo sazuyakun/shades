@@ -1046,6 +1046,7 @@ public final class ToolHandler {
         maxSide: maxSide,
         context: player.renderContext(),
         mattes: player.mattes,
+        flows: player.flows,
       )
       return ToolResult(content: [.png(png)])
     } catch {
@@ -1062,6 +1063,7 @@ public final class ToolHandler {
         maxSide: 720,
         context: player.renderContext(),
         mattes: player.mattes,
+        flows: player.flows,
       )
       let (picture, reading) = try Scopes.measure(frame)
       let percent = { (value: Double) in "\(Int((value * 100).rounded()))%" }

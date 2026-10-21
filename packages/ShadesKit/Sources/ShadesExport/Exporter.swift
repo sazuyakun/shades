@@ -3,15 +3,16 @@ import ShadesCore
 
 /// Writes one file of an export request, whatever its kind.
 public enum Exporter {
-  /// Writes `output` of `request` from `project`: with cut-outs from `mattes`, noise-reduced
-  /// sound from `cleanSound`, and captions from `transcripts` when there are none on the
-  /// timeline.
+  /// Writes `output` of `request` from `project`: with cut-outs from `mattes`, optical flow from
+  /// `flows` (footage blur), noise-reduced sound from `cleanSound`, and captions from
+  /// `transcripts` when there are none on the timeline.
   @MainActor
   public static func write(
     _ output: ExportOutput,
     of request: ExportRequest,
     project: Project,
     mattes: [Media.ID: URL],
+    flows: [Media.ID: URL],
     cleanSound: [Media.ID: URL],
     transcripts: [Media.ID: Transcript],
     progress: @escaping @Sendable (Double) -> Void,
@@ -26,6 +27,7 @@ public enum Exporter {
         range: output.range,
         codec: request.codec,
         mattes: mattes,
+        flows: flows,
         cleanSound: cleanSound,
         progress: progress,
       )
@@ -36,6 +38,7 @@ public enum Exporter {
         atSeconds: output.range.start.seconds,
         to: output.url,
         mattes: mattes,
+        flows: flows,
       )
 
     case .gif:
@@ -44,6 +47,7 @@ public enum Exporter {
         range: output.range,
         to: output.url,
         mattes: mattes,
+        flows: flows,
         progress: progress,
       )
 

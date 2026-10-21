@@ -142,19 +142,22 @@ public final class Workspace {
     player.pause()
     queuedProxies.removeAll()
     queuedWaveforms.removeAll()
+    queuedFlows.removeAll()
     player.proxies = [:]
     player.mattes = [:]
+    player.flows = [:]
     player.cleanSound = [:]
     analysis.clear()
     documentURL = nil
     defaults.set(false, forKey: Keys.isOpen)
   }
 
-  /// Call after every project change: saves it shortly after the last change, and makes
-  /// proxies for newly imported heavy footage.
+  /// Call after every project change: saves it shortly after the last change, makes proxies for
+  /// newly imported heavy footage, and measures motion for clips given footage blur.
   public func projectDidChange() {
     makeMissingProxies()
     makeMissingWaveforms()
+    makeMissingFlows()
     if polishPlan != nil, editor.project != polishBase {
       polishPlan = nil
     }
@@ -230,6 +233,7 @@ public final class Workspace {
   @ObservationIgnored private var polishBase: Project?
   @ObservationIgnored private var queuedProxies = Set<Media.ID>()
   @ObservationIgnored private var queuedWaveforms = Set<Media.ID>()
+  @ObservationIgnored private var queuedFlows = Set<Media.ID>()
   @ObservationIgnored private let notifier = ExportNotifier()
   @ObservationIgnored private var lastClaudeSnapshot: ContinuousClock.Instant?
 
@@ -283,6 +287,47 @@ public final class Workspace {
         try await self?.store(media.id, in: package) { $0.waveform = peaks }
       }
     }
+  }
+
+  /// Queues the optical flow of every video with footage blur switched on that has none yet;
+  /// its clips blur once it's ready.
+  private func makeMissingFlows() {
+    guard let package = documentURL else {
+      return
+    }
+    let blurred = Set(editor.project.timeline.allClips.filter(\.footageBlur).compactMap(\.mediaID))
+    for media in editor.project.media
+      where blurred.contains(media.id) && analysis.analyses[media.id]?.flow == nil
+      && !queuedFlows.contains(media.id)
+    {
+      queuedFlows.insert(media.id)
+      let file = "\(media.id.uuidString).mov"
+      let url = package.appending(path: "cache/flow/\(file)")
+      jobs
+        .enqueue("Measuring the motion in \(media.name)") { [weak self] progress throws(JobError) in
+          do throws(MattingError) {
+            try await FlowMaker.make(from: media.url, to: url) { progress($0) }
+          } catch {
+            await self?.finishFlow(for: media.id, at: nil)
+            throw error == .cancelled
+              ? .cancelled
+              : .failed(error.errorDescription ?? "The motion couldn't be measured.")
+          }
+          try await self?.store(media.id, in: package) { $0.flow = file }
+          await self?.finishFlow(for: media.id, at: url)
+        }
+    }
+  }
+
+  /// Ends a flow job: playback starts blurring with the flow when it was made, and a failed one
+  /// can be queued again.
+  private func finishFlow(for mediaID: Media.ID, at url: URL?) async {
+    queuedFlows.remove(mediaID)
+    guard let url else {
+      return
+    }
+    player.flows[mediaID] = url
+    try? await player.load(editor.project) // why: the editor shows playback errors.
   }
 
   /// Switches playback to a finished proxy, if its project is still open.
@@ -379,6 +424,9 @@ extension Workspace: ProjectHost {
     player.cleanSound = analysis.analyses.compactMapValues { record in
       record.cleanSound.map { url.appending(path: "cache/sound/\($0)") }
     }
+    player.flows = analysis.analyses.compactMapValues { record in
+      record.flow.map { url.appending(path: "cache/flow/\($0)") }
+    }
     editor.load(project)
     editor.selection = Set(session.selection)
     server.activity.clear()
@@ -390,6 +438,7 @@ extension Workspace: ProjectHost {
     startSnapshotTimer()
     makeMissingProxies()
     makeMissingWaveforms()
+    makeMissingFlows()
   }
 
   public func createProject(named name: String, format: VideoFormat) async throws(DocumentError) {
@@ -917,6 +966,7 @@ extension Workspace: ProjectHost {
       throw .invalidArguments("the timeline is empty; add clips first")
     }
     let mattes = player.mattes
+    let flows = player.flows
     let cleanSound = player.cleanSound
     let transcripts = analysis.transcripts
     let outputs = request.outputs(for: project.timeline)
@@ -929,6 +979,7 @@ extension Workspace: ProjectHost {
             of: request,
             project: project,
             mattes: mattes,
+            flows: flows,
             cleanSound: cleanSound,
             transcripts: transcripts,
             progress: progress,

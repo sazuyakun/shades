@@ -63,7 +63,9 @@ enum Guide {
     with mask or window moves one of a clip's own masks, or its grade window, instead.
     - Anything that moves blurs like film: set_shutter sets the timeline's shutter angle (180 \
     by default, 0 for none) and set_clip motion_blur scales it for one clip (0 keeps a layer \
-    sharp, 2 doubles its smear).
+    sharp, 2 doubles its smear). set_clip footage_blur also smears movement inside video (a \
+    pan, a running subject) along its optical flow: switching it on queues a motion job \
+    (get_jobs) and the blur shows once that's done.
 
     Speed
     - set_clip speed plays a video or sound clip faster or slower (0.1 to 10; 0.4 turns 60 fps \

@@ -71,6 +71,7 @@ struct ScopesPanel: View {
         maxSide: 480,
         context: player.renderContext(),
         mattes: player.mattes,
+        flows: player.flows,
       )
       (picture, reading) = try Scopes.measure(frame)
     } catch {

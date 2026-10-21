@@ -18,6 +18,7 @@ public enum StillExporter {
     atSeconds seconds: Double,
     to url: URL,
     mattes: [Media.ID: URL] = [:],
+    flows: [Media.ID: URL] = [:],
   ) async throws(ExportError) {
     let format = project.timeline.format
     let png: Data
@@ -27,6 +28,7 @@ public enum StillExporter {
         atSeconds: seconds,
         maxSide: max(format.width, format.height),
         mattes: mattes,
+        flows: flows,
       )
     } catch {
       throw .renderFailed(error)
@@ -50,6 +52,7 @@ public enum StillExporter {
     maxSide: Int = 640,
     framesPerSecond: Double = 15,
     mattes: [Media.ID: URL] = [:],
+    flows: [Media.ID: URL] = [:],
     progress: @escaping @Sendable (Double) -> Void,
   ) async throws(ExportError) {
     guard range.duration.seconds <= longestGIF else {
@@ -60,7 +63,7 @@ public enum StillExporter {
     }
     let composition: Composition
     do {
-      composition = try await Composition.forRendering(project, mattes: mattes)
+      composition = try await Composition.forRendering(project, mattes: mattes, flows: flows)
     } catch {
       throw .renderFailed(error)
     }

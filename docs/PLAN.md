@@ -64,6 +64,7 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 
 | # | Issue | Fix in |
 |---|---|---|
+| 35 | Footage blur can streak sideways at the corners of flat, evenly coloured moving shapes, where Vision's optical flow points the wrong way (a median steadies most of it). Needs a confidence check, e.g. comparing flow forwards and backwards | After M9 |
 | 34 | The viewer's mask handles place the picture by the clip's position, scale and rotation only: they ignore the timeline camera and 3D tilt, and don't show on text clips (whose masks are set in the inspector or over MCP) | After M9 |
 | 33 | Pan only moves stereo sound: a mono track stays centred whatever its pan, because AVFoundation's audio tap sees mono sound as one channel. Needs mono clips played from a stereo copy when their track is panned | After M9 |
 | 32 | Sped-up sound can lose its last ~70 ms at the very end of the mix: AVFoundation's pitch-keeping stretcher (`.spectral`) doesn't always flush its tail there (seen under heavy load in `MixReaderTests`) | After M9 |
