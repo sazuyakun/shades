@@ -560,7 +560,7 @@ final class MetalRenderer: Sendable {
     encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
     encoder.setFragmentBytes(&look, length: MemoryLayout<LayerLook>.stride, index: 0)
     encoder.setFragmentTexture(trail, index: 0)
-    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: uniforms.vertexCount)
   }
 
   /// Draws the base layer's cut-out, placed like the layer, into a half-size mask of the frame.
@@ -667,7 +667,7 @@ final class MetalRenderer: Sendable {
     )
     encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
     encoder.setFragmentTexture(picture, index: 0)
-    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: uniforms.vertexCount)
   }
 
   /// The LUT at `url` on the GPU, read the first time it's used and again after the file

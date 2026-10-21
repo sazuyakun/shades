@@ -29,6 +29,7 @@ extension [Keyframe] {
       tiltX: value(of: .tiltX, at: time, fixed: fixed.tiltX),
       tiltY: value(of: .tiltY, at: time, fixed: fixed.tiltY),
       depth: value(of: .depth, at: time, fixed: fixed.depth),
+      bend: value(of: .bend, at: time, fixed: fixed.bend),
     )
   }
 }

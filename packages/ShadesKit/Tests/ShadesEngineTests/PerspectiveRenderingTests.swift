@@ -66,6 +66,19 @@ struct PerspectiveRenderingTests {
     #expect(caption.contains { $0.red > 200 && $0.green > 200 }, "the caption stays at the bottom")
   }
 
+  @Test
+  func `a bent layer curves its sides away, so they look shorter than its middle`() async throws {
+    let project = try await blueOverRed { clip, _ in
+      clip.transform = ClipTransform(scale: 0.7, bend: 120)
+    }
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    let middle = try heightOfBlue(in: png, atX: 0.5)
+    let side = try heightOfBlue(in: png, atX: 0.25)
+    #expect(middle > side + 0.03, "the sides lean away")
+    #expect(try PixelProbe.color(of: png, x: 0.17, y: 0.5).red > 200, "and come in")
+    #expect(try GoldenFrame.matches(png, named: "layer-bent", in: golden))
+  }
+
   // MARK: Private
 
   private let golden = URL(filePath: #filePath).deletingLastPathComponent()

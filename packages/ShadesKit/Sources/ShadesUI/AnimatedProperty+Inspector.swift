@@ -12,6 +12,7 @@ extension AnimatedProperty {
     case .tiltX: "Tilt"
     case .tiltY: "Turn"
     case .depth: "Depth"
+    case .bend: "Bend"
     case .opacity: "Opacity"
     case .volume: "Volume"
     case .speed: "Speed"
@@ -29,6 +30,7 @@ extension AnimatedProperty {
     case .tiltX,
          .tiltY: -80 ... 80
     case .depth: -3 ... 1
+    case .bend: -180 ... 180
     case .opacity: 0 ... 1
     case .volume: 0 ... 2
     case .speed: 0.1 ... 4
@@ -41,7 +43,8 @@ extension AnimatedProperty {
     switch self {
     case .rotation,
          .tiltX,
-         .tiltY: "\(Int(value.rounded()))°"
+         .tiltY,
+         .bend: "\(Int(value.rounded()))°"
     case .speed: "\(value.formatted(.number.precision(.fractionLength(0 ... 2))))×"
     default: "\(Int((value * 100).rounded()))%"
     }
@@ -67,6 +70,7 @@ extension AnimatedProperty {
     case .tiltX: SetClip(clipID: clip, tiltX: value)
     case .tiltY: SetClip(clipID: clip, tiltY: value)
     case .depth: SetClip(clipID: clip, depth: value)
+    case .bend: SetClip(clipID: clip, bend: value)
     case .opacity: SetClip(clipID: clip, opacity: value)
     case .volume: SetClip(clipID: clip, volume: value)
     case .speed: SetClip(clipID: clip, speed: value)

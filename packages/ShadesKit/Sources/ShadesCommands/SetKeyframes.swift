@@ -30,7 +30,7 @@ public struct SetKeyframes: ToolCommand {
 
   public static let title = "Set Keyframes"
   public static let name = "set_keyframes"
-  public static let summary = "Animate a clip's x, y, scale, rotation, tiltX, tiltY, depth, "
+  public static let summary = "Animate a clip's x, y, scale, rotation, tiltX, tiltY, depth, bend, "
     + "opacity, volume, speed or pathOffset (text travelling along its path): give the value at "
     + "moments inside the clip, and the property moves between them. A keyframe's easing "
     + "shapes the move to the next one (spring and bouncy overshoot). An animated property "
@@ -128,6 +128,9 @@ public struct SetKeyframes: ToolCommand {
 
     case .depth where !(-10 ... 1.5).contains(value):
       throw rejected(.invalidValue("depth goes from -10 (far away) to 1.5 (close)"))
+
+    case .bend where !(-360 ... 360).contains(value):
+      throw rejected(.invalidValue("bend goes from -360 to 360 degrees"))
 
     case .pathOffset where clip.text?.path == nil:
       throw rejected(.invalidValue("pathOffset animates text on a path; set_text path first"))

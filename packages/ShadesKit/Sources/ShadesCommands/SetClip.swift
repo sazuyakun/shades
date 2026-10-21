@@ -14,6 +14,7 @@ public struct SetClip: ToolCommand {
     tiltX: Double? = nil,
     tiltY: Double? = nil,
     depth: Double? = nil,
+    bend: Double? = nil,
     opacity: Double? = nil,
     depthSlot: DepthSlot? = nil,
     volume: Double? = nil,
@@ -35,6 +36,7 @@ public struct SetClip: ToolCommand {
     self.tiltX = tiltX
     self.tiltY = tiltY
     self.depth = depth
+    self.bend = bend
     self.opacity = opacity
     self.depthSlot = depthSlot
     self.volume = volume
@@ -53,9 +55,9 @@ public struct SetClip: ToolCommand {
 
   public static let title = "Change Clip"
   public static let name = "set_clip"
-  public static let summary = "Change a clip's position, size, rotation, 3D tilt and depth, "
-    + "crop, opacity, depth slot, motion blur, volume, sound fades or speed. Leave out what "
-    + "shouldn't change."
+  public static let summary = "Change a clip's position, size, rotation, 3D tilt, depth and "
+    + "bend, crop, opacity, depth slot, motion blur, volume, sound fades or speed. Leave out "
+    + "what shouldn't change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -78,6 +80,13 @@ public struct SetClip: ToolCommand {
           + "negative is further away (default 0)",
         minimum: -10,
         maximum: 1.5,
+      ),
+      "bend": JSONSchema.number(
+        "Curve the layer around an upright axis, in degrees of arc across its width: positive "
+          + "bends its sides away (a label round a bottle), negative towards the viewer (a "
+          + "curved screen)",
+        minimum: -360,
+        maximum: 360,
       ),
       "opacity": JSONSchema.number("0 is invisible, 1 is solid", minimum: 0, maximum: 1),
       "depth_slot": JSONSchema.string(
@@ -139,6 +148,7 @@ public struct SetClip: ToolCommand {
   public let tiltX: Double?
   public let tiltY: Double?
   public let depth: Double?
+  public let bend: Double?
   public let opacity: Double?
   public let depthSlot: DepthSlot?
   public let volume: Double?
@@ -166,6 +176,9 @@ public struct SetClip: ToolCommand {
     }
     if let depth, !(-10 ... 1.5).contains(depth) {
       throw rejected(.invalidValue("depth goes from -10 (far away) to 1.5 (close)"))
+    }
+    if let bend, !(-360 ... 360).contains(bend) {
+      throw rejected(.invalidValue("bend goes from -360 to 360 degrees"))
     }
     if let sticker, !(0 ... 0.3).contains(sticker.border) {
       throw rejected(.invalidValue("a sticker border goes from 0 to 0.3 of the picture"))
@@ -221,6 +234,7 @@ public struct SetClip: ToolCommand {
     clip.transform.tiltX = tiltX ?? clip.transform.tiltX
     clip.transform.tiltY = tiltY ?? clip.transform.tiltY
     clip.transform.depth = depth ?? clip.transform.depth
+    clip.transform.bend = bend ?? clip.transform.bend
     clip.opacity = opacity ?? clip.opacity
     clip.depth = depthSlot ?? clip.depth
     clip.volume = volume ?? clip.volume

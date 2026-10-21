@@ -100,6 +100,7 @@ extension Clip {
     case .tiltX: transform.tiltX
     case .tiltY: transform.tiltY
     case .depth: transform.depth
+    case .bend: transform.bend
     case .opacity: opacity
     case .volume: volume
     case .speed: speed

@@ -14,6 +14,7 @@ public struct ClipTransform: Hashable, Sendable {
     tiltX: Double = 0,
     tiltY: Double = 0,
     depth: Double = 0,
+    bend: Double = 0,
   ) {
     self.x = x
     self.y = y
@@ -22,6 +23,7 @@ public struct ClipTransform: Hashable, Sendable {
     self.tiltX = tiltX
     self.tiltY = tiltY
     self.depth = depth
+    self.bend = bend
   }
 
   // MARK: Public
@@ -42,6 +44,10 @@ public struct ClipTransform: Hashable, Sendable {
   public var tiltY: Double
   /// Distance towards the viewer as a fraction of the frame height; negative is further away.
   public var depth: Double
+  /// Curves the layer around an upright axis, as degrees of arc across its width: positive
+  /// bends its sides away (like a label round a bottle), negative towards the viewer (like a
+  /// curved screen).
+  public var bend: Double
 
 }
 
@@ -63,6 +69,7 @@ extension ClipTransform: Codable {
       tiltX: container.decodeIfPresent(Double.self, forKey: .tiltX) ?? 0,
       tiltY: container.decodeIfPresent(Double.self, forKey: .tiltY) ?? 0,
       depth: container.decodeIfPresent(Double.self, forKey: .depth) ?? 0,
+      bend: container.decodeIfPresent(Double.self, forKey: .bend) ?? 0,
     )
   }
 
@@ -76,6 +83,7 @@ extension ClipTransform: Codable {
     case tiltX
     case tiltY
     case depth
+    case bend
   }
 
 }

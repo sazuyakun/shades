@@ -7,6 +7,8 @@ public enum AnimatedProperty: String, Codable, CaseIterable, Sendable {
   case tiltX
   case tiltY
   case depth
+  /// Curves the layer around an upright axis (`ClipTransform.bend`).
+  case bend
   case opacity
   /// Sound level, as a gain (1 unchanged).
   case volume

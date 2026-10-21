@@ -453,3 +453,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A function can hand back several values at once as a tuple, with a name on each part: `-> (media: Media, command: AddMedia?)`. The caller reads them as `result.media` and `result.command`. It suits a small private helper; anything shared or long-lived gets a `struct`.
 **JS/TS analogy:** Like returning `{ media, command }` from a function and reading its fields, without declaring an interface first.
 **In Shades:** `Workspace.importing(_:)` returns the media for a file plus, when it isn't in the project yet, the `AddMedia` command that imports it; templates and overlays both use it.
+
+## Triangle strips and `[[vertex_id]]` (Metal)
+**What it is:** A GPU draws shapes from triangles. In a triangle strip every new vertex makes a triangle with the two before it, so `2 × (n + 1)` vertices cover a row of `n` quads. A vertex shader can make its corners up from `[[vertex_id]]` (0, 1, 2, …) instead of reading a vertex buffer.
+**JS/TS analogy:** Like WebGL's `gl.TRIANGLE_STRIP` with positions computed from `gl_VertexID` in the shader.
+**In Shades:** `layerVertex` cuts each layer into a strip of columns and moves each corner onto a cylinder, which is how `bend` curves a flat picture in 3D.

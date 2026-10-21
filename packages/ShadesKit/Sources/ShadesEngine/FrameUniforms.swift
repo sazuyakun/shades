@@ -48,6 +48,8 @@ struct FrameUniforms {
     offset = SIMD2(Float(uprightToStored.tx), Float(uprightToStored.ty))
     frameSize = size
     self.opacity = Float(opacity)
+    bend = Self.radians(transform.bend)
+    columns = transform.bend == 0 ? 1 : Self.bentColumns
   }
 
   // MARK: Internal
@@ -60,8 +62,18 @@ struct FrameUniforms {
   let offset: SIMD2<Float>
   let frameSize: SIMD2<Float>
   let opacity: Float
+  let bend: Float
+  let columns: Int32
+
+  /// The corners of the layer's strip, drawn as a triangle strip.
+  var vertexCount: Int {
+    2 * (Int(columns) + 1)
+  }
 
   // MARK: Private
+
+  /// Strips a bent layer is cut into: enough that its curve looks smooth at any size.
+  private static let bentColumns: Int32 = 64
 
   /// How far the viewer sits from the frame, in frame heights: about a 28° vertical view, a
   /// gentle perspective.

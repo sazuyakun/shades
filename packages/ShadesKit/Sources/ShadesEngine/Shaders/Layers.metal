@@ -12,6 +12,8 @@ struct FrameUniforms {
   float2 offset;      // translation of the upright→stored mapping
   float2 frameSize;   // output size in pixels
   float opacity;      // 0 invisible … 1 solid
+  float bend;         // radians of arc the layer curves through across its width; 0 is flat
+  int columns;        // strips the layer is cut into across, so it can curve
 };
 
 struct VertexOut {
@@ -22,12 +24,22 @@ struct VertexOut {
   float opacity;
 };
 
+// A point of the flat layer (pixels from its centre, y up) curved round an upright axis: its
+// width wraps an arc of `bend` radians, the middle staying put and the sides bending away.
+static float3 bent(float2 pixel, constant FrameUniforms &u) {
+  if (u.bend == 0) {
+    return float3(pixel, 0);
+  }
+  float radius = u.fit.x * u.frameSize.x / u.bend;
+  float angle = pixel.x / radius;
+  return float3(radius * sin(angle), pixel.y, radius * (cos(angle) - 1));
+}
+
+// The layer is a strip of `columns` slices, bottom and top corners in turn from left to right.
 vertex VertexOut layerVertex(uint id [[vertex_id]], constant FrameUniforms &u [[buffer(0)]]) {
-  const float2 corners[4] = { float2(-1, -1), float2(1, -1), float2(-1, 1), float2(1, 1) };
-  const float2 uprightUVs[4] = { float2(0, 1), float2(1, 1), float2(0, 0), float2(1, 0) };
-  float2 pixel = corners[id] * u.fit * u.frameSize * 0.5;
-  float4 position = u.transform * float4(pixel, 0, 1);
-  float2 upright = uprightUVs[id];
+  float2 upright = float2(float(id / 2) / float(u.columns), id % 2 == 0 ? 1.0 : 0.0);
+  float2 pixel = float2(upright.x * 2 - 1, 1 - upright.y * 2) * u.fit * u.frameSize * 0.5;
+  float4 position = u.transform * float4(bent(pixel, u), 1);
   VertexOut out;
   out.position = position;
   out.uv = float2(

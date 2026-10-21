@@ -14,7 +14,8 @@ enum Guide {
     overlap; gaps are allowed and show black.
     - Each layer has a depth slot: inFront (default), behindSubject, insideSubject or \
     replaceBackground (set_clip depth_slot), relative to the person cut out of the clips below. \
-    Layers can also tilt in 3D and move in depth (tilt_x, tilt_y, depth), and set_clip crop \
+    Layers can also tilt in 3D, move in depth and curve round an upright axis (tilt_x, \
+    tilt_y, depth, bend), and set_clip crop \
     cuts each edge of a picture off (fractions of its width or height; the rest stays put).
 
     Working well
