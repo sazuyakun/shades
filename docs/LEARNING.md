@@ -448,3 +448,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A hook AVFoundation calls with each buffer of one track's sound while it plays, reads or exports, so your code can change the samples in place. It's a C API: you hand it callbacks (made, prepared, process, finished) and an object passed as a raw pointer (`Unmanaged.passRetained`), released in the "finished" callback. The callbacks run on AVFoundation's audio thread, so anything they read is fixed when the tap is made, and anything they write goes through a `Mutex`.
 **JS/TS analogy:** Like an `AudioWorkletProcessor`'s `process(inputs, outputs)` in the Web Audio API: a function called with each block of samples on the audio thread.
 **In Shades:** `TrackTap` (ShadesEngine) applies the master limiter's gain sample by sample to every track's sound, the same in playback, export and loudness measuring. Volume ramps can't do it: AVFoundation smooths them over about 25 ms, too slow to catch a peak.
+
+## Named tuples as return values
+**What it is:** A function can hand back several values at once as a tuple, with a name on each part: `-> (media: Media, command: AddMedia?)`. The caller reads them as `result.media` and `result.command`. It suits a small private helper; anything shared or long-lived gets a `struct`.
+**JS/TS analogy:** Like returning `{ media, command }` from a function and reading its fields, without declaring an interface first.
+**In Shades:** `Workspace.importing(_:)` returns the media for a file plus, when it isn't in the project yet, the `AddMedia` command that imports it; templates and overlays both use it.

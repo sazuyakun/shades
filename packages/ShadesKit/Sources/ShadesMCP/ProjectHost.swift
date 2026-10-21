@@ -61,6 +61,15 @@ public protocol ProjectHost: AnyObject {
     at time: MediaTime,
     fields: [String: String],
   ) async throws(ToolError) -> String
+  /// Lays an overlay movie (a plugin's by name, or a file) over the footage at `time`; returns
+  /// what was added.
+  func addOverlay(
+    named name: String,
+    at time: MediaTime,
+    duration: MediaTime?,
+    blend: BlendMode,
+    opacity: Double,
+  ) async throws(ToolError) -> String
   /// Sets the master level so the mix plays at `target` LUFS; returns what was measured.
   func normalizeLoudness(target: Double) async throws(ToolError) -> String
   /// Sets clips to play noise-reduced sound (strength 0 restores the original); returns what

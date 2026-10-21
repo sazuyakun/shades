@@ -10,17 +10,23 @@ struct PluginLibraryTests {
   // MARK: Internal
 
   @Test
-  func `a plugin folder's styles, templates and stickers load, in snake or camel case`(
+  func `a plugin folder's styles, templates, stickers and overlays load, in snake or camel case`(
   ) async throws {
     let root = try makeRoot()
     try write(manifest, to: root.appending(path: "taste/plugin.json"))
-    try FileManager.default.createDirectory(
-      at: root.appending(path: "taste/stickers"),
-      withIntermediateDirectories: true,
-    )
+    for folder in ["stickers", "overlays"] {
+      try FileManager.default.createDirectory(
+        at: root.appending(path: "taste/\(folder)"),
+        withIntermediateDirectories: true,
+      )
+    }
     try FileManager.default.copyItem(
       at: try ImageFixture.makeDisc(),
       to: root.appending(path: "taste/stickers/disc.png"),
+    )
+    try await FileManager.default.copyItem(
+      at: VideoFixture.make(red: 255, green: 180, blue: 90),
+      to: root.appending(path: "taste/overlays/leak.mov"),
     )
     let plugins = await PluginLoader.plugins(in: [root])
     let plugin = try #require(plugins.first)
@@ -29,6 +35,7 @@ struct PluginLibraryTests {
     #expect(plugin.styles["chul"]?.outlineColor == HexColor("#FF0000"))
     #expect(plugin.templates["lower-third"]?.fields == ["name"])
     #expect(plugin.stickers["disc"] != nil)
+    #expect(plugin.overlays["leak"] != nil)
   }
 
   @Test

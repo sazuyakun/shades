@@ -3,8 +3,8 @@ import ShadesCore
 import UniformTypeIdentifiers
 
 /// Reads plugins from disk. A plugin is a folder with a `plugin.json` manifest (its name,
-/// description, text styles, templates and looks) and any of `stickers/`, `sounds/`, `luts/` and
-/// `fonts/`.
+/// description, text styles, templates and looks) and any of `stickers/`, `overlays/`, `sounds/`,
+/// `luts/`, `shaders/` and `fonts/`.
 public enum PluginLoader {
 
   // MARK: Public
@@ -40,7 +40,7 @@ public enum PluginLoader {
   }
 
   private static func isPlugin(_ folder: URL) -> Bool {
-    ["plugin.json", "stickers", "sounds", "fonts", "luts", "shaders"].contains { item in
+    ["plugin.json", "stickers", "overlays", "sounds", "fonts", "luts", "shaders"].contains { item in
       FileManager.default.fileExists(atPath: folder.appending(path: item).path)
     }
   }
@@ -67,6 +67,7 @@ public enum PluginLoader {
       templates: manifest?.templates ?? [:],
       looks: manifest?.looks ?? [:],
       stickers: files(in: folder.appending(path: "stickers"), conformingTo: .image),
+      overlays: files(in: folder.appending(path: "overlays"), conformingTo: .movie),
       sounds: files(in: folder.appending(path: "sounds"), conformingTo: .audio),
       luts: files(in: folder.appending(path: "luts"), withExtension: "cube"),
       shaders: files(in: folder.appending(path: "shaders"), withExtension: "metal"),

@@ -57,6 +57,7 @@ struct TimelineTitleBar: View {
         .buttonStyle(CapsuleButtonStyle(isOn: settings.isSnapping))
         .help("Snapping (N)")
       TemplatesMenu(onError: onError)
+      OverlaysMenu(onError: onError)
       Spacer()
       Text(Timecode.full(
         editor.project.timeline.duration.seconds,

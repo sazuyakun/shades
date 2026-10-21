@@ -384,7 +384,7 @@ public final class ToolHandler {
     Tool(
       name: "list_plugins",
       summary: "List the plugins (taste packs): their text styles, templates (with the fields they "
-        + "ask for), stickers and sounds (with file paths to import), and any manifest problems. "
+        + "ask for), stickers, overlays and sounds (with file paths), and any manifest problems. "
         + "Plugins are folders with a plugin.json; write or edit one and it reloads by itself.",
       parameters: JSONSchema.object([:]),
       kind: .read,
@@ -415,6 +415,34 @@ public final class ToolHandler {
           "volume": JSONSchema.number("Its level: 0 silent, 1 unchanged (default)", minimum: 0),
         ],
         required: ["sound", "at"],
+      ),
+      kind: .edit,
+    ),
+    Tool(
+      name: "add_overlay",
+      summary: "Lay an overlay movie (light leak, dust, film burn) over the footage at a moment: "
+        + "a plugin's overlay by name (list_plugins shows them) or any movie by path. It fills "
+        + "the frame on a free track above, silent, blended with screen so its black drops away. "
+        + "It's imported for you.",
+      parameters: JSONSchema.object(
+        [
+          "overlay": JSONSchema.string("The overlay, as plugin/name, name or a file path"),
+          "at": Fields.time("When it starts"),
+          "duration": JSONSchema.number(
+            "How long it stays, in seconds (default: the whole overlay, up to the timeline's end)",
+            minimum: 0.04,
+          ),
+          "blend": JSONSchema.string(
+            "How it mixes with the footage (default screen)",
+            values: BlendMode.allCases.map(\.rawValue),
+          ),
+          "opacity": JSONSchema.number(
+            "0 is invisible, 1 full strength (default)",
+            minimum: 0,
+            maximum: 1,
+          ),
+        ],
+        required: ["overlay", "at"],
       ),
       kind: .edit,
     ),
@@ -741,6 +769,16 @@ public final class ToolHandler {
 
     case "add_sound":
       return try await addSound(decode(SoundArguments.self, from: arguments, tool: name))
+
+    case "add_overlay":
+      let request = try decode(OverlayArguments.self, from: arguments, tool: name)
+      return try await .text(host().addOverlay(
+        named: request.overlay,
+        at: request.at,
+        duration: request.duration,
+        blend: request.blend ?? .screen,
+        opacity: request.opacity ?? 1,
+      ))
 
     case "use_look":
       let request = try decode(LookArguments.self, from: arguments, tool: name)
@@ -1201,7 +1239,8 @@ public final class ToolHandler {
     let plugins = projectHost.plugins.plugins
     guard !plugins.isEmpty else {
       return "No plugins yet. Plugin folders: \(folders). Make one by writing a folder with a "
-        + "plugin.json (name, description, styles, templates) and stickers/, sounds/, fonts/."
+        + "plugin.json (name, description, styles, templates) and stickers/, overlays/, sounds/, "
+        + "fonts/."
     }
     var lines = ["Plugin folders: \(folders)"]
     for plugin in plugins {
@@ -1232,7 +1271,11 @@ public final class ToolHandler {
             "  template \(name): \(template.layers.count) layers, \(template.duration) s.\(fields)"
           )
       }
-      for (kind, files) in [("stickers", plugin.stickers), ("sounds", plugin.sounds)]
+      for (kind, files) in [
+        ("stickers", plugin.stickers),
+        ("overlays", plugin.overlays),
+        ("sounds", plugin.sounds),
+      ]
         where !files.isEmpty
       {
         lines
@@ -1300,6 +1343,7 @@ public final class ToolHandler {
     switch name {
     case "import_media": AddMedia.title
     case "add_sound": "Add Sound"
+    case "add_overlay": AddOverlay.title
     case "export": "Export"
     case "undo": "Undo"
     case "redo": "Redo"
@@ -1532,6 +1576,16 @@ private struct SoundArguments: Decodable {
   let sound: String
   let at: MediaTime
   let volume: Double?
+}
+
+// MARK: - OverlayArguments
+
+private struct OverlayArguments: Decodable {
+  let overlay: String
+  let at: MediaTime
+  let duration: MediaTime?
+  let blend: BlendMode?
+  let opacity: Double?
 }
 
 // MARK: - LookArguments

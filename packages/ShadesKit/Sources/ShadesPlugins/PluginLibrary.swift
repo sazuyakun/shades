@@ -69,6 +69,11 @@ public final class PluginLibrary {
     find(name) { $0.sounds }
   }
 
+  /// An overlay movie's file by name, `plugin/name` or just `name`.
+  public func overlay(named name: String) -> URL? {
+    find(name) { $0.overlays }
+  }
+
   /// A template by name, `plugin/name` or just `name`, with the plugin it comes from.
   public func template(named name: String) -> (template: Template, plugin: Plugin)? {
     for plugin in matching(name) {

@@ -689,17 +689,11 @@ extension Workspace: ProjectHost {
         guard let url = plugin.stickers[asset] ?? plugin.sounds[asset] else {
           continue
         }
-        if let existing = editor.project.media.first(where: { $0.url == url }) {
-          media[asset] = existing.id
-          continue
+        let imported = try await importing(url)
+        if let command = imported.command {
+          commands.append(command)
         }
-        do {
-          let loaded = try await MediaLoader.load(url)
-          commands.append(AddMedia(media: loaded))
-          media[asset] = loaded.id
-        } catch {
-          throw .mediaFailed(error)
-        }
+        media[asset] = imported.media.id
       }
     }
     commands.append(ApplyTemplate(
@@ -715,6 +709,43 @@ extension Workspace: ProjectHost {
       throw .commandFailed(error)
     }
     return "Placed \(name) at \(time.seconds) s: \(template.layers.count) layers."
+  }
+
+  /// Lays a plugin's overlay movie (`plugin/name`, `name` or a file path) over the footage at
+  /// `time`, importing it if needed. One undo step. Returns what was added.
+  public func addOverlay(
+    named name: String,
+    at time: MediaTime,
+    duration: MediaTime?,
+    blend: BlendMode,
+    opacity: Double,
+  ) async throws(ToolError) -> String {
+    let url = plugins.overlay(named: name)
+      ?? (FileManager.default.fileExists(atPath: name) ? URL(filePath: name) : nil)
+    guard let url else {
+      throw .commandFailed(.invalidArguments(
+        "there's no overlay called \(name); list_plugins shows the overlays"
+      ))
+    }
+    let imported = try await importing(url)
+    var commands = [any Command]()
+    if let command = imported.command {
+      commands.append(command)
+    }
+    commands.append(AddOverlay(
+      mediaID: imported.media.id,
+      at: time,
+      duration: duration,
+      blend: blend,
+      opacity: opacity,
+    ))
+    do {
+      try editor.perform(commands, title: AddOverlay.title)
+    } catch {
+      throw .commandFailed(error)
+    }
+    return "Laid \(imported.media.name) over the footage at \(time.seconds) s, blended with "
+      + "\(blend.rawValue)."
   }
 
   /// Ducks a music track (`track`, or the one that sounds like music) under everyone's speech,
@@ -1002,6 +1033,20 @@ extension Workspace: ProjectHost {
       )
     }
     return files
+  }
+
+  /// The project's media for the file at `url`, or the file loaded with the command that
+  /// imports it.
+  private func importing(_ url: URL) async throws(ToolError) -> (media: Media, command: AddMedia?) {
+    if let existing = editor.project.media.first(where: { $0.url == url }) {
+      return (existing, nil)
+    }
+    do {
+      let loaded = try await MediaLoader.load(url)
+      return (loaded, AddMedia(media: loaded))
+    } catch {
+      throw .mediaFailed(error)
+    }
   }
 
   /// Starts using a finished noise-reduced sound in playback.

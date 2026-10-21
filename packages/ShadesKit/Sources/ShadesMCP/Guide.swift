@@ -98,10 +98,11 @@ enum Guide {
     voice and music on their own tracks.
 
     Plugins (taste lives here)
-    - list_plugins shows text styles, templates, stickers and sounds. apply_template places a \
-    template with its fields filled; use_style restyles text. Write a plugin folder (plugin.json \
-    plus stickers/, sounds/, fonts/) and it loads by itself; a manifest problem shows in \
-    list_plugins.
+    - list_plugins shows text styles, templates, stickers, overlays and sounds. apply_template \
+    places a template with its fields filled; use_style restyles text; add_overlay lays an \
+    overlay movie (light leak, dust) over the footage, screened by default. Write a plugin folder \
+    (plugin.json plus stickers/, overlays/, sounds/, luts/, shaders/, fonts/) and it loads by \
+    itself; a manifest problem shows in list_plugins.
 
     Export
     - add_short marks a stretch as a Reel/Short by name; set_short renames it or moves its \

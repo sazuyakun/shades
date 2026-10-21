@@ -1,7 +1,8 @@
 import Foundation
 import ShadesCore
 
-/// A plugin folder's contents: styles, templates, looks, stickers, sounds, LUTs, shaders, fonts.
+/// A plugin folder's contents: styles, templates, looks, stickers, overlays, sounds, LUTs,
+/// shaders, fonts.
 /// Plugins are data only (no code), so they're safe to load from anywhere.
 public struct Plugin: Hashable, Sendable, Identifiable {
   /// The plugin's name, from its manifest or its folder.
@@ -14,6 +15,8 @@ public struct Plugin: Hashable, Sendable, Identifiable {
   public let looks: [String: Look]
   /// Pictures in `stickers/`, by file name without its extension.
   public let stickers: [String: URL]
+  /// Movies in `overlays/` (light leaks, dust, film burns), by file name without its extension.
+  public let overlays: [String: URL]
   /// Sounds in `sounds/`, by file name without its extension.
   public let sounds: [String: URL]
   /// `.cube` LUTs in `luts/`, by file name without its extension.
