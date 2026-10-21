@@ -73,7 +73,7 @@ public actor MixReader {
       for clip in track.clips {
         guard
           let mediaID = clip.mediaID,
-          let media = project.media(withID: mediaID), media.hasAudio
+          let media = project.media(withID: mediaID), media.hasAudio, !clip.isFrozen
         else {
           continue
         }
@@ -86,11 +86,9 @@ public actor MixReader {
           let destination = try target ?? Composition.addTrack(.audio, to: composition)
           target = destination
           trackIDs[track.id] = destination.trackID
-          try destination.insertTimeRange(
-            CMTimeRange(start: clip.sourceStart.cmTime, duration: clip.duration.cmTime),
-            of: audio,
-            at: clip.timelineStart.cmTime,
-          )
+          for piece in MediaPiece.pieces(of: clip, frame: timeline.format.frameDuration) {
+            try piece.insert(from: audio, into: destination)
+          }
           withExtendedLifetime(asset) { }
         } catch {
           let code = (error as NSError).code
@@ -116,6 +114,7 @@ public actor MixReader {
         AVLinearPCMIsBigEndianKey: false,
       ])
       output.audioMix = Composition.audioMix(for: timeline, trackIDs: trackIDs)
+      output.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
       reader.add(output)
       guard reader.startReading() else {
         throw EngineError.renderFailed

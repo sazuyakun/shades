@@ -40,6 +40,32 @@ public enum VideoFixture {
     ) { _ in frame }
   }
 
+  /// Writes a silent `.mov` whose frames are numbered by their colour, so a rendered frame tells
+  /// which source frame it shows (read it back with `countedFrame(in:)`). Up to 64 frames: 2
+  /// seconds at 30 fps.
+  public static func makeCounting(
+    seconds: Int = 2,
+    width: Int = 320,
+    height: Int = 240,
+  ) async throws(FixtureError) -> URL {
+    try await write(seconds: seconds, width: width, height: height) { index throws(FixtureError) in
+      let color = FixtureColor(
+        red: UInt8(index % 4 * 85),
+        green: UInt8(index / 4 % 4 * 85),
+        blue: UInt8(index / 16 * 85),
+      )
+      return try splitFrame(left: color, right: color, width: width, height: height)
+    }
+  }
+
+  /// The number of the `makeCounting` frame a rendered PNG shows in its middle.
+  public static func countedFrame(in png: Data) throws(FixtureError) -> Int {
+    // why: each channel holds a digit in steps of 85, so rounding shrugs off colour conversion.
+    let color = try PixelProbe.color(of: png, x: 0.5, y: 0.5)
+    let digit = { (level: UInt8) in Int((Double(level) / 85).rounded()) }
+    return digit(color.blue) * 16 + digit(color.green) * 4 + digit(color.red)
+  }
+
   /// Writes a `.mov` of a bright orange disc in the middle of a dark frame: an obvious subject
   /// for cut-out tests.
   public static func makeDisc(

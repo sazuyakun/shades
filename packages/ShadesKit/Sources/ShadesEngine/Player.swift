@@ -101,6 +101,7 @@ public final class Player {
     let item = AVPlayerItem(asset: built.asset)
     item.videoComposition = built.videoComposition
     item.audioMix = built.audioMix(for: timeline)
+    item.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
     avPlayer.replaceCurrentItem(with: item)
     composition = built
     self.structure = structure

@@ -45,6 +45,7 @@ public enum MovieExporter {
     }
     session.videoComposition = composition.videoComposition
     session.audioMix = composition.audioMix(for: timeline)
+    session.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
     session.timeRange = CMTimeRange(start: range.start.cmTime, end: range.end.cmTime)
     try moveAside(url)
     let watcher = Task {

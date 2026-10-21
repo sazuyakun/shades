@@ -39,6 +39,43 @@ struct MovieExporterTests {
   }
 
   @Test
+  func `an exported speed ramp lands on the same source frames as playback`() async throws {
+    let media = Media(
+      url: try await VideoFixture.makeCounting(),
+      duration: MediaTime(seconds: 2),
+      width: 320,
+      height: 240,
+      hasAudio: false,
+    )
+    let clip = Clip(
+      mediaID: media.id,
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 1.3),
+      timelineStart: .zero,
+      keyframes: [
+        Keyframe(property: .speed, time: .zero, value: 0.5, easing: .easeInOut),
+        Keyframe(property: .speed, time: MediaTime(seconds: 1), value: 2),
+      ],
+    )
+    let project = Project(media: [media], timeline: Timeline(
+      format: VideoFormat(width: 320, height: 240, framesPerSecond: 30),
+      tracks: [Track(kind: .video, clips: [clip])],
+    ))
+    let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).mp4")
+    try await MovieExporter.export(project, to: url, canvas: .picture, progress: { _ in })
+    let asset = AVURLAsset(url: url)
+    for frame in [3, 12, 21, 30, 38] {
+      let time = Double(frame) / 30
+      let source = clip.sourceTime(at: MediaTime(seconds: time)).seconds
+      let preview = try await FrameRenderer.png(of: project, atSeconds: time, maxSide: 320)
+      let exported = try await self.frame(of: asset, at: time)
+      #expect(try VideoFixture
+        .countedFrame(in: exported) == Int((source * 30 + 0.001).rounded(.down)))
+      #expect(try VideoFixture.countedFrame(in: exported) == VideoFixture.countedFrame(in: preview))
+    }
+  }
+
+  @Test
   func `an empty timeline has nothing to export`() async {
     await #expect(throws: ExportError.nothingToExport("the timeline is empty")) {
       try await MovieExporter.export(

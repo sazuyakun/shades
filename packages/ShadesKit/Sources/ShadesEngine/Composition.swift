@@ -19,6 +19,9 @@ extension Composition {
 
   // MARK: Public
 
+  /// How sound played faster or slower is stretched: keeping its pitch.
+  public static let timePitchAlgorithm = AVAudioTimePitchAlgorithm.spectral
+
   /// Builds the project's timeline from its original media, for rendering frames or a file:
   /// with cut-outs from `mattes` and noise-reduced sound from `cleanSound`, drawn in the middle
   /// of a black `canvas` when one is given. Pass a long-lived `context` when rendering often; a
@@ -135,12 +138,14 @@ extension Composition {
           continue
         }
         let source = try await library.tracks(at: sources[media.id] ?? media.url)
-        let range = CMTimeRange(start: clip.sourceStart.cmTime, duration: clip.duration.cmTime)
+        let pieces = MediaPiece.pieces(of: clip, frame: timeline.format.frameDuration)
         do {
           if track.kind == .video, let video = source.video {
             let target = try videoTrack ?? addTrack(.video, to: asset)
             videoTrack = target
-            try target.insertTimeRange(range, of: video, at: clip.timelineStart.cmTime)
+            for piece in pieces {
+              try piece.insert(from: video, into: target)
+            }
             var hasMatte = false
             if
               let matteURL = mattes[media.id],
@@ -150,15 +155,11 @@ extension Composition {
               matteTrack = target
               // why: a matte can end a frame early; only the part it covers is used.
               let available = try await matte.load(.timeRange).end
-              let end = min(range.end, available)
-              if end > range.start {
-                try target.insertTimeRange(
-                  CMTimeRange(start: range.start, end: end),
-                  of: matte,
-                  at: clip.timelineStart.cmTime,
-                )
-                hasMatte = true
+              let covered = pieces.compactMap { $0.ending(by: available) }
+              for piece in covered {
+                try piece.insert(from: matte, into: target)
               }
+              hasMatte = !covered.isEmpty
             }
             placed.append(PlacedClip(
               clip: clip,
@@ -171,11 +172,13 @@ extension Composition {
           if clip.cleanSound, let cleaned = cleanSound[media.id] {
             sound = try await library.tracks(at: cleaned).audio
           }
-          if let audio = sound {
+          if let audio = sound, !clip.isFrozen {
             let target = try audioTrack ?? addTrack(.audio, to: asset)
             audioTrack = target
             audioTrackIDs[track.id] = target.trackID
-            try target.insertTimeRange(range, of: audio, at: clip.timelineStart.cmTime)
+            for piece in pieces {
+              try piece.insert(from: audio, into: target)
+            }
           }
         } catch {
           let code = (error as NSError).code
@@ -285,18 +288,24 @@ extension Composition {
 
   // MARK: Private
 
-  /// The moments a clip's volume ramps between: its ends, its fades' ends and its volume
-  /// keyframes, with curved easings split into short straight steps.
+  /// The moments a clip's volume ramps between: its ends, its fades' ends, and its volume and
+  /// speed keyframes (speed mutes sound when extreme), with curves split into short straight
+  /// steps.
   private static func volumeMoments(of clip: Clip) -> [MediaTime] {
     var moments: Set = [clip.timelineStart, clip.timelineEnd]
     moments.insert(min(clip.timelineStart + clip.fadeIn, clip.timelineEnd))
     moments.insert(max(clip.timelineEnd - clip.fadeOut, clip.timelineStart))
-    let keyframes = clip.keyframes.filter { $0.property == .volume }.sorted { $0.time < $1.time }
-    for (from, to) in zip(keyframes, keyframes.dropFirst()) {
+    let pairs = [AnimatedProperty.volume, .speed].flatMap { property in
+      let keyframes = clip.keyframes.filter { $0.property == property }.sorted { $0.time < $1.time }
+      return Array(zip(keyframes, keyframes.dropFirst()))
+    }
+    for (from, to) in pairs {
       let start = clip.timelineTime(atSource: from.time)
       let end = clip.timelineTime(atSource: to.time)
-      // why: eight straight steps follow an eased curve closely enough to be inaudible.
-      let steps = from.easing == .linear ? 1 : 8
+      // why: eight straight steps follow a curve closely enough to be inaudible; a linear
+      // volume move is only straight on the timeline when the speed is steady.
+      let isStraight = from.property == .volume && from.easing == .linear && !clip.hasSpeedRamp
+      let steps = isStraight ? 1 : 8
       for step in 0 ... steps {
         moments
           .insert(start + MediaTime(seconds: (end - start).seconds * Double(step) / Double(steps)))
@@ -320,11 +329,12 @@ extension Composition {
     for (outgoing, incoming, transition) in track.transitions where track.kind == .video {
       let half = MediaTime(seconds: transition.duration.seconds / 2)
       let cut = incoming.timelineStart
+      // why: past its edges a clip keeps its speed (its last speed, or held still if frozen).
       let pieces = [
-        (incoming, incoming.sourceStart - half, cut - half),
-        (outgoing, outgoing.sourceStart + outgoing.duration, cut),
+        (incoming, incoming.sourceTime(at: cut - half), incoming.sourceStart, cut - half),
+        (outgoing, outgoing.sourceEnd, outgoing.sourceTime(at: cut + half), cut),
       ]
-      for (clip, from, at) in pieces {
+      for (clip, from, to, at) in pieces {
         guard
           let mediaID = clip.mediaID,
           let media = project.media(withID: mediaID), !media.isStill,
@@ -344,7 +354,8 @@ extension Composition {
           try insertHolding(
             video,
             from: from.cmTime,
-            length: half.cmTime,
+            to: to.cmTime,
+            over: half.cmTime,
             end: end,
             into: target,
             at: at.cmTime,
@@ -358,36 +369,57 @@ extension Composition {
     return handles?.trackID
   }
 
-  /// Puts `length` of `video` from `from` into `target` at `at`, holding its first or last frame
-  /// for whatever falls before its start or after `end`.
+  /// Puts `video` from `from` to `to` into `target` at `at`, played over `length`, holding its
+  /// first or last frame for whatever falls before its start or after `end`. When `from` and
+  /// `to` are the same (a freeze frame), that frame holds for all of `length`.
   private static func insertHolding(
     _ video: AVAssetTrack,
     from: CMTime,
-    length: CMTime,
+    to: CMTime,
+    over length: CMTime,
     end: CMTime,
     into target: AVMutableCompositionTrack,
     at: CMTime,
   ) throws {
     let frame = CMTime(value: 1, timescale: 30)
-    let to = from + length
+    guard to > from else {
+      let still = min(max(from, .zero), max(end - frame, .zero))
+      try hold(video, frameAt: still, frame: frame, for: length, into: target, at: at)
+      return
+    }
+    let isSteady = to - from == length
+    // why: at a steady speed the lengths stay exact; otherwise they scale with the speed.
+    let played = { (source: CMTime) in
+      isSteady
+        ? source
+        : CMTime(
+          seconds: source.seconds * length.seconds / (to - from).seconds,
+          preferredTimescale: 60000,
+        )
+    }
     let start = max(from, .zero)
     let stop = min(to, end)
     var position = at
     if from < .zero {
-      try hold(video, frameAt: .zero, frame: frame, for: .zero - from, into: target, at: position)
-      position = position + (.zero - from)
+      let held = played(.zero - from)
+      try hold(video, frameAt: .zero, frame: frame, for: held, into: target, at: position)
+      position = position + held
     }
     if stop > start {
-      try target.insertTimeRange(CMTimeRange(start: start, end: stop), of: video, at: position)
-      position = position + (stop - start)
+      let piece = MediaPiece(
+        source: CMTimeRange(start: start, end: stop),
+        at: position,
+        duration: played(stop - start),
+      )
+      try piece.insert(from: video, into: target)
+      position = position + piece.duration
     }
     if to > end {
-      let held = to - max(end, from)
       try hold(
         video,
         frameAt: max(end - frame, .zero),
         frame: frame,
-        for: held,
+        for: played(to - max(end, from)),
         into: target,
         at: position,
       )
@@ -552,6 +584,9 @@ struct TrackStructure: Hashable {
 
 /// A clip's timing and media: the part of it that shapes the composition.
 struct ClipTiming: Hashable {
+
+  // MARK: Lifecycle
+
   init(_ clip: Clip) {
     id = clip.id
     mediaID = clip.mediaID
@@ -560,7 +595,11 @@ struct ClipTiming: Hashable {
     timelineStart = clip.timelineStart
     transitionLength = clip.transitionIn?.duration
     cleanSound = clip.cleanSound
+    speed = clip.speed
+    speedKeyframes = clip.keyframes.filter { $0.property == .speed }
   }
+
+  // MARK: Internal
 
   let id: Clip.ID
   let mediaID: Media.ID?
@@ -571,6 +610,10 @@ struct ClipTiming: Hashable {
   let transitionLength: MediaTime?
   /// Whether it plays its media's noise-reduced sound: a different source file.
   let cleanSound: Bool
+  /// How fast it plays: it decides which stretches of media go where.
+  let speed: Double
+  let speedKeyframes: [Keyframe]
+
 }
 
 extension Project {
