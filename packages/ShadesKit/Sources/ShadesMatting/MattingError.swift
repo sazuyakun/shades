@@ -8,6 +8,7 @@ public enum MattingError: Error, Equatable {
   case unwritable(URL)
   case segmentationFailed
   case trackingFailed
+  case flowFailed
   case cancelled
 }
 
@@ -30,8 +31,12 @@ extension MattingError: LocalizedError {
       "The box couldn't be followed: nothing trackable was found in it. Draw it tighter around "
         + "something with clear edges, at a moment where it's visible."
 
+    case .flowFailed:
+      "The motion in the footage couldn't be measured. Check the clip still plays, then switch "
+        + "footage blur off and on to try again."
+
     case .cancelled:
-      "Making the cut-out was cancelled."
+      "The analysis was cancelled."
     }
   }
 }

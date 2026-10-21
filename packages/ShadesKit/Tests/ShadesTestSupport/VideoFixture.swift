@@ -61,11 +61,13 @@ public enum VideoFixture {
   }
 
   /// Writes a `.mov` of a checkered square sliding from the left third to the right third of a
-  /// dark frame over its length, staying vertically centred: something to track.
+  /// dark frame over its length, staying vertically centred (or, `diagonal`, also sliding from
+  /// the top third to the bottom third): something to track or blur.
   public static func makeMovingSquare(
     seconds: Int = 1,
     width: Int = 640,
     height: Int = 360,
+    diagonal: Bool = false,
   ) async throws(FixtureError) -> URL {
     let side = Double(height) * 0.3
     let frames = seconds * 30
@@ -74,9 +76,12 @@ public enum VideoFixture {
       width: width,
       height: height,
     ) { index throws(FixtureError) in
-      let centerX = Double(width) * (1 / 3 + Double(index) / Double(max(frames - 1, 1)) / 3)
+      let travel = Double(index) / Double(max(frames - 1, 1)) / 3
+      let centerX = Double(width) * (1 / 3 + travel)
+      // why: pictures are drawn bottom-up, so sliding down the frame lowers y.
+      let centerY = Double(height) * (diagonal ? 2 / 3 - travel : 0.5)
       return try picture(width: width, height: height) { context in
-        let origin = CGPoint(x: centerX - side / 2, y: Double(height) / 2 - side / 2)
+        let origin = CGPoint(x: centerX - side / 2, y: centerY - side / 2)
         for row in 0 ..< 4 {
           for column in 0 ..< 4 {
             let isLight = (row + column).isMultiple(of: 2)

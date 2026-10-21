@@ -363,3 +363,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** `Task { … }` starts async work and hands back a handle. `task.cancel()` doesn't stop it by force; it only sets a flag (`Task.isCancelled`) that the work checks, and calls like `Task.sleep` throw when it's set. `await task.value` waits for its result.
 **JS/TS analogy:** Like an `AbortController`: `abort()` just flips `signal.aborted`, and the work has to look at it. `await task.value` is `await promise`.
 **In Shades:** `JobQueue` runs each job in its own `Task`, so cancelling one job flags only that job; the loop that runs the rest lives in a different task and carries on.
+
+## Vision optical flow (`VNGenerateOpticalFlowRequest`)
+**What it is:** An Apple Vision request that compares two frames and says, for every pixel, how far it moved (x and y, in pixels). Vision requests run through a handler: you build the request, `perform` it on an image, then read `results`.
+**JS/TS analogy:** Like calling a computer-vision library, e.g. OpenCV.js `calcOpticalFlowFarneback(prev, next)`, but built into macOS and run on the GPU or Neural Engine.
+**In Shades:** `FlowEstimator` measures motion between neighbouring frames for footage motion blur. It pins revision 1, which measured test moves exactly.
+
+## Raw pointers (`assumingMemoryBound(to:)`)
+**What it is:** `CVPixelBufferGetBaseAddress` hands back an untyped `UnsafeMutableRawPointer` to the frame's bytes. `assumingMemoryBound(to: Float.self)` reads those bytes as floats, and `pointer + n` moves along by bytes. There's no bounds checking, so the code must stay inside the buffer's rows.
+**JS/TS analogy:** Like taking an `ArrayBuffer` and wrapping a slice of it in a `Float32Array` view at a byte offset.
+**In Shades:** `FlowEstimator.encoded` reads Vision's two-floats-a-pixel flow buffer row by row.
