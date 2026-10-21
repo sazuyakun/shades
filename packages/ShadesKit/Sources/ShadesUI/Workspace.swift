@@ -636,7 +636,7 @@ extension Workspace: ProjectHost {
       throw .invalidValue("the box must sit inside the picture, as fractions from 0 to 1")
     }
     let start = clip.sourceTime(at: time).seconds
-    let end = (clip.sourceStart + clip.duration).seconds
+    let end = clip.sourceEnd.seconds
     let title = "Tracking \(name) in \(media.name)"
     jobs.enqueue(title) { [weak self] progress throws(JobError) in
       let path: [SubjectPoint]
@@ -1050,7 +1050,6 @@ extension Workspace: ProjectHost {
     guard let inside = subjectPath(during: clip) else {
       return nil
     }
-
     let xs = inside.map(\.x).sorted()
     let ys = inside.map(\.y).sorted()
     return (xs[xs.count / 2], ys[ys.count / 2])

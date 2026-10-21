@@ -35,6 +35,8 @@ enum EditorAction: CaseIterable, Identifiable {
   case join
   case detachAudio
   case splitWords
+  case freezeFrame
+  case normalSpeed
   case nudgeLeft
   case nudgeRight
   case nudgeLeftFive
@@ -105,6 +107,8 @@ enum EditorAction: CaseIterable, Identifiable {
     case .join: "Join Clips"
     case .detachAudio: "Detach Audio"
     case .splitWords: "Split Text into Words"
+    case .freezeFrame: "Freeze Frame at Playhead"
+    case .normalSpeed: "Normal Speed"
     case .nudgeLeft: "Nudge Left 1 Frame"
     case .nudgeRight: "Nudge Right 1 Frame"
     case .nudgeLeftFive: "Nudge Left 5 Frames"
@@ -171,6 +175,8 @@ enum EditorAction: CaseIterable, Identifiable {
     case .join: Shortcut("j", [.option, .command])
     case .detachAudio: Shortcut("l", [.shift, .command])
     case .splitWords: Shortcut("w", [.option, .command])
+    case .freezeFrame: Shortcut("f", .option)
+    case .normalSpeed: Shortcut("n", .shift)
     case .nudgeLeft: Shortcut(",")
     case .nudgeRight: Shortcut(".")
     case .nudgeLeftFive: Shortcut(",", .shift)
@@ -282,6 +288,9 @@ enum EditorAction: CaseIterable, Identifiable {
 
   /// Points per second to zoom from when the timeline is fitted.
   private static let defaultZoom = 40.0
+
+  /// How long ⌥F holds a frame.
+  private static let freezeLength = MediaTime(seconds: 2)
 
   private func transport(in context: ActionContext) {
     let player = context.player
@@ -558,6 +567,34 @@ enum EditorAction: CaseIterable, Identifiable {
         throw .invalidArguments("select the text clips to split into words first")
       }
       try context.perform(texts.map { SplitWords(clipID: $0.id) }, title: SplitWords.title)
+
+    case .freezeFrame:
+      let timeline = context.timeline
+      let video = context.clipsAtPlayhead.last { clip in
+        let track = timeline.location(ofClip: clip.id).map { timeline.tracks[$0.track] }
+        return track?.kind == .video && clip.mediaID != nil && !clip.isFrozen
+      }
+      guard let video else {
+        throw .invalidArguments("put the playhead over a video clip to freeze its frame")
+      }
+      try context.editor.perform(FreezeFrame(
+        clipID: video.id,
+        at: time,
+        duration: Self.freezeLength,
+      ))
+
+    case .normalSpeed:
+      let retimed = (selected.isEmpty ? context.clipsAtPlayhead : selected)
+        .filter { $0.isRetimed && !$0.isFrozen }
+      try context.perform(
+        retimed.flatMap { clip -> [any Command] in
+          let steady = SetClip(clipID: clip.id, speed: 1)
+          return clip.hasSpeedRamp
+            ? [RemoveKeyframes(clipID: clip.id, property: .speed), steady]
+            : [steady]
+        },
+        title: "Normal Speed",
+      )
 
     case .nudgeLeft,
          .nudgeRight,

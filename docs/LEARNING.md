@@ -413,3 +413,18 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** On the GPU, pixels are shaded in little 2×2 groups, so a fragment shader can ask how fast a value changes from one pixel to the next. `fwidth(p)` is that change: the size of one pixel in `p`'s units.
 **JS/TS analogy:** None in plain JS; it's like knowing the zoom level of a canvas so a 1-pixel line stays 1 pixel wide.
 **In Shades:** `cropCoverage` in Layers.metal softens a crop's edge over exactly one screen pixel, so cut edges stay smooth however the layer is scaled or turned.
+
+## `ClosedRange` (`0.1 ... 10`)
+**What it is:** `a ... b` makes a range that includes both ends; `range.contains(x)`, `lowerBound` and `upperBound` read it. Stored as a `static let`, it's one constant every check shares.
+**JS/TS analogy:** Like a `{ min, max }` object with an `includes(x)` helper, built into the language.
+**In Shades:** `Clip.speeds` (0.1–10) validates `set_clip` and speed keyframes; `Clip.audibleSpeeds` decides when stretched sound is muted.
+
+## Memberwise initializers (and an extra `init` in an extension)
+**What it is:** A struct with no `init` of its own gets one for free, taking every stored property in order. Writing another `init` inside the struct removes it, but writing it in an `extension` keeps both.
+**JS/TS analogy:** Like a class whose constructor is generated from its fields, plus an extra static factory that doesn't replace it.
+**In Shades:** `MediaPiece` (ShadesEngine) is built with the free `init(source:at:duration:)`, and a private extension adds `init(from:to:over:_:)` for model times.
+
+## Numeric integration with an exact inverse
+**What it is:** Not Swift syntax, but the idea behind speed ramps: the timeline time to play a stretch of source is the sum of `1 / speed` along it. Sampling the speed curve and joining the samples with straight lines makes that sum a simple formula with an exact inverse (a square root), so turning timeline time into source time never needs guessing.
+**JS/TS analogy:** Like an easing function's "time → progress" with a matching "progress → time", computed from a lookup table instead of a loop that searches.
+**In Shades:** `SpeedCurve` (ShadesCore) behind `Clip.sourceTime(at:)` and `timelineTime(atSource:)`.

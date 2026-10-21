@@ -52,9 +52,9 @@ enum Guide {
     animation and can write themselves on and erase themselves off; set_drawing changes them.
 
     Animation
-    - set_keyframes animates x, y, scale, rotation or opacity: values at moments inside the \
-    clip. Each keyframe's easing (linear, easeIn, easeOut, easeInOut, hold, spring, bouncy) \
-    shapes the move to the next one. remove_keyframes takes them away.
+    - set_keyframes animates x, y, scale, rotation, opacity, volume or speed: values at \
+    moments inside the clip. Each keyframe's easing (linear, easeIn, easeOut, easeInOut, hold, \
+    spring, bouncy) shapes the move to the next one. remove_keyframes takes them away.
     - set_camera moves a camera over the whole picture (zoom, pan, rotate, tilt, dolly) with \
     keyframes; video tracks follow it, captions stay put.
     - track_motion follows a box through a video clip (a background job) and saves a named \
@@ -62,6 +62,19 @@ enum Guide {
     - Anything that moves blurs like film: set_shutter sets the timeline's shutter angle (180 \
     by default, 0 for none) and set_clip motion_blur scales it for one clip (0 keeps a layer \
     sharp, 2 doubles its smear).
+
+    Speed
+    - set_clip speed plays a video or sound clip faster or slower (0.1 to 10; 0.4 turns 60 fps \
+    footage into smooth slow motion on a 24 fps timeline). The clip keeps its first and last \
+    frames, so it gets shorter or longer and later clips on its track follow its end.
+    - Speed ramps: set_keyframes with property speed, e.g. 1 at the take-off, 0.3 at the \
+    peak, 1 on landing, eased. Each key sticks to the frame showing at its moment, so check \
+    get_project afterwards: the clip's length and everything after it moved. \
+    remove_keyframes property speed goes back to a steady speed.
+    - Sound keeps its pitch when stretched, and is muted below 0.25 or above 4.
+    - freeze_frame holds one frame for a while, splitting the clip around it (at the clip's \
+    end, its last frame holds). A freeze is silent and can't be animated; push in on it with \
+    set_camera.
 
     Colour and effects
     - set_look grades clips (exposure, contrast, saturation, temperature, tint, lift, gamma, \

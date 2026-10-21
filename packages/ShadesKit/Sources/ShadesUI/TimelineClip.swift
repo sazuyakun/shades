@@ -22,9 +22,11 @@ struct TimelineClip: View {
 
   var body: some View {
     let width = scale.x(at: clip.duration) + endDelta - startDelta
+    let media = clip.mediaID.flatMap(editor.project.media(withID:))
     TimelineClipView(
-      media: clip.mediaID.flatMap(editor.project.media(withID:)),
-      text: clip.text?.shownText ?? clip.label,
+      media: media,
+      text: clip.text?.shownText ?? clip.label
+        ?? clip.speedLabel.map { "\(media?.name ?? "Missing media") · \($0)" },
       kind: track.kind,
       isSelected: editor.selection.contains(clip.id),
       isRecentlyChanged: server.activity.recentlyChangedClipIDs.contains(clip.id),
@@ -63,16 +65,17 @@ struct TimelineClip: View {
   /// The peaks of the stretch of the media the clip plays, shaped by its volume and fades.
   private var peaks: [Float]? {
     guard
-      let mediaID = clip.mediaID,
+      let mediaID = clip.mediaID, !clip.isFrozen,
       let all = workspace.analysis.analyses[mediaID]?.waveform
     else {
       return nil
     }
     let start = Int(clip.sourceStart.seconds * Waveform.peaksPerSecond)
-    let end = Int((clip.sourceStart + clip.duration).seconds * Waveform.peaksPerSecond)
+    let end = Int(clip.sourceEnd.seconds * Waveform.peaksPerSecond)
     return all[min(start, all.count) ..< min(max(end, start), all.count)].enumerated()
       .map { index, peak in
-        let time = clip.timelineStart + MediaTime(seconds: Double(index) / Waveform.peaksPerSecond)
+        let source = clip.sourceStart + MediaTime(seconds: Double(index) / Waveform.peaksPerSecond)
+        let time = clip.timelineTime(atSource: source)
         let gain = clip.gain(at: time)
         return gain > 0 ? max(peak + Float(20 * log10(gain) / Waveform.decibelRange), 0) : 0
       }
@@ -185,16 +188,18 @@ struct TimelineClip: View {
       time = snapPoints().snapped(time, scale: scale)
     }
     let frame = editor.project.timeline.format.frameDuration
+    // why: a freeze frame, like text, has no media edge to stop at.
+    let hasEdges = clip.mediaID != nil && !clip.isFrozen
     if isStart {
-      let earliest = max(clip.timelineStart - clip.sourceStart, .zero)
+      let earliest = hasEdges ? max(clip.timelineTime(atSource: .zero), .zero) : .zero
       return min(max(time, earliest), clip.timelineEnd - frame)
     }
-    guard let mediaID = clip.mediaID else {
+    guard let mediaID = clip.mediaID, hasEdges else {
       return max(time, clip.timelineStart + frame)
     }
     let mediaDuration = editor.project.media(withID: mediaID)?.duration
-      .flooredToFrame(at: fps) ?? clip.duration
-    let latest = clip.timelineStart + (mediaDuration - clip.sourceStart)
+      .flooredToFrame(at: fps) ?? clip.sourceEnd
+    let latest = clip.timelineTime(atSource: mediaDuration).flooredToFrame(at: fps)
     return max(min(time, latest), clip.timelineStart + frame)
   }
 

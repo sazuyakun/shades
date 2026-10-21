@@ -64,6 +64,7 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 
 | # | Issue | Fix in |
 |---|---|---|
+| 32 | Sped-up sound can lose its last ~70 ms at the very end of the mix: AVFoundation's pitch-keeping stretcher (`.spectral`) doesn't always flush its tail there (seen under heavy load in `MixReaderTests`) | After M9 |
 | 31 | Plugins can't ship video overlay packs (`stickers/` takes pictures only), and an edited `.cube` LUT stays cached until restart (cached by URL, not modification date) | After M9 |
 | 30 | Many features are MCP-only, with no way to do them in the app: add text, stickers, adjustment clips, the 3D camera, transitions, box motion tracking, object cut-outs, keyframe easing, curves, qualifiers, windows, chroma tolerance, ducking, loudness, beat analysis, `add_sound`, removing markers. The MCP `look` schema also lists only the master curve, though the engine applies R/G/B curves | After M9 |
 | 29 | Quality gates are thin: most effects, grades, blend modes, transitions and the camera are checked with pixel probes, not golden frames (SYSTEM §11 wants reference frames for every one), and there are only two MCP scenarios (rough cut, Polish) | After M9 |
@@ -78,7 +79,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 17 | The History pane has no per-request undo: rows only offer Show, there's no request grouping, the log is in memory and cleared when a project opens, and edits applied later by background jobs aren't logged | After M9 |
 | 16 | Cut-outs have no edge refinement (no feather or choke): the Vision mask is only resized and blended with the previous frame | After M9 |
 | 15 | No layer masks: nothing hides or reveals part of a layer by a shape. Grade windows exist but are only ellipses and rectangles, fixed in place (no keyframes or tracking) | After M9 |
-| 13 | Speed changes, speed ramps and freeze frames are in the scope (§1) but were never built: clips have no speed, and source time maps 1:1 to timeline time | After M8 |
 | 12 | `normalize_loudness` can't reach −14 LUFS when sound effects pile up: without a limiter it holds the master back to keep peaks under −1 dBFS (the showcase landed at −17.4 LUFS). Needs a true-peak limiter on the mix (an audio tap on export and playback) | After M8 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 

@@ -27,6 +27,12 @@ struct ClipVideoInspector: View {
       if clip.source != .adjustment {
         CropControls(clip: clip, onError: onError)
       }
+      if clip.isFrozen {
+        Text("A freeze frame holds one frame. Trim it to change how long.")
+          .foregroundStyle(Theme.faintText)
+      } else if isMoving {
+        AnimatedSlider(clip: clip, property: .speed, onError: onError)
+      }
       Picker("Depth", selection: Binding(
         get: { clip.depth },
         set: { perform([SetClip(clipID: clip.id, depthSlot: $0)], title: SetClip.title) },
@@ -66,6 +72,11 @@ struct ClipVideoInspector: View {
   @Environment(Editor.self) private var editor
   @Environment(Workspace.self) private var workspace
 
+  /// Whether it plays moving media, which has a speed (stills and text don't).
+  private var isMoving: Bool {
+    clip.mediaID.flatMap(editor.project.media(withID:)).map { !$0.isStill } ?? false
+  }
+
   private var hasCutout: Bool {
     clip.mediaID.flatMap { workspace.analysis.analyses[$0]?.matte } != nil
   }
@@ -94,12 +105,14 @@ struct ClipVideoInspector: View {
     _ = workspace.makeCutouts([mediaID], engine: .visionPerson)
   }
 
-  /// Puts the clip back upright, centered and solid, dropping its animation.
+  /// Puts the clip back upright, centered and solid, dropping its motion (its speed stays).
   private func resetTransform() {
     let reset = SetClip(clipID: clip.id, x: 0, y: 0, scale: 1, rotation: 0, opacity: 1)
-    let commands: [any Command] = clip.keyframes.isEmpty
-      ? [reset]
-      : [reset, RemoveKeyframes(clipID: clip.id)]
+    let animated = AnimatedProperty.allCases.filter { property in
+      property.isVisual && clip.keyframes.contains { $0.property == property }
+    }
+    let commands: [any Command] = [reset]
+      + animated.map { RemoveKeyframes(clipID: clip.id, property: $0) }
     perform(commands, title: "Reset Transform")
   }
 

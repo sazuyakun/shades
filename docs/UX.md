@@ -20,6 +20,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 - **Dragging onto the timeline inserts**: later clips move right. Hold **⌘** while dropping to overwrite instead.
 - **One-key edits** put the marked part on the timeline without dragging: **R** append to end, **Z** insert at playhead, **⌥Z** overwrite at playhead, **C** place on top (the track above, for B-roll).
 - **Linking:** a clip's own audio moves with it (**⇧⌘L** to unlink). Clips on other tracks stay where they are.
+- **Speed:** the inspector's Speed slider (Video tab, or Audio for sound clips) slows a clip down or speeds it up; it keeps its first and last frames, so it grows or shrinks and later clips on its track follow. The slider's diamond adds speed keyframes for a ramp. **⌥F** holds the frame at the playhead for 2 s; the timeline marks retimed clips "2×", "Ramp" or "Freeze".
 - **Deleting leaves a gap** (lift). **⇧⌫** is ripple delete, and **D** closes all gaps.
 - **Keyboard:** Final Cut shortcuts as the base, with the creator's DaVinci Resolve customizations on top. Editing lives on the left hand.
 
@@ -44,6 +45,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | N | Snapping on / off (on by default) |
 | ⌥⌘J | Join clips |
 | ⌥⌘W | Split text into words: one layer per word, each where it sat in the line |
+| ⌥F · ⇧N | Freeze the frame at the playhead for 2 s · Back to normal speed |
 | ⌥↑ · ⌥↓ | Move clip up / down a track |
 | ⌘= · ⌘− · ⇧Z | Zoom in / out / fit |
 | ⇧⌘L | Link / unlink audio and video |

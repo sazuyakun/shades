@@ -37,6 +37,21 @@ struct EditorActionTests {
   }
 
   @Test
+  func `⌥F freezes the frame at the playhead and ⇧N puts speed back to normal`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 1)
+    try EditorAction.freezeFrame.perform(in: context)
+    let clips = editor.project.timeline.tracks[0].clips
+    #expect(clips.count == 4 && clips[1].isFrozen)
+    #expect(editor.project.timeline.duration == MediaTime(seconds: 6))
+    let last = try #require(clips.last)
+    try editor.perform(SetClip(clipID: last.id, speed: 2))
+    editor.selection = [last.id]
+    try EditorAction.normalSpeed.perform(in: context)
+    #expect(editor.project.timeline.clip(withID: last.id)?.speed == 1)
+    #expect(editor.project.timeline.duration == MediaTime(seconds: 6))
+  }
+
+  @Test
   func `nudging moves the selection by one frame`() async throws {
     let (editor, context) = try await editing(seconds: 2, playhead: 0)
     let last = try #require(editor.project.timeline.tracks[0].clips.last)

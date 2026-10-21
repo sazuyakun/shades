@@ -15,6 +15,9 @@ struct ClipAudioInspector: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       AnimatedSlider(clip: clip, property: .volume, onError: onError)
+      if track.kind == .audio {
+        AnimatedSlider(clip: clip, property: .speed, onError: onError)
+      }
       InspectorSlider(
         label: "Fade In",
         value: clip.fadeIn.seconds,
