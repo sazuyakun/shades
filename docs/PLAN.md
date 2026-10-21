@@ -60,8 +60,28 @@ The taste agent files issues on `sazuyakun/shades` with its `editor-request` ski
 ### Known issues
 Problems found but not fixed yet. When one is fixed, delete its row in the same commit.
 
+An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows 13–31 are what it found missing or only partly built.
+
 | # | Issue | Fix in |
 |---|---|---|
+| 31 | Plugins can't ship video overlay packs (`stickers/` takes pictures only), and an edited `.cube` LUT stays cached until restart (cached by URL, not modification date) | After M9 |
+| 30 | Many features are MCP-only, with no way to do them in the app: add text, stickers, adjustment clips, the 3D camera, transitions, box motion tracking, object cut-outs, keyframe easing, curves, qualifiers, windows, chroma tolerance, ducking, loudness, beat analysis, `add_sound`, shorts, removing markers. The MCP `look` schema also lists only the master curve, though the engine applies R/G/B curves | After M9 |
+| 29 | Quality gates are thin: most effects, grades, blend modes, transitions and the camera are checked with pixel probes, not golden frames (SYSTEM §11 wants reference frames for every one), and there are only two MCP scenarios (rough cut, Polish) | After M9 |
+| 28 | Performance targets aren't enforced: the HUD shows only fps and memory, and CI gates only one frame's render time (500 ms budget), memory growth and export speed. No gate for playback drops, scrubbing, edit latency, launch, idle CPU, analysis time or the 1.5 GB ceiling. Background jobs pause for Low Power Mode and heat but not on battery, and only before a job starts | After M9 |
+| 27 | No half-resolution preview: the composition always renders the full canvas (`Composition.swift` `renderSize`); only proxies lighten playback | After M9 |
+| 26 | Shorts can be marked only over MCP and aren't drawn on the timeline | After M9 |
+| 25 | No track mixer: track levels exist (`Track.volume`) but there's no mixer view, meters, solo or pan, and a video track's sound can't be muted from its header | After M9 |
+| 24 | No linked audio: detached audio (`DetachAudio`) has no link back, so moving, trimming or splitting the video leaves it behind | After M9 |
+| 23 | Audio polish isn't in Polish: ducking, loudness and noise reduction apply at once as separate tools instead of joining the propose → review → apply plan (SYSTEM §6); loudness has no platform presets. Polish's filler list has no Devanagari words, so Hindi-script transcripts miss fillers | After M9 |
+| 22 | Colour isn't managed: Rec.709 is assumed and nothing reads the clip's colour tags, so an HDR (HLG/Dolby Vision) iPhone clip plays and exports wrong with no warning | After M9 |
+| 21 | Per-word type isn't per-word layers: words animate inside one text clip and can't get their own position, keyframes or depth; `add_text` takes no word timings | After M9 |
+| 20 | Type & motion gaps: no endless-zoom portals, "3D type" is flat text tilted in space (no extrusion or 3D bend), and text on paths follows only a circular arc (not any path) | After M9 |
+| 19 | Auto-reframe sets one fixed framing from the subject's median position; it doesn't pan as the subject moves | After M9 |
+| 18 | Bug: cancelling the running job cancels the queue's runner task, so every job queued behind it also ends as cancelled (`JobQueue.cancel`) | After M9 |
+| 17 | The History pane has no per-request undo: rows only offer Show, there's no request grouping, the log is in memory and cleared when a project opens, and edits applied later by background jobs aren't logged | After M9 |
+| 16 | Cut-outs have no edge refinement (no feather or choke): the Vision mask is only resized and blended with the previous frame | After M9 |
+| 15 | No layer masks: nothing hides or reveals part of a layer by a shape. Grade windows exist but are only ellipses and rectangles, fixed in place (no keyframes or tracking) | After M9 |
+| 14 | No crop: `ClipTransform` has no crop and nothing renders one | After M9 |
 | 13 | Speed changes, speed ramps and freeze frames are in the scope (§1) but were never built: clips have no speed, and source time maps 1:1 to timeline time | After M8 |
 | 12 | `normalize_loudness` can't reach −14 LUFS when sound effects pile up: without a limiter it holds the master back to keep peaks under −1 dBFS (the showcase landed at −17.4 LUFS). Needs a true-peak limiter on the mix (an audio tap on export and playback) | After M8 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
