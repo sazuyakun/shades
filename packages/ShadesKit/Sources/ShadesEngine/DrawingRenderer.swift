@@ -5,16 +5,20 @@ import ShadesCore
 // MARK: - DrawingRenderer
 
 /// Draws hand-drawn lines onto a transparent frame-sized surface: smoothed through their points,
-/// wobbling a little each boil frame, drawn on in stroke order, with an optional glow. The wobble
+/// wobbling a little each boil frame, drawn on in stroke order and erased in reverse, with an
+/// optional glow. The wobble
 /// is the same every time for the same moment, so preview and export match.
 enum DrawingRenderer {
 
   // MARK: Internal
 
-  /// Which wobble and how much of the lines show at `time` (seconds into the clip).
-  static func moment(of drawing: Drawing, at time: Double) -> DrawingMoment {
+  /// Which wobble and how much of the lines show at `time` (seconds into a clip lasting
+  /// `duration`).
+  static func moment(of drawing: Drawing, at time: Double, duration: Double) -> DrawingMoment {
     let wobble = drawing.boil > 0 ? Int((time * drawing.boil).rounded(.down)) : 0
-    let progress = drawing.writeOn > 0 ? min(max(time / drawing.writeOn, 0), 1) : 1
+    let written = drawing.writeOn > 0 ? min(max(time / drawing.writeOn, 0), 1) : 1
+    let left = drawing.eraseOff > 0 ? min(max((duration - time) / drawing.eraseOff, 0), 1) : 1
+    let progress = min(written, left)
     // why: steps of a thousandth are finer than a frame and let moments be cached and compared.
     return DrawingMoment(wobble: wobble, drawn: Int((progress * 1000).rounded()))
   }

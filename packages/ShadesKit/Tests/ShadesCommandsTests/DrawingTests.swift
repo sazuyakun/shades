@@ -16,6 +16,7 @@ struct DrawingTests {
       color: HexColor("#FF3B30"),
       glow: 0.5,
       writeOn: 0.8,
+      eraseOff: 0.5,
     ).apply(to: &project)
     let track = try #require(project.timeline.tracks.filter { $0.kind == .video }.last)
     #expect(project.timeline.label(of: track) == "V2")
@@ -23,6 +24,7 @@ struct DrawingTests {
     #expect(drawing.color == HexColor("#FF3B30"))
     #expect(drawing.boil == 12)
     #expect(drawing.writeOn == 0.8)
+    #expect(drawing.eraseOff == 0.5)
     #expect(track.clips.first?.duration == seconds(3))
   }
 
@@ -57,6 +59,9 @@ struct DrawingTests {
     #expect(drawing.strokes.count == 2)
     #expect(drawing.boil == 0)
     #expect(throws: CommandError.self) { try SetDrawing(clipID: id, glow: 3).apply(to: &project) }
+    #expect(throws: CommandError.self) {
+      try SetDrawing(clipID: id, eraseOff: -1).apply(to: &project)
+    }
     #expect(throws: CommandError.self) {
       try AddDrawing(at: .zero, svgPath: "M 0 0 A 1 1 0 0 0 5 5").apply(to: &project)
     }

@@ -14,6 +14,7 @@ public struct SetDrawing: ToolCommand {
     glow: Double? = nil,
     boil: Double? = nil,
     writeOn: Double? = nil,
+    eraseOff: Double? = nil,
   ) {
     self.clipID = clipID
     self.strokes = strokes
@@ -23,6 +24,7 @@ public struct SetDrawing: ToolCommand {
     self.glow = glow
     self.boil = boil
     self.writeOn = writeOn
+    self.eraseOff = eraseOff
   }
 
   // MARK: Public
@@ -30,7 +32,7 @@ public struct SetDrawing: ToolCommand {
   public static let title = "Change Drawing"
   public static let name = "set_drawing"
   public static let summary = "Change a drawing's lines (replace them, or add strokes) or its "
-    + "look: colour, width, glow, boil and write_on. Leave out what shouldn't change."
+    + "look: colour, width, glow, boil, write_on and erase_off. Leave out what shouldn't change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -48,6 +50,7 @@ public struct SetDrawing: ToolCommand {
   public let glow: Double?
   public let boil: Double?
   public let writeOn: Double?
+  public let eraseOff: Double?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -62,6 +65,7 @@ public struct SetDrawing: ToolCommand {
       glow: glow,
       boil: boil,
       writeOn: writeOn,
+      eraseOff: eraseOff,
     )
     project.timeline.tracks[location.track].clips[location.clip].source = .drawing(drawing)
   }
@@ -76,6 +80,7 @@ public struct SetDrawing: ToolCommand {
     glow: Double?,
     boil: Double?,
     writeOn: Double?,
+    eraseOff: Double?,
   ) throws(CommandError) -> Drawing {
     if let width, !(0.0005 ... 0.1).contains(width) {
       throw rejected(.invalidValue("drawing width goes from 0.0005 to 0.1 of the frame height"))
@@ -89,12 +94,16 @@ public struct SetDrawing: ToolCommand {
     if let writeOn, writeOn < 0 {
       throw rejected(.invalidValue("write_on can't be negative"))
     }
+    if let eraseOff, eraseOff < 0 {
+      throw rejected(.invalidValue("erase_off can't be negative"))
+    }
     var styled = drawing
     styled.color = color ?? drawing.color
     styled.width = width ?? drawing.width
     styled.glow = glow ?? drawing.glow
     styled.boil = boil ?? drawing.boil
     styled.writeOn = writeOn ?? drawing.writeOn
+    styled.eraseOff = eraseOff ?? drawing.eraseOff
     return styled
   }
 

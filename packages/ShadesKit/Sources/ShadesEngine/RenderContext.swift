@@ -114,10 +114,16 @@ public final class RenderContext: Sendable {
     return surface
   }
 
-  /// A drawing as it looks at `time` (seconds into its clip) on a frame-sized surface; from the
-  /// cache when that moment's wobble and write-on were drawn recently.
-  func drawing(_ drawing: Drawing, at time: Double, width: Int, height: Int) -> IOSurface? {
-    let moment = DrawingRenderer.moment(of: drawing, at: time)
+  /// A drawing as it looks at `time` (seconds into a clip lasting `duration`) on a frame-sized
+  /// surface; from the cache when that moment's wobble and drawn length were drawn recently.
+  func drawing(
+    _ drawing: Drawing,
+    at time: Double,
+    duration: Double,
+    width: Int,
+    height: Int,
+  ) -> IOSurface? {
+    let moment = DrawingRenderer.moment(of: drawing, at: time, duration: duration)
     let key = DrawingKey(drawing: drawing, width: width, height: height, moment: moment)
     if let cached = drawings.withLock({ $0[key] }) {
       return cached

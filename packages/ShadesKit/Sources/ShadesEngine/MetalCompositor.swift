@@ -78,6 +78,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           instruction.renderContext.drawing(
             drawing,
             at: clip.sourceTime(at: time).seconds,
+            duration: clip.duration.seconds,
             width: width,
             height: height,
           )

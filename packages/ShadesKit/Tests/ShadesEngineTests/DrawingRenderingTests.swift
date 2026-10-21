@@ -4,7 +4,7 @@ import ShadesCore
 import ShadesTestSupport
 import Testing
 
-/// Hand-drawn lines: boil, write-on, and how they look over video.
+/// Hand-drawn lines: boil, write-on, erase-off, and how they look over video.
 struct DrawingRenderingTests {
 
   // MARK: Internal
@@ -12,22 +12,35 @@ struct DrawingRenderingTests {
   @Test
   func `boiling lines change wobble at their own rate and hold between`() {
     let drawing = Drawing(strokes: [line], boil: 12)
-    let first = DrawingRenderer.moment(of: drawing, at: 0.01)
-    #expect(DrawingRenderer.moment(of: drawing, at: 0.07) == first)
-    #expect(DrawingRenderer.moment(of: drawing, at: 0.09) != first)
+    let first = DrawingRenderer.moment(of: drawing, at: 0.01, duration: 2)
+    #expect(DrawingRenderer.moment(of: drawing, at: 0.07, duration: 2) == first)
+    #expect(DrawingRenderer.moment(of: drawing, at: 0.09, duration: 2) != first)
     let still = Drawing(strokes: [line], boil: 0)
-    #expect(DrawingRenderer.moment(of: still, at: 0.01) == DrawingRenderer.moment(of: still, at: 2))
+    #expect(
+      DrawingRenderer.moment(of: still, at: 0.01, duration: 2)
+        == DrawingRenderer.moment(of: still, at: 2, duration: 2)
+    )
   }
 
   @Test
   func `lines draw themselves on over their write-on time`() async throws {
     let drawing = Drawing(strokes: [line], width: 0.02, boil: 0, writeOn: 1)
-    #expect(DrawingRenderer.moment(of: drawing, at: 0.5).drawn == 500)
+    #expect(DrawingRenderer.moment(of: drawing, at: 0.5, duration: 2).drawn == 500)
     let half = try await frame(drawing, at: 0.5)
     #expect(try PixelProbe.color(of: half, x: 0.3, y: 0.5).red > 200)
     #expect(try PixelProbe.color(of: half, x: 0.8, y: 0.5).red < 60)
     let whole = try await frame(drawing, at: 1.5)
     #expect(try PixelProbe.color(of: whole, x: 0.8, y: 0.5).red > 200)
+  }
+
+  @Test
+  func `lines erase themselves off at the end of the clip, last part first`() async throws {
+    let drawing = Drawing(strokes: [line], width: 0.02, boil: 0, eraseOff: 1)
+    #expect(DrawingRenderer.moment(of: drawing, at: 0.5, duration: 2).drawn == 1000)
+    #expect(DrawingRenderer.moment(of: drawing, at: 1.5, duration: 2).drawn == 500)
+    let half = try await frame(drawing, at: 1.5)
+    #expect(try PixelProbe.color(of: half, x: 0.3, y: 0.5).red > 200)
+    #expect(try PixelProbe.color(of: half, x: 0.8, y: 0.5).red < 60)
   }
 
   @Test

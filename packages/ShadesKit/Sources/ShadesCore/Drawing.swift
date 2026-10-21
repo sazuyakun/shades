@@ -1,7 +1,7 @@
 // MARK: - Drawing
 
-/// Hand-drawn lines over the picture: strokes that can wobble like hand animation ("boil") and
-/// draw themselves on.
+/// Hand-drawn lines over the picture: strokes that can wobble like hand animation ("boil"), draw
+/// themselves on and erase themselves off.
 public struct Drawing: Hashable, Sendable {
 
   // MARK: Lifecycle
@@ -13,6 +13,7 @@ public struct Drawing: Hashable, Sendable {
     glow: Double = 0,
     boil: Double = 12,
     writeOn: Double = 0,
+    eraseOff: Double = 0,
   ) {
     self.strokes = strokes
     self.color = color
@@ -20,6 +21,7 @@ public struct Drawing: Hashable, Sendable {
     self.glow = glow
     self.boil = boil
     self.writeOn = writeOn
+    self.eraseOff = eraseOff
   }
 
   // MARK: Public
@@ -35,6 +37,8 @@ public struct Drawing: Hashable, Sendable {
   public var boil: Double
   /// Seconds the lines take to draw themselves on, in stroke order; 0 shows them at once.
   public var writeOn: Double
+  /// Seconds the lines take to undraw at the end of the clip, last stroke first; 0 keeps them.
+  public var eraseOff: Double
 
 }
 
@@ -54,6 +58,7 @@ extension Drawing: Codable {
       glow: container.decodeIfPresent(Double.self, forKey: .glow) ?? 0,
       boil: container.decodeIfPresent(Double.self, forKey: .boil) ?? 12,
       writeOn: container.decodeIfPresent(Double.self, forKey: .writeOn) ?? 0,
+      eraseOff: container.decodeIfPresent(Double.self, forKey: .eraseOff) ?? 0,
     )
   }
 
@@ -66,6 +71,7 @@ extension Drawing: Codable {
     case glow
     case boil
     case writeOn
+    case eraseOff
   }
 
 }

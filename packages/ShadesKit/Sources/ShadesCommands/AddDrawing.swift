@@ -16,6 +16,7 @@ public struct AddDrawing: ToolCommand {
     glow: Double? = nil,
     boil: Double? = nil,
     writeOn: Double? = nil,
+    eraseOff: Double? = nil,
   ) {
     at = time
     self.duration = duration
@@ -27,6 +28,7 @@ public struct AddDrawing: ToolCommand {
     self.glow = glow
     self.boil = boil
     self.writeOn = writeOn
+    self.eraseOff = eraseOff
   }
 
   // MARK: Public
@@ -35,7 +37,8 @@ public struct AddDrawing: ToolCommand {
   public static let name = "add_drawing"
   public static let summary = "Draw lines over the picture (doodles, circles, arrows, underlines) "
     + "as a clip on a free track above, from points or SVG path data. They wobble like hand "
-    + "animation (boil) and can draw themselves on (write_on), with an optional glow."
+    + "animation (boil), can draw themselves on (write_on) and off again (erase_off), with an "
+    + "optional glow."
   public static let parameters = JSONSchema.object(
     [
       "at": Fields.time("When it appears"),
@@ -57,6 +60,7 @@ public struct AddDrawing: ToolCommand {
   public let glow: Double?
   public let boil: Double?
   public let writeOn: Double?
+  public let eraseOff: Double?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let lines = try drawnStrokes()
@@ -70,6 +74,7 @@ public struct AddDrawing: ToolCommand {
       glow: glow,
       boil: boil,
       writeOn: writeOn,
+      eraseOff: eraseOff,
     )
     let start = project.onFrame(at)
     let length = max(

@@ -27,5 +27,9 @@ enum DrawingFields {
       "Seconds the lines take to draw themselves on (default 0: all at once)",
       minimum: 0,
     ),
+    "erase_off": JSONSchema.number(
+      "Seconds the lines take to undraw at the clip's end, last stroke first (default 0: they stay)",
+      minimum: 0,
+    ),
   ]
 }

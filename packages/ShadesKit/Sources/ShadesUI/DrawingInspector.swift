@@ -4,7 +4,7 @@ import ShadesCore
 import SwiftUI
 
 /// The look of a drawing clip: colour, width, glow, how fast it boils and how long it takes to
-/// draw itself on.
+/// draw itself on and off.
 struct DrawingInspector: View {
 
   // MARK: Internal
@@ -46,6 +46,14 @@ struct DrawingInspector: View {
         range: 0 ... 3,
         format: { $0 < 0.05 ? "Off" : String(format: "%.1f s", $0) },
         onChange: { change(SetDrawing(clipID: clip.id, writeOn: $0)) },
+        onEnd: editor.endCoalescing,
+      )
+      InspectorSlider(
+        label: "Erase Off",
+        value: drawing.eraseOff,
+        range: 0 ... 3,
+        format: { $0 < 0.05 ? "Off" : String(format: "%.1f s", $0) },
+        onChange: { change(SetDrawing(clipID: clip.id, eraseOff: $0)) },
         onEnd: editor.endCoalescing,
       )
     }

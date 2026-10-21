@@ -119,6 +119,7 @@ enum ProjectSummary {
         "glow": rounded(drawing.glow),
         "boil": rounded(drawing.boil),
         "write_on": rounded(drawing.writeOn),
+        "erase_off": rounded(drawing.eraseOff),
       ]
 
     case .adjustment:
