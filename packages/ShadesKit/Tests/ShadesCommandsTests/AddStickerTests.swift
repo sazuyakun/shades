@@ -34,10 +34,13 @@ struct AddStickerTests {
   }
 
   @Test
-  func `the sticker look comes off with no border and no shadow`() throws {
+  func `the sticker look comes off with no border, shadow or paper`() throws {
     var project = try footage()
     try AddSticker(mediaID: picture.id, at: .zero).apply(to: &project)
     let id = try #require(project.timeline.allClips.first { $0.mediaID == picture.id }?.id)
+    try SetClip(clipID: id, sticker: StickerLook(border: 0, shadow: false, paper: true))
+      .apply(to: &project)
+    #expect(project.timeline.clip(withID: id)?.sticker?.paper == true)
     try SetClip(clipID: id, sticker: StickerLook(border: 0, shadow: false)).apply(to: &project)
     #expect(project.timeline.clip(withID: id)?.sticker == nil)
   }

@@ -50,6 +50,7 @@ public struct AddSticker: ToolCommand {
       "look": JSONSchema.object([
         "border": JSONSchema.number("White border as a fraction of the picture, 0 for none"),
         "shadow": JSONSchema.boolean("A soft drop shadow"),
+        "paper": JSONSchema.boolean("A printed-paper grain over the sticker (default false)"),
       ]),
       "motion": JSONSchema.string(
         "How it comes on (default pop)",

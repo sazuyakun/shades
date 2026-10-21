@@ -36,7 +36,8 @@ enum Guide {
 
     Stickers and motion
     - import_media takes pictures too (PNG, JPEG). add_sticker drops one on top with a die-cut \
-    border, a motion preset and a sound; cutout_from_frame turns a frame's subject into one.
+    border, a paper grain if asked, a motion preset and a sound; cutout_from_frame turns a \
+    frame's subject into one.
     - apply_motion gives layers ready-made moves (pop, slideIn, float, orbit, scatter, stack).
     - add_drawing draws hand-drawn lines (points or SVG path data) that boil like hand \
     animation and can write themselves on and erase themselves off; set_drawing changes them.

@@ -88,10 +88,11 @@ public struct SetClip: ToolCommand {
       ),
       "sticker": JSONSchema.object([
         "border": JSONSchema.number(
-          "White die-cut border as a fraction of the picture; with shadow false and border 0 "
-            + "the sticker look is removed"
+          "White die-cut border as a fraction of the picture; with border 0 and shadow and "
+            + "paper false the sticker look is removed"
         ),
         "shadow": JSONSchema.boolean("A soft drop shadow"),
+        "paper": JSONSchema.boolean("A printed-paper grain over the sticker"),
       ]),
     ],
     required: ["clip_id"],
@@ -156,7 +157,7 @@ public struct SetClip: ToolCommand {
     clip.volume = volume ?? clip.volume
     clip.isAudioEnabled = audioEnabled ?? clip.isAudioEnabled
     if let sticker {
-      clip.sticker = sticker.border == 0 && !sticker.shadow ? nil : sticker
+      clip.sticker = sticker.border == 0 && !sticker.shadow && !sticker.paper ? nil : sticker
     }
     project.timeline.tracks[location.track].clips[location.clip] = clip
   }

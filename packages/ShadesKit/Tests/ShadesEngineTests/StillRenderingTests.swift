@@ -33,10 +33,26 @@ struct StillRenderingTests {
     #expect(try GoldenFrame.matches(png, named: "sticker-die-cut", in: golden))
   }
 
+  @Test
+  func `a paper sticker gets a grain the plain one doesn't have`() async throws {
+    let plain = try await frame(over: true, sticker: StickerLook())
+    let paper = try await frame(over: true, sticker: StickerLook(paper: true))
+    #expect(try spread(across: paper) > spread(across: plain) + 8)
+    #expect(try GoldenFrame.matches(paper, named: "sticker-paper", in: golden))
+  }
+
   // MARK: Private
 
   private let golden = URL(filePath: #filePath).deletingLastPathComponent()
     .appending(path: "Golden")
+
+  /// How far apart the brightest and darkest red are along a short line through the disc.
+  private func spread(across png: Data) throws -> Int {
+    let reds = try (0 ..< 20).map { step in
+      try Int(PixelProbe.color(of: png, x: 0.45 + Double(step) / 200, y: 0.5).red)
+    }
+    return (reds.max() ?? 0) - (reds.min() ?? 0)
+  }
 
   /// The orange disc picture as a 10-second clip, over blue video or on its own.
   private func frame(over video: Bool, sticker: StickerLook?) async throws -> Data {

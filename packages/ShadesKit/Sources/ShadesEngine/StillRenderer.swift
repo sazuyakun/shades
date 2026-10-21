@@ -56,8 +56,8 @@ enum StillRenderer {
   /// Shared across pictures: making a CoreImage context is slow, and one is safe to share.
   private static let context = CIContext()
 
-  /// The picture on a white silhouette grown out from its outline, over a soft shadow, with room
-  /// around it for both.
+  /// The picture on a white silhouette grown out from its outline, with a paper grain if asked,
+  /// over a soft shadow, with room around it for both.
   private static func stickered(_ picture: CIImage, look: StickerLook) -> CIImage {
     let side = min(picture.extent.width, picture.extent.height)
     let border = max(side * look.border, 0)
@@ -73,6 +73,12 @@ enum StillRenderer {
       ),
     ])
     var sticker = picture.composited(over: border > 0 ? silhouette : CIImage.empty())
+    if look.paper {
+      sticker = paperGrain(over: sticker.extent).applyingFilter(
+        "CIMultiplyCompositing",
+        parameters: [kCIInputBackgroundImageKey: sticker],
+      )
+    }
     if look.shadow {
       let shadow = sticker
         .applyingFilter("CIColorMatrix", parameters: [
@@ -86,6 +92,23 @@ enum StillRenderer {
       sticker = sticker.composited(over: shadow)
     }
     return sticker.cropped(to: picture.extent.insetBy(dx: -side * 0.12, dy: -side * 0.12))
+  }
+
+  /// Soft grey speckle from 75% to 100% white, opaque, filling `extent`. Multiplying by it keeps
+  /// the sticker's own alpha, and the same noise every time keeps preview and export alike.
+  private static func paperGrain(over extent: CGRect) -> CIImage {
+    let noise = CIFilter(name: "CIRandomGenerator")?.outputImage ?? CIImage(color: .white)
+    // why: the generator's values run far past 1, which would multiply into white speckles.
+    return noise.applyingFilter("CIColorClamp")
+      .applyingFilter("CIColorMatrix", parameters: [
+        "inputRVector": CIVector(x: 0.25, y: 0, z: 0, w: 0),
+        "inputGVector": CIVector(x: 0.25, y: 0, z: 0, w: 0),
+        "inputBVector": CIVector(x: 0.25, y: 0, z: 0, w: 0),
+        "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 0),
+        "inputBiasVector": CIVector(x: 0.75, y: 0.75, z: 0.75, w: 1),
+      ])
+      .applyingGaussianBlur(sigma: 0.8)
+      .cropped(to: extent)
   }
 
 }
