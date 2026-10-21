@@ -66,6 +66,15 @@ public enum VideoFixture {
     return digit(color.blue) * 16 + digit(color.green) * 4 + digit(color.red)
   }
 
+  /// The `makeCounting` frame shown at `seconds` of its source, or `nil` when that moment is
+  /// within a sixth of a frame of a frame's edge, where a renderer asked for a hair earlier or
+  /// later may land on either side.
+  public static func countedFrame(atSource seconds: Double) -> Int? {
+    let position = seconds * 30
+    let inside = position - position.rounded(.down)
+    return (1.0 / 6 ... 5.0 / 6).contains(inside) ? Int(position) : nil
+  }
+
   /// Writes a `.mov` of a bright orange disc in the middle of a dark frame: an obvious subject
   /// for cut-out tests.
   public static func makeDisc(

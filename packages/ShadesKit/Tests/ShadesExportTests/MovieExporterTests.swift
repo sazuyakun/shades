@@ -65,15 +65,23 @@ struct MovieExporterTests {
     let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).mp4")
     try await MovieExporter.export(project, to: url, canvas: .picture, progress: { _ in })
     let asset = AVURLAsset(url: url)
-    for frame in [3, 12, 21, 30, 38] {
-      let time = Double(frame) / 30
+    var checked = 0
+    for index in stride(from: 1, to: 39, by: 3) {
+      let time = Double(index) / 30
       let source = clip.sourceTime(at: MediaTime(seconds: time)).seconds
-      let preview = try await FrameRenderer.png(of: project, atSeconds: time, maxSide: 320)
-      let exported = try await self.frame(of: asset, at: time)
-      #expect(try VideoFixture
-        .countedFrame(in: exported) == Int((source * 30 + 0.001).rounded(.down)))
-      #expect(try VideoFixture.countedFrame(in: exported) == VideoFixture.countedFrame(in: preview))
+      // why: a moment on a source frame's edge may land on either side; those aren't compared.
+      if let frame = VideoFixture.countedFrame(atSource: source) {
+        // why: the file's frame times can land a hair after the exact moment, so it's read half
+        // a frame later, still inside the same frame.
+        let file = try await self.frame(of: asset, at: time + 1.0 / 60)
+        let exported = try VideoFixture.countedFrame(in: file)
+        let preview = try await FrameRenderer.png(of: project, atSeconds: time, maxSide: 320)
+        #expect(exported == frame, "at \(time) s")
+        #expect(try exported == VideoFixture.countedFrame(in: preview), "at \(time) s")
+        checked += 1
+      }
     }
+    #expect(checked >= 6)
   }
 
   @Test

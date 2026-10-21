@@ -16,11 +16,11 @@ struct SpeedRenderingTests {
   func `a ramped clip shows the source frames its speed adds up to`() async throws {
     let project = try await project(with: ramped)
     let clip = try #require(project.timeline.allClips.first)
-    for frame in [0, 7, 15, 22, 30, 37] {
-      let time = Double(frame) / 30
+    let moments = checkable(clip, every: 2)
+    #expect(moments.count >= 6)
+    for (time, frame) in moments {
       let png = try await FrameRenderer.png(of: project, atSeconds: time, maxSide: 320)
-      let shown = try VideoFixture.countedFrame(in: png)
-      #expect(shown == expected(clip, at: time), "frame \(frame)")
+      #expect(try VideoFixture.countedFrame(in: png) == frame, "at \(time) s")
     }
   }
 
@@ -31,11 +31,11 @@ struct SpeedRenderingTests {
     let player = Player()
     try await player.load(project)
     let item = try #require(player.avPlayer.currentItem)
-    for frame in [4, 18, 33] {
-      let time = Double(frame) / 30
+    let moments = checkable(clip, every: 3)
+    #expect(moments.count >= 4)
+    for (time, frame) in moments {
       let png = try await image(of: item, at: time)
-      let shown = try VideoFixture.countedFrame(in: png)
-      #expect(shown == expected(clip, at: time), "frame \(frame)")
+      #expect(try VideoFixture.countedFrame(in: png) == frame, "at \(time) s")
     }
   }
 
@@ -85,9 +85,14 @@ struct SpeedRenderingTests {
     )
   }
 
-  /// The source frame (at 30 fps) the clip shows at `seconds`.
-  private func expected(_ clip: Clip, at seconds: Double) -> Int {
-    Int((clip.sourceTime(at: MediaTime(seconds: seconds)).seconds * 30 + 0.001).rounded(.down))
+  /// Every `step`th timeline frame (at 30 fps) of the clip whose source moment sits clearly
+  /// inside one source frame, with that frame.
+  private func checkable(_ clip: Clip, every step: Int) -> [(time: Double, frame: Int)] {
+    stride(from: 0, to: Int(clip.duration.seconds * 30), by: step).compactMap { index in
+      let time = Double(index) / 30
+      let source = clip.sourceTime(at: MediaTime(seconds: time)).seconds
+      return VideoFixture.countedFrame(atSource: source).map { (time, $0) }
+    }
   }
 
   /// Two seconds of counted frames under `clip`, on a 30 fps 320×240 timeline.
