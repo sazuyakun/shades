@@ -358,3 +358,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A texture you draw into many times with "add" blending (`one + one`), so every draw sums onto what's there. Each draw is weighted (here by 1/n), so the result is an average. It uses half floats (`rgba16Float`), because 8-bit colour would lose the faint 1/32 shares to rounding.
 **JS/TS analogy:** Like adding many `ImageData` arrays into one `Float32Array` and dividing at the end, but done by the GPU.
 **In Shades:** `MetalRenderer.accumulate` sums a moving layer's moments into its trail for motion blur. `trailFragment` then draws the average like any layer.
+
+## `Task` and cooperative cancellation
+**What it is:** `Task { … }` starts async work and hands back a handle. `task.cancel()` doesn't stop it by force; it only sets a flag (`Task.isCancelled`) that the work checks, and calls like `Task.sleep` throw when it's set. `await task.value` waits for its result.
+**JS/TS analogy:** Like an `AbortController`: `abort()` just flips `signal.aborted`, and the work has to look at it. `await task.value` is `await promise`.
+**In Shades:** `JobQueue` runs each job in its own `Task`, so cancelling one job flags only that job; the loop that runs the rest lives in a different task and carries on.

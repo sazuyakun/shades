@@ -44,6 +44,25 @@ struct JobQueueTests {
   }
 
   @Test
+  func `cancelling the running job leaves the queued ones to finish`() async {
+    let queue = JobQueue()
+    let first = queue.enqueue("Endless") { _ throws(JobError) in
+      while !Task.isCancelled {
+        try? await Task.sleep(for: .milliseconds(5)) // why: a cancelled wait just checks again.
+      }
+      throw .cancelled
+    }
+    queue.enqueue("Second") { _ in }
+    queue.enqueue("Third") { _ in }
+    while queue.jobs.first?.state == .queued {
+      try? await Task.sleep(for: .milliseconds(5)) // why: a cancelled wait just checks again.
+    }
+    queue.cancel(first)
+    await queue.waitUntilIdle()
+    #expect(queue.jobs.map(\.state) == [.cancelled, .done, .done])
+  }
+
+  @Test
   func `progress reports reach the job`() async {
     let queue = JobQueue()
     let released = Mutex(false)

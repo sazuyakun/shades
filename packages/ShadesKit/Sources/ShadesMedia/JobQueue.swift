@@ -46,8 +46,8 @@ public final class JobQueue {
     if let index = pending.firstIndex(where: { $0.id == id }) {
       pending.remove(at: index)
       update(id, to: .cancelled)
-    } else if id == runningID {
-      runner?.cancel()
+    } else if id == running?.id {
+      running?.work.cancel()
     }
   }
 
@@ -62,7 +62,8 @@ public final class JobQueue {
 
   @ObservationIgnored private var pending = [(id: Job.ID, work: Work)]()
   @ObservationIgnored private var runner: Task<Void, Never>?
-  @ObservationIgnored private var runningID: Job.ID?
+  /// The job running now, in its own task so cancelling it leaves the loop and later jobs alone.
+  @ObservationIgnored private var running: (id: Job.ID, work: Task<JobState, Never>)?
 
   private static func currentPauseReason() -> String? {
     let info = ProcessInfo.processInfo
@@ -83,11 +84,11 @@ public final class JobQueue {
       while let next = pending.first {
         pending.removeFirst()
         await waitWhilePaused()
-        runningID = next.id
         update(next.id, to: .running(progress: nil))
-        let state = await run(next.work, id: next.id)
-        update(next.id, to: state)
-        runningID = nil
+        let work = Task { await run(next.work, id: next.id) }
+        running = (next.id, work)
+        update(next.id, to: await work.value)
+        running = nil
       }
       runner = nil
       trimFinished()
