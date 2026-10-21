@@ -5,7 +5,8 @@ import Testing
 /// Saved projects must keep opening as the model grows.
 struct ProjectFormatTests {
   @Test
-  func `a clip saved before text clips existed still loads as media`() throws {
+  func `a clip saved before text clips and motion blur loads as media following the shutter`(
+  ) throws {
     let json = """
       {"id":"6A1F2B4C-0000-4000-8000-000000000001","mediaID":"6A1F2B4C-0000-4000-8000-000000000002",
        "sourceStart":{"value":0,"timescale":600},"duration":{"value":1200,"timescale":600},
@@ -15,10 +16,12 @@ struct ProjectFormatTests {
     let clip = try JSONDecoder().decode(Clip.self, from: Data(json.utf8))
     #expect(clip.mediaID == UUID(uuidString: "6A1F2B4C-0000-4000-8000-000000000002"))
     #expect(clip.duration == MediaTime(seconds: 2))
+    #expect(clip.motionBlur == 1)
+    #expect(clip.footageBlur == false)
   }
 
   @Test
-  func `a timeline saved before the camera, 3D and shorts loads flat, with no shorts`() throws {
+  func `a timeline saved before the camera, 3D, shorts and shutter loads flat at 180°`() throws {
     let json = """
       {"name":"Main","format":{"width":2880,"height":2160,"framesPerSecond":24},"markers":[],
        "tracks":[{"id":"6A1F2B4C-0000-4000-8000-000000000003","kind":"video","clips":[],
@@ -29,6 +32,7 @@ struct ProjectFormatTests {
     let timeline = try JSONDecoder().decode(Timeline.self, from: Data(json.utf8))
     #expect(timeline.camera.isEmpty)
     #expect(timeline.shorts.isEmpty)
+    #expect(timeline.shutterAngle == 180)
     #expect(timeline.tracks.map(\.followsCamera) == [true, false])
     let transform = try JSONDecoder().decode(
       ClipTransform.self,
@@ -44,6 +48,8 @@ struct ProjectFormatTests {
       sourceStart: .zero,
       duration: MediaTime(seconds: 1),
       timelineStart: .zero,
+      motionBlur: 0.5,
+      footageBlur: true,
     )
     let text = Clip(
       source: .text(TextContent(text: "hi")),

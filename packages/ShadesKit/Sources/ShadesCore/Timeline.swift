@@ -17,6 +17,7 @@ public struct Timeline: Hashable, Sendable {
     shorts: [Short] = [],
     camera: [Keyframe] = [],
     gain: Double = 1,
+    shutterAngle: Double = 180,
   ) {
     self.name = name
     self.format = format
@@ -25,6 +26,7 @@ public struct Timeline: Hashable, Sendable {
     self.shorts = shorts
     self.camera = camera
     self.gain = gain
+    self.shutterAngle = shutterAngle
   }
 
   // MARK: Public
@@ -41,6 +43,9 @@ public struct Timeline: Hashable, Sendable {
   public var camera: [Keyframe]
   /// The whole mix's level (1 unchanged), set by loudness normalising.
   public var gain: Double
+  /// How long moving things blur for, in degrees of a frame: 180 is half a frame (film's look),
+  /// 360 the whole frame, 0 no motion blur.
+  public var shutterAngle: Double
 
   /// The length of the whole edit.
   public var duration: MediaTime {
@@ -93,7 +98,7 @@ extension Timeline: Codable {
 
   // MARK: Lifecycle
 
-  /// Reads a timeline, including ones saved before the camera or shorts existed.
+  /// Reads a timeline, including ones saved before the camera, shorts or shutter existed.
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     try self.init(
@@ -104,6 +109,7 @@ extension Timeline: Codable {
       shorts: container.decodeIfPresent([Short].self, forKey: .shorts) ?? [],
       camera: container.decodeIfPresent([Keyframe].self, forKey: .camera) ?? [],
       gain: container.decodeIfPresent(Double.self, forKey: .gain) ?? 1,
+      shutterAngle: container.decodeIfPresent(Double.self, forKey: .shutterAngle) ?? 180,
     )
   }
 
@@ -117,6 +123,7 @@ extension Timeline: Codable {
     case shorts
     case camera
     case gain
+    case shutterAngle
   }
 
 }

@@ -13,6 +13,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     cleanSound: String? = nil,
     waveform: [Float]? = nil,
     stems: [String: String]? = nil,
+    flow: String? = nil,
   ) {
     self.transcript = transcript
     self.speech = speech
@@ -23,6 +24,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     self.cleanSound = cleanSound
     self.waveform = waveform
     self.stems = stems
+    self.flow = flow
   }
 
   // MARK: Public
@@ -46,5 +48,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   public var waveform: [Float]?
   /// The separated voice and music: file paths inside the project's `cache/stems` folder, by stem.
   public var stems: [String: String]?
+  /// The optical flow's file name in the project's `cache/flow` folder, for footage motion blur.
+  public var flow: String?
 
 }

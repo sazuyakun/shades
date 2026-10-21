@@ -28,6 +28,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
     fadeIn: MediaTime = .zero,
     fadeOut: MediaTime = .zero,
     cleanSound: Bool = false,
+    motionBlur: Double = 1,
+    footageBlur: Bool = false,
   ) {
     self.init(
       id: id,
@@ -49,6 +51,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
       fadeIn: fadeIn,
       fadeOut: fadeOut,
       cleanSound: cleanSound,
+      motionBlur: motionBlur,
+      footageBlur: footageBlur,
     )
   }
 
@@ -73,6 +77,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
     fadeIn: MediaTime = .zero,
     fadeOut: MediaTime = .zero,
     cleanSound: Bool = false,
+    motionBlur: Double = 1,
+    footageBlur: Bool = false,
   ) {
     self.id = id
     self.source = source
@@ -93,6 +99,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.fadeIn = fadeIn
     self.fadeOut = fadeOut
     self.cleanSound = cleanSound
+    self.motionBlur = motionBlur
+    self.footageBlur = footageBlur
   }
 
   // MARK: Public
@@ -130,6 +138,11 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var fadeOut: MediaTime
   /// Plays its media's noise-reduced sound, once it's been made.
   public var cleanSound: Bool
+  /// How long the clip's motion blur is, as a share of the timeline's shutter: 1 follows the
+  /// timeline, 0 is none, 2 twice as long.
+  public var motionBlur: Double
+  /// Also blurs movement inside the footage itself, along its optical flow, once that's made.
+  public var footageBlur: Bool
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -198,6 +211,8 @@ extension Clip: Codable {
       fadeIn: container.decodeIfPresent(MediaTime.self, forKey: .fadeIn) ?? .zero,
       fadeOut: container.decodeIfPresent(MediaTime.self, forKey: .fadeOut) ?? .zero,
       cleanSound: container.decodeIfPresent(Bool.self, forKey: .cleanSound) ?? false,
+      motionBlur: container.decodeIfPresent(Double.self, forKey: .motionBlur) ?? 1,
+      footageBlur: container.decodeIfPresent(Bool.self, forKey: .footageBlur) ?? false,
     )
   }
 
@@ -224,6 +239,8 @@ extension Clip: Codable {
     try container.encode(fadeIn, forKey: .fadeIn)
     try container.encode(fadeOut, forKey: .fadeOut)
     try container.encode(cleanSound, forKey: .cleanSound)
+    try container.encode(motionBlur, forKey: .motionBlur)
+    try container.encode(footageBlur, forKey: .footageBlur)
   }
 
   // MARK: Private
@@ -250,6 +267,8 @@ extension Clip: Codable {
     case fadeIn
     case fadeOut
     case cleanSound
+    case motionBlur
+    case footageBlur
   }
 
 }
