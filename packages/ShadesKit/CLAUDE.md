@@ -16,7 +16,7 @@ All real Mac code lives here as a Swift package with one module per system. The 
 | ShadesCaptions | WhisperKit transcription (models, audio decoding), caption lines. The only module that imports WhisperKit |
 | ShadesExport | Exports: canvases (the 4:3 picture centred on 16:9 or 9:16 black), movies through `AVAssetExportSession` with our compositor (the engine draws the canvas), frames, GIFs and SRT captions. The queue is the app's `JobQueue` |
 | ShadesMCP | MCP server: commands become Claude tools |
-| ShadesMatting | Cut-outs (mattes): Apple Vision finds the subject, written as a small gray video played like any track; the subject's path over time for reframing |
+| ShadesMatting | Cut-outs (mattes): Apple Vision finds the subject, written as a small gray video played like any track; the subject's path over time for reframing; optical flow for footage motion blur, written the same way |
 | ShadesPolish | Polish for talking-head footage: the rule-based planner (silences, fillers, retakes, beat snaps, punch-ins) and `ApplyPolish`. Pure logic on Core and Commands |
 | ShadesPlugins | Plugin folders (Settings), loading plugins (`PluginLoader`), and `PluginLibrary`: kept up to date with FSEvents, fonts registered for the app. Data only (on Core); templates are applied by `ApplyTemplate` in Commands |
 | ShadesUI | SwiftUI views (AppKit/Metal where SwiftUI is too slow) |
@@ -34,6 +34,7 @@ Modules are created only when a milestone first needs them. They exist today: Sh
 - Swift 6 strict concurrency. **ShadesUI** uses main-actor default isolation; every other module is nonisolated by default, with actors for caches and analysis and `@concurrent` for heavy work. Render paths never touch the main thread.
 - Each module has one error enum (`<Module>Error`, e.g. `MediaError`) and one `Logger` with category `<Module>` (e.g. `Media`).
 - Respect the 8 GB RAM budget: bounded caches, texture pools, no CPU copies of frames.
+- **Motion blur** has one setting chain: the timeline's `shutterAngle` (degrees, 180 by default) times the clip's `motionBlur` (1 follows the timeline, 0 is off). Moving layers are drawn at several moments inside the shutter, centred on the frame, and averaged in a half-float buffer; the sample count grows with how far the layer travels. Footage blur (`footageBlur`) reads the media's optical flow: a BGRA video in the footage's stored orientation, red and green holding the motion in pictures per second (0.5 is still). `RenderQuality` caps samples lower for playback (`.preview`) than for export and frames (`.full`).
 
 ## Testing
 - Swift Testing, with one test target per module (`ShadesCoreTests`, …). Rules are in the root CLAUDE.md.

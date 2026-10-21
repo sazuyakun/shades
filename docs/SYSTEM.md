@@ -56,6 +56,7 @@ Heavy understanding of footage, cached forever per media file in the project:
 | Transcript with word timings | **WhisperKit** (same version and model folder as Nebula, so the model is shared, not re-downloaded) | On demand |
 | Person/object cut-outs (mattes) | **Chosen by a benchmark on Soham's footage**: Apple Vision (+ edge refinement), BEN2 (MIT), BiRefNet (MIT), SAM 2.1 / EdgeTAM (Apache-2.0). GPL and non-commercial models are excluded | On demand |
 | Subject tracking (reframe, motion tracking) | Vision tracking / the benchmark winner | On demand |
+| Motion in footage (optical flow, for footage motion blur) | Apple Vision optical flow, cached as a small video | When a clip's footage blur is switched on |
 | Speech activity, beats, shot changes | Ported from Nebula + Accelerate | On demand |
 | Music stems | On-device stem separation (MIT-licensed model) | On demand |
 
@@ -92,7 +93,7 @@ Rule-based tools (no AI) that write ordinary, editable timeline items, starting 
   - A folder in Settings is a plugin itself, or holds plugins one level down. Changes reload by themselves; a broken manifest is reported (where and what) in Settings and `list_plugins`.
 
 ## 9. Storage
-- **Projects:** `~/Shades/<name>.shades`, a package with `project.json`, snapshots, and caches (analysis, mattes, proxies). Footage stays where it is on disk and is linked.
+- **Projects:** `~/Shades/<name>.shades`, a package with `project.json`, snapshots, and caches (analysis, mattes, optical flow, proxies). Footage stays where it is on disk and is linked.
 - **Proxies:** for 4K HEVC footage, generated in the background so editing stays smooth on 8 GB. Export always uses the originals.
 
 ## 10. Export
