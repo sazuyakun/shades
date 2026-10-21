@@ -473,21 +473,20 @@ extension Workspace: ProjectHost {
       throw .invalidArguments("there are no transcribed words here; transcribe the clips first")
     }
     let lines = CaptionLayout.lines(for: words)
-    try editor.perform(
-      lines.map { line in
-        AddText(
+    try editor.perform(AddCaptions(
+      lines: lines.map { line in
+        AddCaptions.Line(
           text: line.text,
-          at: line.start,
-          duration: line.end - line.start,
-          style: style,
-          reveal: reveal,
+          start: line.start,
+          end: line.end,
           words: line.words.map { word in
             TimedWord(text: word.text, start: word.start - line.start, end: word.end - line.start)
           },
         )
       },
-      title: "Add Captions",
-    )
+      style: style,
+      reveal: reveal,
+    ))
     return lines.count
   }
 
