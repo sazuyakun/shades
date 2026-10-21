@@ -1,5 +1,8 @@
 /// Argument schemas for grades and effects, shared by `set_look` and `add_adjustment`.
 enum LookFields {
+
+  // MARK: Internal
+
   static let grade = JSONSchema.object([
     "exposure": JSONSchema.number("Brightness in stops (+1 twice as bright), default 0"),
     "contrast": JSONSchema.number("1 unchanged; higher pushes darks and lights apart"),
@@ -10,10 +13,10 @@ enum LookFields {
     "gamma": JSONSchema.number("Above 1 brightens the midtones, default 1"),
     "gain": JSONSchema.number("Scales the highlights, default 1"),
     "curves": JSONSchema.object([
-      "master": JSONSchema.array("[input, output] points 0–1", items: JSONSchema.array(
-        "A point",
-        items: JSONSchema.number("0 to 1"),
-      ))
+      "master": curve("All three colours"),
+      "red": curve("Red only"),
+      "green": curve("Green only"),
+      "blue": curve("Blue only"),
     ]),
     "lut": JSONSchema.string("A .cube LUT: a file path, or a plugin's LUT by name"),
     "lut_amount": JSONSchema.number("How much of the LUT shows, 0 to 1", minimum: 0, maximum: 1),
@@ -57,4 +60,15 @@ enum LookFields {
       "softness": JSONSchema.number("How gradually the edge fades, 0 to 1"),
     ]),
   ])
+
+  // MARK: Private
+
+  /// One tone curve: `[input, output]` points from dark to light.
+  private static func curve(_ channel: String) -> JSONValue {
+    JSONSchema.array(
+      "\(channel): [input, output] points 0–1",
+      items: JSONSchema.array("A point", items: JSONSchema.number("0 to 1")),
+    )
+  }
+
 }

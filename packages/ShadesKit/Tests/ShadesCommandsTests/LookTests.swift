@@ -49,6 +49,20 @@ struct LookTests {
     #expect(videos.last?.clips.first?.effects?.grain == 0.5)
   }
 
+  @Test
+  func `set_look takes a curve for each colour`() throws {
+    let schema = SetLook.parameters["properties"]?["grade"]?["properties"]?["curves"]
+    for channel in ["master", "red", "green", "blue"] {
+      #expect(schema?["properties"]?[channel] != nil, "no \(channel) curve")
+    }
+    let command = try CommandRegistry.command(named: "set_look", arguments: [
+      "clip_ids": [.string(UUID().uuidString)],
+      "grade": ["curves": ["red": [[0, 0], [0.5, 0.6], [1, 1]]]],
+    ])
+    let look = try #require(command as? SetLook)
+    #expect(look.grade?.curves?.red?[1] == DrawingPoint(x: 0.5, y: 0.6))
+  }
+
   // MARK: Private
 
   private func oneClip() throws -> (Project, Clip.ID) {
