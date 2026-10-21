@@ -1,4 +1,5 @@
 import AVFoundation
+import ShadesAudio
 import ShadesCore
 import ShadesEngine
 import ShadesExport
@@ -87,10 +88,26 @@ struct MovieExporterTests {
     }
   }
 
+  @Test
+  func `the export plays the mix as playback does, through the master limiter`() async throws {
+    let open = try await loudness(of: export(canvas: .picture))
+    let limited = try await loudness(of: export(canvas: .picture) { timeline in
+      timeline.limiter = [
+        GainPoint(time: .zero, gain: 0.25),
+        GainPoint(time: MediaTime(seconds: 2), gain: 0.25),
+      ]
+    })
+    #expect(abs(open.peak - limited.peak - 12.04) < 0.5)
+  }
+
   // MARK: Private
 
-  /// Exports 2 seconds of red with a tone, at 640×480.
-  private func export(canvas: Canvas, range: TimeRange? = nil) async throws -> URL {
+  /// Exports 2 seconds of red with a tone, at 640×480, with `mix` changing the timeline.
+  private func export(
+    canvas: Canvas,
+    range: TimeRange? = nil,
+    mix: (inout Timeline) -> Void = { _ in },
+  ) async throws -> URL {
     let red = FixtureColor(red: 255, green: 0, blue: 0)
     let video = Media(
       url: try await VideoFixture.make(left: red, right: red, seconds: 2, width: 640, height: 480),
@@ -107,7 +124,7 @@ struct MovieExporterTests {
       hasVideo: false,
       hasAudio: true,
     )
-    let project = Project(media: [video, tone], timeline: Timeline(
+    var project = Project(media: [video, tone], timeline: Timeline(
       format: VideoFormat(width: 640, height: 480, framesPerSecond: 24),
       tracks: [
         Track(kind: .video, clips: [Clip(
@@ -124,6 +141,7 @@ struct MovieExporterTests {
         )]),
       ],
     ))
+    mix(&project.timeline)
     let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).mp4")
     try await MovieExporter.export(
       project,
@@ -133,6 +151,30 @@ struct MovieExporterTests {
       progress: { _ in },
     )
     return url
+  }
+
+  /// The loudness of the sound in the exported file at `url`.
+  private func loudness(of url: URL) async throws -> Loudness {
+    let media = Media(
+      url: url,
+      duration: MediaTime(seconds: 2),
+      width: 0,
+      height: 0,
+      hasVideo: false,
+      hasAudio: true,
+    )
+    let clip = Clip(
+      mediaID: media.id,
+      sourceStart: .zero,
+      duration: media.duration,
+      timelineStart: .zero,
+    )
+    let reader = MixReader(project: Project(
+      media: [media],
+      timeline: Timeline(tracks: [Track(kind: .video), Track(kind: .audio, clips: [clip])]),
+    ))
+    return try await LoudnessMeter
+      .measure { () throws(EngineError) in try await reader.nextChunk() }
   }
 
   private func frame(of asset: AVURLAsset, at seconds: Double) async throws -> Data {

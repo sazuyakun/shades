@@ -95,7 +95,10 @@ let package = Package(
       dependencies: ["ShadesAudio", "ShadesEngine", "ShadesMatting", "ShadesTestSupport"],
       exclude: ["Golden"],
     ),
-    .testTarget(name: "ShadesExportTests", dependencies: ["ShadesExport", "ShadesTestSupport"]),
+    .testTarget(
+      name: "ShadesExportTests",
+      dependencies: ["ShadesAudio", "ShadesExport", "ShadesTestSupport"],
+    ),
     .testTarget(
       name: "ShadesMCPTests",
       dependencies: ["ShadesMCP", "ShadesTestSupport"],

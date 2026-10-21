@@ -78,7 +78,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 17 | The History pane has no per-request undo: rows only offer Show, there's no request grouping, the log is in memory and cleared when a project opens, and edits applied later by background jobs aren't logged | After M9 |
 | 16 | Cut-outs have no edge refinement (no feather or choke): the Vision mask is only resized and blended with the previous frame | After M9 |
 | 15 | No layer masks: nothing hides or reveals part of a layer by a shape. Grade windows exist but are only ellipses and rectangles, fixed in place (no keyframes or tracking) | After M9 |
-| 12 | `normalize_loudness` can't reach −14 LUFS when sound effects pile up: without a limiter it holds the master back to keep peaks under −1 dBFS (the showcase landed at −17.4 LUFS). Needs a true-peak limiter on the mix (an audio tap on export and playback) | After M8 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 
 ## 3. Constraints & setup notes

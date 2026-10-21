@@ -443,3 +443,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** `ContinuousClock.now` is a moment that keeps counting while the Mac sleeps; subtracting two moments gives a `Duration`, which you can compare, add and divide (`.milliseconds(5)`, `.seconds(0.04)`).
 **JS/TS analogy:** `performance.now()` differences, but typed: a `Duration` can't be mixed up with a plain number of seconds or milliseconds.
 **In Shades:** `FrameCounter` times every frame the compositor draws, and how long a scrub or an edit waited for its frame, for the performance HUD.
+
+## Audio taps (`MTAudioProcessingTap`)
+**What it is:** A hook AVFoundation calls with each buffer of one track's sound while it plays, reads or exports, so your code can change the samples in place. It's a C API: you hand it callbacks (made, prepared, process, finished) and an object passed as a raw pointer (`Unmanaged.passRetained`), released in the "finished" callback. The callbacks run on AVFoundation's audio thread, so anything they read is fixed when the tap is made, and anything they write goes through a `Mutex`.
+**JS/TS analogy:** Like an `AudioWorkletProcessor`'s `process(inputs, outputs)` in the Web Audio API: a function called with each block of samples on the audio thread.
+**In Shades:** `TrackTap` (ShadesEngine) applies the master limiter's gain sample by sample to every track's sound, the same in playback, export and loudness measuring. Volume ramps can't do it: AVFoundation smooths them over about 25 ms, too slow to catch a peak.

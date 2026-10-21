@@ -439,13 +439,19 @@ public final class ToolHandler {
     Tool(
       name: "normalize_loudness",
       summary: "Measure the whole mix's loudness (LUFS, like YouTube and Instagram do) and set the "
-        + "master level to hit a target, keeping peaks under -1 dBFS. Do it last, after the mix.",
+        + "master level and a limiter to hit a platform's target with true peaks under -1 dBTP. "
+        + "Do it last, after the mix; editing the sound afterwards needs it again.",
       parameters: JSONSchema.object([
+        "platform": JSONSchema.string(
+          "Where it's going: youtube, instagram, tiktok (-14 LUFS), podcast (-16) or "
+            + "broadcast (-23). Default youtube",
+          values: LoudnessTarget.allCases.map(\.rawValue),
+        ),
         "target": JSONSchema.number(
-          "Loudness in LUFS (default -14, YouTube; -16 for quieter platforms)",
+          "A loudness in LUFS instead of a platform's",
           minimum: -40,
           maximum: -5,
-        )
+        ),
       ]),
       kind: .edit,
     ),
@@ -771,7 +777,8 @@ public final class ToolHandler {
 
     case "normalize_loudness":
       let request = try decode(LoudnessArguments.self, from: arguments, tool: name)
-      return try await .text(host().normalizeLoudness(target: request.target ?? -14))
+      let target = request.target ?? (request.platform ?? .youtube).lufs
+      return try await .text(host().normalizeLoudness(target: target))
 
     case "export":
       return try exportFiles(decode(ExportArguments.self, from: arguments, tool: name))
@@ -1489,6 +1496,7 @@ private struct TemplateArguments: Decodable {
 // MARK: - LoudnessArguments
 
 private struct LoudnessArguments: Decodable {
+  let platform: LoudnessTarget?
   let target: Double?
 }
 

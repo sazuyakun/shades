@@ -754,40 +754,38 @@ extension Workspace: ProjectHost {
     return "Ducked \(name) to \(percent)% under \(speech.count) stretches of speech."
   }
 
-  /// Measures the mix's loudness and sets the master level so it plays at `target` LUFS,
-  /// keeping peaks below -1 dBFS. Returns what was measured and done.
+  /// Measures the mix's loudness and sets the master level and limiter so it plays at `target`
+  /// LUFS with true peaks under -1 dBTP. Returns what was measured and done.
   public func normalizeLoudness(target: Double) async throws(ToolError) -> String {
-    let reader = MixReader(project: editor.project, cleanSound: player.cleanSound)
-    let loudness: Loudness
-    do {
-      loudness = try await LoudnessMeter
-        .measure { () throws(EngineError) in try await reader.nextChunk() }
-    } catch {
-      throw .engineFailed(error)
+    let project = editor.project
+    let normalization = try await Self.normalization(
+      of: project,
+      cleanSound: player.cleanSound,
+      target: target,
+    )
+    guard editor.project == project else {
+      throw .commandFailed(.invalidArguments(
+        "the timeline changed while it was being measured; normalise again"
+      ))
     }
-    guard loudness.integrated.isFinite else {
-      throw .commandFailed(.invalidArguments("the timeline has no sound to measure"))
-    }
-    let current = editor.project.timeline.gain
-    let wanted = target - loudness.integrated
-    // why: -1 dBFS of headroom keeps platforms' encoders from clipping the loudest moments.
-    let allowed = -1 - loudness.peak
-    let change = min(wanted, allowed)
-    let gain = min(max(current * pow(10, change / 20), 0), 8)
     do {
-      try editor.perform(SetMasterGain(gain: gain))
+      try editor.perform(NormalizeLoudness(
+        gain: normalization.gain,
+        limiter: normalization.limiter,
+      ))
     } catch {
       throw .commandFailed(error)
     }
-    let result = loudness.integrated + 20 * log10(gain / max(current, 0.0001))
-    let limited = change < wanted ? " (held back to keep peaks under -1 dBFS)" : ""
+    let limited = normalization.limiter.isEmpty ? "" : ", with the limiter catching the peaks"
     return String(
-      format: "Measured %.1f LUFS (peak %.1f dBFS); master level now %.2f, about %.1f LUFS%@.",
-      loudness.integrated,
-      loudness.peak,
-      gain,
-      result,
+      format: "Measured %.1f LUFS (true peak %.1f dBTP); master level now %.2f%@: %.1f LUFS, "
+        + "peaks %.1f dBTP.",
+      normalization.before.integrated,
+      normalization.before.peak,
+      normalization.gain,
       limited,
+      normalization.after.integrated,
+      normalization.after.peak,
     )
   }
 
@@ -947,6 +945,30 @@ extension Workspace: ProjectHost {
   }
 
   // MARK: Private
+
+  /// The master level and limiter that bring `project`'s mix to `target` LUFS, measured with
+  /// the master at 1 and no limiter.
+  private static func normalization(
+    of project: Project,
+    cleanSound: [Media.ID: URL],
+    target: Double,
+  ) async throws(ToolError) -> Normalization {
+    var unmastered = project
+    unmastered.timeline.gain = 1
+    unmastered.timeline.limiter = []
+    let reader = MixReader(project: unmastered, cleanSound: cleanSound)
+    let profile: LoudnessProfile
+    do {
+      profile = try await LoudnessMeter
+        .profile { () throws(EngineError) in try await reader.nextChunk() }
+    } catch {
+      throw .engineFailed(error)
+    }
+    guard let normalization = profile.normalized(to: target) else {
+      throw .commandFailed(.invalidArguments("the timeline has no sound to measure"))
+    }
+    return normalization
+  }
 
   /// The separated sound of `media`: the files saved before, or freshly separated ones.
   @concurrent

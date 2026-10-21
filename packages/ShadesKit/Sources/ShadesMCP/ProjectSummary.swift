@@ -19,6 +19,7 @@ enum ProjectSummary {
         "fps": .number(Double(timeline.format.framesPerSecond)),
         "duration": seconds(timeline.duration),
         "master_gain": rounded(timeline.gain),
+        "limited": .bool(!timeline.limiter.isEmpty),
         "camera": .array(timeline.camera.map { keyframe in
           [
             "property": .string(keyframe.property.rawValue),

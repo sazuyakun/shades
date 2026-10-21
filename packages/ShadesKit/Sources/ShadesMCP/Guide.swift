@@ -91,7 +91,9 @@ enum Guide {
     Sound
     - set_clip fade_in / fade_out and volume; set_keyframes property volume for rides; set_track \
     volume for the mix; duck_music dips music under speech; reduce_noise cleans background \
-    noise; normalize_loudness sets the final level (-14 LUFS for YouTube). add_sound drops \
+    noise. normalize_loudness sets the final level for a platform (youtube, instagram and \
+    tiktok -14 LUFS, podcast -16, broadcast -23), with a limiter keeping true peaks under -1 \
+    dBTP; do it last and again after changing the sound. add_sound drops \
     a plugin's sound effect (or any sound file) at a moment. separate_stems splits a clip into \
     voice and music on their own tracks.
 

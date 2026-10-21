@@ -55,8 +55,8 @@ extension Composition {
     )
   }
 
-  /// Each track's volume over time: a clip's own volume, or silence where the track is muted or
-  /// a video clip's sound was detached.
+  /// Each track's volume over time (a clip's own volume, or silence where the track is muted or
+  /// a video clip's sound was detached), through the master limiter.
   public func audioMix(for timeline: Timeline) -> AVAudioMix {
     Self.audioMix(for: timeline, trackIDs: audioTrackIDs)
   }
@@ -241,7 +241,8 @@ extension Composition {
   }
 
   /// The mix of `timeline` for the composition tracks carrying each timeline track's sound: clip
-  /// volumes, fades and keyframes, track levels and the master level, as volume ramps.
+  /// volumes, fades and keyframes, track levels and the master level, as volume ramps, and the
+  /// master limiter in each track's tap (volume ramps are smoothed, too slow for a limiter).
   static func audioMix(
     for timeline: Timeline,
     trackIDs: [Track.ID: CMPersistentTrackID],
@@ -253,6 +254,9 @@ extension Composition {
       }
       let parameters = AVMutableAudioMixInputParameters()
       parameters.trackID = trackID
+      if !timeline.limiter.isEmpty {
+        parameters.audioTapProcessor = TrackTap(limiter: timeline.limiter).makeTap()
+      }
       for clip in track.clips {
         let isAudible = !track.isMuted && (track.kind == .audio || clip.isAudioEnabled)
         let level = isAudible ? track.volume * timeline.gain : 0
