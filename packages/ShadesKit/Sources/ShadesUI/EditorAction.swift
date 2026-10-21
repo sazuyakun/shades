@@ -15,6 +15,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case nextFrame
   case previousEdit
   case nextEdit
+  case previewQuality
   case selectTool
   case bladeTool
   case trimTool
@@ -87,6 +88,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .nextFrame: "Next Frame"
     case .previousEdit: "Previous Edit"
     case .nextEdit: "Next Edit"
+    case .previewQuality: "Preview Quality: Auto, Full or Half"
     case .selectTool: "Select Tool"
     case .bladeTool: "Blade Tool"
     case .trimTool: "Trim Tool"
@@ -155,6 +157,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .nextFrame: Shortcut(.rightArrow)
     case .previousEdit: Shortcut(.upArrow)
     case .nextEdit: Shortcut(.downArrow)
+    case .previewQuality: Shortcut("h", .option)
     case .selectTool: Shortcut("a")
     case .bladeTool: Shortcut("b")
     case .trimTool: Shortcut("t")
@@ -223,7 +226,8 @@ enum EditorAction: CaseIterable, Identifiable {
          .previousFrame,
          .nextFrame,
          .previousEdit,
-         .nextEdit:
+         .nextEdit,
+         .previewQuality:
       transport(in: context)
 
     case .selectTool,
@@ -318,6 +322,8 @@ enum EditorAction: CaseIterable, Identifiable {
       if let target {
         context.seek(to: target)
       }
+
+    case .previewQuality: player.previewQuality = player.previewQuality.next
 
     default: break
     }

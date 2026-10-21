@@ -25,16 +25,19 @@ struct ViewerPane: View {
           PerformanceHUD().padding(26)
         }
         .overlay(alignment: .topTrailing) {
-          if player.isUsingProxies {
-            Text("Proxy")
-              .font(.system(size: 10.5, weight: .semibold))
-              .foregroundStyle(Theme.secondaryText)
-              .padding(.horizontal, 8)
-              .padding(.vertical, 3)
-              .background(Theme.raised, in: .capsule)
-              .padding(26)
-              .help("Playing light editing copies of heavy footage. Export uses the originals.")
+          HStack(spacing: 6) {
+            if player.isUsingProxies {
+              Text("Proxy")
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Theme.raised, in: .capsule)
+                .help("Playing light editing copies of heavy footage. Export uses the originals.")
+            }
+            PreviewQualityMenu()
           }
+          .padding(26)
         }
       Hairline()
       TransportBar()

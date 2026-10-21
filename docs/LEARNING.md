@@ -428,3 +428,18 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Not Swift syntax, but the idea behind speed ramps: the timeline time to play a stretch of source is the sum of `1 / speed` along it. Sampling the speed curve and joining the samples with straight lines makes that sum a simple formula with an exact inverse (a square root), so turning timeline time into source time never needs guessing.
 **JS/TS analogy:** Like an easing function's "time → progress" with a matching "progress → time", computed from a lookup table instead of a loop that searches.
 **In Shades:** `SpeedCurve` (ShadesCore) behind `Clip.sourceTime(at:)` and `timelineTime(atSource:)`.
+
+## Property observers (`didSet`)
+**What it is:** Code attached to a stored property that runs right after it's assigned (`didSet`, with the old value as `oldValue`). It works on `@Observable` properties too.
+**JS/TS analogy:** Like a setter (`set previewQuality(v) { this._q = v; this.resize() }`), but you keep a plain stored property and only add the "after" hook.
+**In Shades:** `Player.previewQuality` redraws playback at the new size as soon as the viewer's menu or ⌥H changes it.
+
+## `@Bindable`
+**What it is:** Turns an `@Observable` object you already have (often from `@Environment`) into something you can make bindings from, with `$object.property`, so a control like a `Picker` can read and write it.
+**JS/TS analogy:** Like passing `value={store.quality}` and `onChange={(q) => store.quality = q}` to a controlled input, packed into one `$store.quality`.
+**In Shades:** `PreviewQualityMenu` binds its picker to `$player.previewQuality`.
+
+## `ContinuousClock` and `Duration`
+**What it is:** `ContinuousClock.now` is a moment that keeps counting while the Mac sleeps; subtracting two moments gives a `Duration`, which you can compare, add and divide (`.milliseconds(5)`, `.seconds(0.04)`).
+**JS/TS analogy:** `performance.now()` differences, but typed: a `Duration` can't be mixed up with a plain number of seconds or milliseconds.
+**In Shades:** `FrameCounter` times every frame the compositor draws, and how long a scrub or an edit waited for its frame, for the performance HUD.

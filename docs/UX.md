@@ -56,6 +56,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | ⌘K | Command palette: every action by name |
 | ⌘L | Show or hide the History pane |
 | ⌥⌘S | Show or hide the scopes (waveform, vectorscope, histogram) beside the viewer |
+| ⌥H | Preview quality: Auto, Full or Half |
 | Esc | Close a sheet or palette |
 
 All shortcuts are remappable.
@@ -71,7 +72,7 @@ There's no AI inside Shades: Claude Code edits over MCP ([SYSTEM.md](SYSTEM.md))
 **First-time setup:** connect once from a terminal with `claude mcp add --transport http shades http://127.0.0.1:4747/mcp`. Settings › Claude shows the command with a Copy button.
 
 ## Playback
-Auto quality. When footage is too heavy to play in real time, Shades quietly lowers preview resolution or switches to proxies to stay smooth. A small "Proxy" badge in the viewer shows when that's happening. Export is always full quality.
+Auto quality. When footage is too heavy to play in real time, Shades quietly lowers preview resolution or switches to proxies to stay smooth. A small "Proxy" badge in the viewer shows when proxies play. The quality menu in the viewer's corner (**⌥H** steps through it) picks **Auto** (full size, dropping to half while playing once frames can't keep up; it reads "Auto · Half" then, and paused frames are full size again), **Full** or **Half** (half the width and height, a quarter of the pixels). Export and Claude's frames are always full quality.
 
 ## Saving & safety
 | Moment | Behaviour |
