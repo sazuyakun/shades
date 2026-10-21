@@ -1,6 +1,7 @@
 import Foundation
 import ShadesCore
 import ShadesEngine
+import ShadesMatting
 import ShadesTestSupport
 import Testing
 
@@ -21,6 +22,34 @@ struct PerformanceTests {
       _ = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 1440, context: context)
     }
     // why: measured 0.13 s on the M1 dev machine and 0.27 s on the CI runner.
+    #expect(time < .milliseconds(500))
+  }
+
+  @Test
+  func `a frame with motion blur on a moving layer and its footage renders within budget`()
+    async throws
+  {
+    var project = try await oneClipProject(width: 1920, height: 1080)
+    let media = try #require(project.media.first)
+    let flow = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).mov")
+    try await FlowMaker.make(from: media.url, to: flow) { _ in }
+    project.timeline.tracks[0].clips[0].footageBlur = true
+    project.timeline.tracks[0].clips[0].keyframes = [
+      Keyframe(property: .x, time: .zero, value: -0.5),
+      Keyframe(property: .x, time: MediaTime(seconds: 1), value: 0.5),
+    ]
+    let context = try RenderContext()
+    let time = try await Benchmark.median {
+      _ = try await FrameRenderer.png(
+        of: project,
+        atSeconds: 0.5,
+        maxSide: 1440,
+        context: context,
+        flows: [media.id: flow],
+      )
+    }
+    // why: the layer is drawn at 32 moments (full quality) and the footage smeared too; it
+    // shares the plain frame's budget so motion blur never makes frames noticeably slower.
     #expect(time < .milliseconds(500))
   }
 
