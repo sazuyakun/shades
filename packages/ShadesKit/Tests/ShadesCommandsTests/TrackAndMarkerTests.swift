@@ -31,6 +31,26 @@ struct TrackAndMarkerTests {
   }
 
   @Test
+  func `tracks pan within left and right, and soloing one silences the rest`() throws {
+    var project = Project()
+    try SetTrack(track: "A1", pan: -0.5, soloed: true).apply(to: &project)
+    #expect(project.timeline.tracks[1].pan == -0.5)
+    #expect(project.timeline.isAudible(project.timeline.tracks[1]))
+    #expect(!project.timeline.isAudible(project.timeline.tracks[0]))
+    #expect(throws: CommandError.self) { try SetTrack(track: "A1", pan: 2).apply(to: &project) }
+    try SetTrack(track: "A1", soloed: false).apply(to: &project)
+    #expect(project.timeline.isAudible(project.timeline.tracks[0]))
+  }
+
+  @Test
+  func `a muted track stays silent even when soloed`() throws {
+    var project = Project()
+    try SetTrack(track: "V1", muted: true, soloed: true).apply(to: &project)
+    #expect(!project.timeline.isAudible(project.timeline.tracks[0]))
+    #expect(!project.timeline.isAudible(project.timeline.tracks[1]))
+  }
+
+  @Test
   func `closing gaps packs every track`() throws {
     let media = makeMedia(seconds: 2)
     var project = Project(media: [media])

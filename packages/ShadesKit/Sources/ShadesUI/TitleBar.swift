@@ -23,6 +23,9 @@ struct TitleBar: View {
           Button("History") { sidePane = sidePane == .history ? .inspector : .history }
             .buttonStyle(CapsuleButtonStyle(isOn: sidePane == .history))
             .help("Show or hide Claude's changes (⌘L)")
+          Button("Mixer") { sidePane = sidePane == .mixer ? .inspector : .mixer }
+            .buttonStyle(CapsuleButtonStyle(isOn: sidePane == .mixer))
+            .help("Show or hide the mixer (⌥⌘A)")
         }
         CapsuleGroup {
           TasksRing()

@@ -5,13 +5,17 @@ public enum AudioFixture {
 
   // MARK: Public
 
-  /// Writes a mono 16-bit 44.1 kHz WAV of a sine tone and returns its URL.
+  /// Writes a 16-bit 44.1 kHz WAV of a sine tone (the same in every one of its `channels`) and
+  /// returns its URL.
   public static func makeTone(
     seconds: Double = 1,
     frequency: Double = 440,
     amplitude: Double = 0.5,
+    channels: Int = 1,
   ) throws(FixtureError) -> URL {
-    try write(seconds: seconds) { time in sin(2 * .pi * frequency * time) * amplitude }
+    try write(seconds: seconds, channels: channels) { time in
+      sin(2 * .pi * frequency * time) * amplitude
+    }
   }
 
   /// Writes a WAV that's silent except for a tone during each of `bursts` (start, end seconds),
@@ -39,18 +43,22 @@ public enum AudioFixture {
 
   // MARK: Private
 
-  /// Writes `seconds` of mono 16-bit 44.1 kHz WAV, each sample from `signal(time)`.
+  /// Writes `seconds` of 16-bit 44.1 kHz WAV, each sample from `signal(time)` in every one of
+  /// its `channels` (mono by default).
   private static func write(
     seconds: Double,
+    channels: Int = 1,
     signal: (Double) -> Double,
   ) throws(FixtureError) -> URL {
     let sampleRate = 44_100
     let count = Int(seconds * Double(sampleRate))
-    var samples = Data(capacity: count * 2)
+    var samples = Data(capacity: count * 2 * channels)
     for index in 0 ..< count {
       let value = signal(Double(index) / Double(sampleRate))
-      withUnsafeBytes(of: Int16(value * Double(Int16.max)).littleEndian) {
-        samples.append(contentsOf: $0)
+      for _ in 0 ..< channels {
+        withUnsafeBytes(of: Int16(value * Double(Int16.max)).littleEndian) {
+          samples.append(contentsOf: $0)
+        }
       }
     }
     var file = Data("RIFF".utf8)
@@ -58,10 +66,10 @@ public enum AudioFixture {
     file.append(contentsOf: Data("WAVEfmt ".utf8))
     append(UInt32(16), to: &file)
     append(UInt16(1), to: &file)
-    append(UInt16(1), to: &file)
+    append(UInt16(channels), to: &file)
     append(UInt32(sampleRate), to: &file)
-    append(UInt32(sampleRate * 2), to: &file)
-    append(UInt16(2), to: &file)
+    append(UInt32(sampleRate * 2 * channels), to: &file)
+    append(UInt16(2 * channels), to: &file)
     append(UInt16(16), to: &file)
     file.append(contentsOf: Data("data".utf8))
     append(UInt32(samples.count), to: &file)

@@ -2,7 +2,8 @@ import ShadesCommands
 import ShadesCore
 import SwiftUI
 
-/// A track's slim header: its label and mute (audio) or hide (video) switch.
+/// A track's slim header: its label, a hide switch for pictures (video and text) and a mute
+/// switch for sound (audio, and video whose clips play their own).
 struct TrackHeader: View {
 
   // MARK: Internal
@@ -11,19 +12,24 @@ struct TrackHeader: View {
   let onError: (String) -> Void
 
   var body: some View {
-    HStack(spacing: 4) {
-      Text(editor.project.timeline.label(of: track))
+    HStack(spacing: 6) {
+      Text(label)
         .font(.caption.weight(.semibold))
       Spacer()
-      Button {
-        toggle()
-      } label: {
-        Image(systemName: icon)
-          .font(.system(size: 10))
-          .foregroundStyle(isOff ? Theme.negative : Theme.faintText)
+      if editor.project.hasSound(track) {
+        toggle(
+          icon: track.isMuted ? "speaker.slash" : "speaker.wave.2",
+          isOff: track.isMuted,
+          help: "Mute or unmute this track's sound",
+        ) { SetTrack(track: label, muted: !track.isMuted) }
       }
-      .buttonStyle(.plain)
-      .help(track.kind == .audio ? "Mute or unmute this track" : "Hide or show this track")
+      if track.kind != .audio {
+        toggle(
+          icon: track.isHidden ? "eye.slash" : "eye",
+          isOff: track.isHidden,
+          help: "Hide or show this track",
+        ) { SetTrack(track: label, hidden: !track.isHidden) }
+      }
     }
     .padding(.horizontal, 10)
     .frame(width: TimelinePane.headerWidth)
@@ -36,30 +42,29 @@ struct TrackHeader: View {
 
   @Environment(Editor.self) private var editor
 
-  private var isOff: Bool {
-    track.kind == .audio ? track.isMuted : track.isHidden
+  private var label: String {
+    editor.project.timeline.label(of: track)
   }
 
-  private var icon: String {
-    switch (track.kind == .audio, isOff) {
-    case (false, false): "eye"
-    case (false, true): "eye.slash"
-    case (true, false): "speaker.wave.2"
-    case (true, true): "speaker.slash"
-    }
-  }
-
-  private func toggle() {
-    let label = editor.project.timeline.label(of: track)
-    do {
-      if track.kind != .audio {
-        try editor.perform(SetTrack(track: label, hidden: !track.isHidden))
-      } else {
-        try editor.perform(SetTrack(track: label, muted: !track.isMuted))
+  private func toggle(
+    icon: String,
+    isOff: Bool,
+    help: String,
+    command: @escaping () -> SetTrack,
+  ) -> some View {
+    Button {
+      do throws(CommandError) {
+        try editor.perform(command())
+      } catch {
+        onError(error.errorDescription ?? "The track couldn't be changed.")
       }
-    } catch {
-      onError(error.errorDescription ?? "The track couldn't be changed.")
+    } label: {
+      Image(systemName: icon)
+        .font(.system(size: 10))
+        .foregroundStyle(isOff ? Theme.negative : Theme.faintText)
     }
+    .buttonStyle(.plain)
+    .help(help)
   }
 
 }

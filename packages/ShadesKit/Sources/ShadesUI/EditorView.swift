@@ -45,6 +45,7 @@ public struct EditorView: View {
             case .transcript: TranscriptPane(onError: { errorMessage = $0 })
             case .history: HistoryPane()
             case .polish: PolishPane(onError: { errorMessage = $0 })
+            case .mixer: MixerPane(onError: { errorMessage = $0 })
             }
           }
           .frame(minWidth: 240, idealWidth: 300, maxWidth: 380)

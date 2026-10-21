@@ -51,7 +51,7 @@ struct ClipAudioInspector: View {
         label: "Track \(trackLabel) Level",
         value: track.volume,
         range: 0 ... 2,
-        format: decibels,
+        format: Level.decibels,
         onChange: { perform(SetTrack(track: trackLabel, volume: $0), "track.\(track.id)") },
         onEnd: editor.endCoalescing,
       )
@@ -59,7 +59,7 @@ struct ClipAudioInspector: View {
         label: "Master Level",
         value: editor.project.timeline.gain,
         range: 0 ... 2,
-        format: decibels,
+        format: Level.decibels,
         onChange: { perform(SetMasterGain(gain: $0), "master") },
         onEnd: editor.endCoalescing,
       )
@@ -78,14 +78,6 @@ struct ClipAudioInspector: View {
   /// Fades can run up to half the clip each, and never past 5 s.
   private var longestFade: Double {
     max(min(clip.duration.seconds / 2, 5), 0.1)
-  }
-
-  /// Linear gain as decibels: 1 → "0 dB", 2 → "+6 dB", 0 → "−∞".
-  private func decibels(_ gain: Double) -> String {
-    guard gain > 0.001 else {
-      return "−∞ dB"
-    }
-    return String(format: "%+.1f dB", 20 * log10(gain))
   }
 
   private func seconds(_ value: Double) -> String {

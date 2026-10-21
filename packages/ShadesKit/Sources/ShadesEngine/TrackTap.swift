@@ -6,15 +6,21 @@ import Synchronization
 // MARK: - TrackTap
 
 /// What happens to one track's sound as it plays or exports, sample by sample: the master
-/// limiter's gain. It runs inside AVFoundation's mix as an audio tap, before the track's volume.
-/// The tap's thread is AVFoundation's, so everything it reads is fixed when it's made.
+/// limiter's gain and the track's pan, then a reading for the mixer's meters. It runs inside
+/// AVFoundation's mix as an audio tap, before the track's volume. The tap's thread is
+/// AVFoundation's, so everything it reads is fixed when it's made.
 final class TrackTap: Sendable {
 
   // MARK: Lifecycle
 
-  init(limiter: [GainPoint]) {
+  /// A tap for `track` that limits by `limiter`, pans by `pan` and reports to `meters`.
+  init(track: Track.ID, limiter: [GainPoint], pan: Double, meters: MixMeters?) {
+    self.track = track
     times = limiter.map(\.time.seconds)
     gains = limiter.map(\.gain)
+    // why: a balance control: the far side fades out and the near side stays as recorded.
+    channelGains = [min(1, 1 - pan), min(1, 1 + pan)]
+    self.meters = meters
   }
 
   // MARK: Internal
@@ -72,38 +78,56 @@ final class TrackTap: Sendable {
 
   // MARK: Private
 
+  private let track: Track.ID
   /// The limiter's points, in seconds and linear gain.
   private let times: [Double]
   private let gains: [Double]
+  /// The left and right channels' gains from the pan.
+  private let channelGains: [Double]
+  private let meters: MixMeters?
   private let sampleRate = Mutex(48000.0)
 
   private static func from(_ tap: MTAudioProcessingTap) -> TrackTap {
     Unmanaged<TrackTap>.fromOpaque(MTAudioProcessingTapGetStorage(tap)).takeUnretainedValue()
   }
 
-  /// Scales `frames` samples of every channel in `buffers`, which start `start` seconds into the
-  /// timeline, by the limiter's gain.
+  /// Limits and pans `frames` samples of every channel in `buffers`, which start `start`
+  /// seconds into the timeline, and reports their loudest points. Pan needs two channels; mono
+  /// stays centred.
   private func process(
     _ buffers: UnsafeMutableAudioBufferListPointer,
     frames: Int,
     from start: Double,
   ) {
-    guard !times.isEmpty else {
-      return
-    }
     let rate = sampleRate.withLock(\.self)
-    let level = (0 ..< frames).map { limiterGain(at: start + Double($0) / rate) }
+    let limiting = times.isEmpty
+      ? nil
+      : (0 ..< frames).map { limiterGain(at: start + Double($0) / rate) }
+    let channelCount = buffers.reduce(0) { $0 + Int(max($1.mNumberChannels, 1)) }
+    var loudest = [Float](repeating: 0, count: channelCount)
+    var first = 0
     for buffer in buffers {
+      let channels = Int(max(buffer.mNumberChannels, 1))
+      defer { first += channels }
       guard let data = buffer.mData?.assumingMemoryBound(to: Float.self) else {
         continue
       }
-      let channels = Int(max(buffer.mNumberChannels, 1))
-      for frame in 0 ..< min(frames, Int(buffer.mDataByteSize) / 4 / channels) {
-        for channel in 0 ..< channels {
-          data[frame * channels + channel] *= Float(level[frame])
+      for channel in 0 ..< channels {
+        let index = first + channel
+        let pan = channelCount == 2 ? Float(channelGains[index]) : 1
+        for frame in 0 ..< min(frames, Int(buffer.mDataByteSize) / 4 / channels) {
+          let sample = frame * channels + channel
+          data[sample] *= pan * Float(limiting?[frame] ?? 1)
+          loudest[index] = max(loudest[index], abs(data[sample]))
         }
       }
     }
+    meters?.record(
+      MeterLevel(left: Double(loudest.first ?? 0), right: Double(loudest.last ?? 0)),
+      for: track,
+      from: start,
+      to: start + Double(frames) / rate,
+    )
   }
 
   /// The limiter's gain at `time`: straight lines between its points, holding the end ones.

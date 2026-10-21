@@ -70,6 +70,7 @@ enum EditorAction: CaseIterable, Identifiable {
   case toggleHistory
   case toggleScopes
   case toggleTranscript
+  case toggleMixer
   case polishSelection
   case cutOutSubject
   case cutOutObject
@@ -153,6 +154,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .toggleHistory: "Show / Hide History"
     case .toggleScopes: "Show / Hide Scopes"
     case .toggleTranscript: "Show / Hide Transcript"
+    case .toggleMixer: "Show / Hide Mixer"
     case .polishSelection: "Polish Selection"
     case .cutOutSubject: "Cut Out Person in Selected Clips"
     case .cutOutObject: "Cut Out Any Object in Selected Clips"
@@ -232,6 +234,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .toggleHistory: Shortcut("l", .command)
     case .toggleScopes: Shortcut("s", [.option, .command])
     case .toggleTranscript: Shortcut("t", [.command, .option])
+    case .toggleMixer: Shortcut("a", [.option, .command])
     case .polishSelection: Shortcut("p", .option)
     case .cutOutSubject: Shortcut("u", .option)
     case .cutOutObject: Shortcut("u", [.option, .shift])
@@ -274,7 +277,8 @@ enum EditorAction: CaseIterable, Identifiable {
          .commandPalette,
          .toggleHistory,
          .toggleScopes,
-         .toggleTranscript:
+         .toggleTranscript,
+         .toggleMixer:
       view(in: context)
 
     case .selectAtPlayhead,
@@ -425,6 +429,9 @@ enum EditorAction: CaseIterable, Identifiable {
       context.sidePane.wrappedValue = context.sidePane.wrappedValue == .transcript
         ? .inspector
         : .transcript
+
+    case .toggleMixer:
+      context.sidePane.wrappedValue = context.sidePane.wrappedValue == .mixer ? .inspector : .mixer
 
     default: break
     }

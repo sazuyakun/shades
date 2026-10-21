@@ -37,6 +37,7 @@ struct ProjectFormatTests {
     #expect(timeline.shutterAngle == 180)
     #expect(timeline.limiter.isEmpty)
     #expect(timeline.tracks.map(\.followsCamera) == [true, false])
+    #expect(timeline.tracks.allSatisfy { $0.volume == 1 && $0.pan == 0 && !$0.isSoloed })
     let transform = try JSONDecoder().decode(
       ClipTransform.self,
       from: Data(#"{"x":0.1,"y":0,"scale":1,"rotation":0}"#.utf8),

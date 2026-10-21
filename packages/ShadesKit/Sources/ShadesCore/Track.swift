@@ -15,6 +15,8 @@ public struct Track: Hashable, Sendable, Identifiable {
     isHidden: Bool = false,
     followsCamera: Bool? = nil,
     volume: Double = 1,
+    pan: Double = 0,
+    isSoloed: Bool = false,
   ) {
     self.id = id
     self.kind = kind
@@ -23,6 +25,8 @@ public struct Track: Hashable, Sendable, Identifiable {
     self.isHidden = isHidden
     self.followsCamera = followsCamera ?? (kind != .text)
     self.volume = volume
+    self.pan = pan
+    self.isSoloed = isSoloed
   }
 
   // MARK: Public
@@ -39,6 +43,10 @@ public struct Track: Hashable, Sendable, Identifiable {
   public var followsCamera: Bool
   /// The track's level in the mix, on top of its clips' own volume (1 unchanged).
   public var volume: Double
+  /// Where the track's stereo sound sits: −1 all left, 0 as recorded, 1 all right.
+  public var pan: Double
+  /// Plays the track alone: while any track is soloed, only soloed tracks are heard.
+  public var isSoloed: Bool
 
   /// The time right after the last clip on this track.
   public var end: MediaTime {
@@ -69,7 +77,7 @@ extension Track: Codable {
 
   // MARK: Lifecycle
 
-  /// Reads a track, including ones saved before the camera existed.
+  /// Reads a track, including ones saved before the camera, levels, pan or solo existed.
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     try self.init(
@@ -80,6 +88,8 @@ extension Track: Codable {
       isHidden: container.decode(Bool.self, forKey: .isHidden),
       followsCamera: container.decodeIfPresent(Bool.self, forKey: .followsCamera),
       volume: container.decodeIfPresent(Double.self, forKey: .volume) ?? 1,
+      pan: container.decodeIfPresent(Double.self, forKey: .pan) ?? 0,
+      isSoloed: container.decodeIfPresent(Bool.self, forKey: .isSoloed) ?? false,
     )
   }
 
@@ -93,6 +103,8 @@ extension Track: Codable {
     case isHidden
     case followsCamera
     case volume
+    case pan
+    case isSoloed
   }
 
 }

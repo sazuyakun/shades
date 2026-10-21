@@ -62,6 +62,16 @@ public struct Timeline: Hashable, Sendable {
     tracks.flatMap(\.clips)
   }
 
+  /// Whether a track's sound is heard: it isn't muted, and it's soloed when any track is.
+  public func isAudible(_ track: Track) -> Bool {
+    !track.isMuted && (track.isSoloed || !tracks.contains(where: \.isSoloed))
+  }
+
+  /// Whether `clip` on `track` is heard: its track is, and it's sound or a video playing its own.
+  public func plays(_ clip: Clip, on track: Track) -> Bool {
+    isAudible(track) && (track.kind == .audio || clip.isAudioEnabled)
+  }
+
   /// Where the camera is at `time`.
   public func camera(at time: MediaTime) -> ClipTransform {
     camera.transform(at: time, fixed: .identity)

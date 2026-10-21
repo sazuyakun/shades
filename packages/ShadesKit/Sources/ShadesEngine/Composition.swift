@@ -55,10 +55,11 @@ extension Composition {
     )
   }
 
-  /// Each track's volume over time (a clip's own volume, or silence where the track is muted or
-  /// a video clip's sound was detached), through the master limiter.
-  public func audioMix(for timeline: Timeline) -> AVAudioMix {
-    Self.audioMix(for: timeline, trackIDs: audioTrackIDs)
+  /// Each track's volume over time (a clip's own volume, or silence where the track is muted,
+  /// another is soloed, or a video clip's sound was detached), its pan, and the master limiter,
+  /// reporting each track's level to `meters` when given.
+  public func audioMix(for timeline: Timeline, meters: MixMeters? = nil) -> AVAudioMix {
+    Self.audioMix(for: timeline, trackIDs: audioTrackIDs, meters: meters)
   }
 
   // MARK: Internal
@@ -241,11 +242,13 @@ extension Composition {
   }
 
   /// The mix of `timeline` for the composition tracks carrying each timeline track's sound: clip
-  /// volumes, fades and keyframes, track levels and the master level, as volume ramps, and the
-  /// master limiter in each track's tap (volume ramps are smoothed, too slow for a limiter).
+  /// volumes, fades and keyframes, track levels and the master level, as volume ramps; the
+  /// master limiter and the track's pan in its tap (volume ramps are smoothed, too slow for a
+  /// limiter), which also reports to `meters`.
   static func audioMix(
     for timeline: Timeline,
     trackIDs: [Track.ID: CMPersistentTrackID],
+    meters: MixMeters? = nil,
   ) -> AVAudioMix {
     let mix = AVMutableAudioMix()
     mix.inputParameters = timeline.tracks.compactMap { track in
@@ -254,12 +257,16 @@ extension Composition {
       }
       let parameters = AVMutableAudioMixInputParameters()
       parameters.trackID = trackID
-      if !timeline.limiter.isEmpty {
-        parameters.audioTapProcessor = TrackTap(limiter: timeline.limiter).makeTap()
+      if !timeline.limiter.isEmpty || track.pan != 0 || meters != nil {
+        parameters.audioTapProcessor = TrackTap(
+          track: track.id,
+          limiter: timeline.limiter,
+          pan: track.pan,
+          meters: meters,
+        ).makeTap()
       }
       for clip in track.clips {
-        let isAudible = !track.isMuted && (track.kind == .audio || clip.isAudioEnabled)
-        let level = isAudible ? track.volume * timeline.gain : 0
+        let level = timeline.plays(clip, on: track) ? track.volume * timeline.gain : 0
         let moments = volumeMoments(of: clip)
         for (from, to) in zip(moments, moments.dropFirst()) {
           parameters.setVolumeRamp(

@@ -40,6 +40,8 @@ enum ProjectSummary {
           "hidden": .bool(track.isHidden),
           "follows_camera": .bool(track.followsCamera),
           "volume": rounded(track.volume),
+          "pan": rounded(track.pan),
+          "soloed": .bool(track.isSoloed),
           "clips": .array(track.clips
             .map { json(of: $0, media: $0.mediaID.flatMap { mediaByID[$0] }) }),
         ]

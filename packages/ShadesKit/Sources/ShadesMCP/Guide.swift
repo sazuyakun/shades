@@ -90,13 +90,14 @@ enum Guide {
     tiles or iris.
 
     Sound
-    - set_clip fade_in / fade_out and volume; set_keyframes property volume for rides; set_track \
-    volume for the mix; duck_music dips music under speech; reduce_noise cleans background \
-    noise. normalize_loudness sets the final level for a platform (youtube, instagram and \
-    tiktok -14 LUFS, podcast -16, broadcast -23), with a limiter keeping true peaks under -1 \
-    dBTP; do it last and again after changing the sound. add_sound drops \
-    a plugin's sound effect (or any sound file) at a moment. separate_stems splits a clip into \
-    voice and music on their own tracks.
+    - set_clip fade_in / fade_out and volume; set_keyframes property volume for rides; \
+    set_track volume, pan, muted and soloed for the mix (video tracks carry their clips' own \
+    sound; pan moves stereo sound, mono stays centred). duck_music dips music under speech; \
+    reduce_noise cleans background noise. normalize_loudness sets the final level for a \
+    platform (youtube, instagram and tiktok -14 LUFS, podcast -16, broadcast -23), with a \
+    limiter keeping true peaks under -1 dBTP; do it last and again after changing the sound.
+    - add_sound drops a plugin's sound effect (or any sound file) at a moment. separate_stems \
+    splits a clip into voice and music on their own tracks.
 
     Plugins (taste lives here)
     - list_plugins shows text styles, templates, stickers, overlays and sounds. apply_template \
