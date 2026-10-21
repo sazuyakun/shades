@@ -64,9 +64,8 @@ extension Clip {
   /// The clip with its start moved to `time` on the timeline; its end stays put.
   public func trimmingStart(to time: MediaTime) -> Clip {
     var clip = self
-    let delta = time - timelineStart
-    clip.sourceStart = sourceStart + delta
-    clip.duration = duration - delta
+    clip.sourceStart = sourceTime(at: time)
+    clip.duration = duration - (time - timelineStart)
     clip.timelineStart = time
     return clip
   }
@@ -101,6 +100,9 @@ extension Clip {
       fadeIn: fadeIn,
       fadeOut: fadeOut,
       cleanSound: cleanSound,
+      motionBlur: motionBlur,
+      footageBlur: footageBlur,
+      speed: speed,
     )
   }
 

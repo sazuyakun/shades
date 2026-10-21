@@ -16,7 +16,7 @@ extension [Keyframe] {
     let from = keys[next - 1]
     let to = keys[next]
     let fraction = (seconds - from.time.seconds) / (to.time.seconds - from.time.seconds)
-    return from.value + (to.value - from.value) * from.easing.progress(fraction)
+    return from.value(towards: to, at: fraction)
   }
 
   /// The whole placement at `time`, from `fixed` where a property has no keyframes.

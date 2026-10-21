@@ -19,7 +19,8 @@ public struct SpokenWord: Hashable, Sendable {
 
 extension Timeline {
   /// Every word heard on the timeline, in time order: each clip that plays sound contributes the
-  /// words of its media's transcript that fall inside the clip, moved to timeline time.
+  /// words of its media's transcript that fall inside the clip, moved to timeline time (and
+  /// stretched with its speed).
   public func spokenWords(transcripts: [Media.ID: Transcript]) -> [SpokenWord] {
     var words = [SpokenWord]()
     for track in tracks where !track.isMuted {
@@ -27,15 +28,18 @@ extension Timeline {
         guard let mediaID = clip.mediaID, let transcript = transcripts[mediaID] else {
           continue
         }
-        let sourceEnd = clip.sourceStart + clip.duration
+        let sourceEnd = clip.sourceEnd
         for word in transcript.words
           where clip.sourceStart <= word.start && word.start < sourceEnd
         {
-          let offset = clip.timelineStart - clip.sourceStart
+          let start = clip.timelineTime(atSource: word.start)
+          guard clip.playsSound(at: start) else {
+            continue
+          }
           words.append(SpokenWord(
             text: word.text,
-            start: word.start + offset,
-            end: min(word.end, sourceEnd) + offset,
+            start: start,
+            end: clip.timelineTime(atSource: min(word.end, sourceEnd)),
             clipID: clip.id,
           ))
         }

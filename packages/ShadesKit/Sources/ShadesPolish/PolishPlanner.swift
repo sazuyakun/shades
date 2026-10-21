@@ -76,15 +76,17 @@ public enum PolishPlanner {
     analyses: [Media.ID: MediaAnalysis],
   ) -> [TimeRange] {
     track.clips.flatMap { clip -> [TimeRange] in
-      guard let mediaID = clip.mediaID, let speech = analyses[mediaID]?.speech else {
+      guard
+        !clip.isFrozen, let mediaID = clip.mediaID,
+        let speech = analyses[mediaID]?.speech
+      else {
         return []
       }
-      let offset = clip.timelineStart - clip.sourceStart
-      let sourceEnd = clip.sourceStart + clip.duration
+      let sourceEnd = clip.sourceEnd
       return speech.filter { $0.end > clip.sourceStart && $0.start < sourceEnd }.map { stretch in
         TimeRange(
-          start: max(stretch.start, clip.sourceStart) + offset,
-          end: min(stretch.end, sourceEnd) + offset,
+          start: clip.timelineTime(atSource: max(stretch.start, clip.sourceStart)),
+          end: clip.timelineTime(atSource: min(stretch.end, sourceEnd)),
         )
       }
     }
@@ -294,9 +296,9 @@ public enum PolishPlanner {
       guard let mediaID = clip.mediaID, let beats = analyses[mediaID]?.beats?.beats else {
         return []
       }
-      let sourceEnd = clip.sourceStart + clip.duration
+      let sourceEnd = clip.sourceEnd
       return beats.filter { clip.sourceStart <= $0 && $0 < sourceEnd }
-        .map { $0 - clip.sourceStart + clip.timelineStart }
+        .map(clip.timelineTime(atSource:))
     }
     .sorted()
   }

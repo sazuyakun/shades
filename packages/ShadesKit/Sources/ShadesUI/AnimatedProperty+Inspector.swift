@@ -14,6 +14,7 @@ extension AnimatedProperty {
     case .depth: "Depth"
     case .opacity: "Opacity"
     case .volume: "Volume"
+    case .speed: "Speed"
     }
   }
 
@@ -29,6 +30,7 @@ extension AnimatedProperty {
     case .depth: -3 ... 1
     case .opacity: 0 ... 1
     case .volume: 0 ... 2
+    case .speed: 0.1 ... 4
     }
   }
 
@@ -38,6 +40,7 @@ extension AnimatedProperty {
     case .rotation,
          .tiltX,
          .tiltY: "\(Int(value.rounded()))°"
+    case .speed: "\(value.formatted(.number.precision(.fractionLength(0 ... 2))))×"
     default: "\(Int((value * 100).rounded()))%"
     }
   }
@@ -54,6 +57,7 @@ extension AnimatedProperty {
     case .depth: SetClip(clipID: clip, depth: value)
     case .opacity: SetClip(clipID: clip, opacity: value)
     case .volume: SetClip(clipID: clip, volume: value)
+    case .speed: SetClip(clipID: clip, speed: value)
     }
   }
 }

@@ -11,6 +11,7 @@ public enum CommandRegistry {
     MoveClip.self,
     TrimClip.self,
     SplitClip.self,
+    FreezeFrame.self,
     DeleteClips.self,
     RemoveRanges.self,
     CloseGaps.self,

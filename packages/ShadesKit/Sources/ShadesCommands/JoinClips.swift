@@ -38,7 +38,9 @@ public struct JoinClips: ToolCommand {
     for (left, right) in zip(clips, clips.dropFirst()) {
       guard
         left.mediaID == right.mediaID, left.timelineEnd == right.timelineStart,
-        left.sourceStart + left.duration == right.sourceStart
+        left.sourceEnd == right.sourceStart, left.speed == right.speed,
+        left.keyframes.filter({ $0.property == .speed })
+        == right.keyframes.filter({ $0.property == .speed })
       else {
         throw rejected(.cannotJoin("they must be back to back pieces of the same media"))
       }

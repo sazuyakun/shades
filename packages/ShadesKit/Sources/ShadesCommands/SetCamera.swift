@@ -55,7 +55,7 @@ public struct SetCamera: ToolCommand {
     }
     for key in keyframes {
       guard key.property.isVisual, key.property != .opacity else {
-        throw rejected(.invalidValue("the camera has no opacity or volume"))
+        throw rejected(.invalidValue("the camera has no opacity, volume or speed"))
       }
       guard key.property != .scale || (0.1 ... 20).contains(key.value) else {
         throw rejected(.invalidValue("camera zoom (scale) goes from 0.1 to 20"))

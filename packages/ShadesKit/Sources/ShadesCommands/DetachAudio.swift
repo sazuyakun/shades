@@ -48,6 +48,8 @@ public struct DetachAudio: ToolCommand {
       duration: clip.duration,
       timelineStart: clip.timelineStart,
       volume: clip.volume,
+      keyframes: clip.keyframes.filter { $0.property == .speed },
+      speed: clip.speed,
     ))
   }
 

@@ -24,6 +24,7 @@ public struct SetClip: ToolCommand {
     cleanSound: Bool? = nil,
     motionBlur: Double? = nil,
     footageBlur: Bool? = nil,
+    speed: Double? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -43,6 +44,7 @@ public struct SetClip: ToolCommand {
     self.cleanSound = cleanSound
     self.motionBlur = motionBlur
     self.footageBlur = footageBlur
+    self.speed = speed
   }
 
   // MARK: Public
@@ -50,7 +52,8 @@ public struct SetClip: ToolCommand {
   public static let title = "Change Clip"
   public static let name = "set_clip"
   public static let summary = "Change a clip's position, size, rotation, 3D tilt and depth, "
-    + "opacity, depth slot, motion blur, volume or sound fades. Leave out what shouldn't change."
+    + "opacity, depth slot, motion blur, volume, sound fades or speed. Leave out what shouldn't "
+    + "change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -100,6 +103,14 @@ public struct SetClip: ToolCommand {
       "clean_sound": JSONSchema.boolean(
         "Play the noise-reduced sound (made by reduce_noise) instead of the original"
       ),
+      "speed": JSONSchema.number(
+        "How fast a video or sound clip plays: 0.5 is half speed, 2 twice as fast. It keeps its "
+          + "first and last frames, so it gets longer or shorter and later clips on its track "
+          + "move with its end. Sound is stretched with its pitch kept, and muted below 0.25 or "
+          + "above 4. Speed keyframes (set_keyframes) ramp it instead",
+        minimum: Clip.speeds.lowerBound,
+        maximum: Clip.speeds.upperBound,
+      ),
       "sticker": JSONSchema.object([
         "border": JSONSchema.number(
           "White die-cut border as a fraction of the picture; with border 0 and shadow and "
@@ -130,6 +141,7 @@ public struct SetClip: ToolCommand {
   public let cleanSound: Bool?
   public let motionBlur: Double?
   public let footageBlur: Bool?
+  public let speed: Double?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -155,6 +167,16 @@ public struct SetClip: ToolCommand {
       throw rejected(.invalidValue("motion blur goes from 0 (none) to 4 times the shutter"))
     }
     var clip = project.timeline.tracks[location.track].clips[location.clip]
+    if let speed {
+      try project.requireSpeedChangeable(clip)
+      guard Clip.speeds.contains(speed) else {
+        throw rejected(.invalidValue(
+          "speed goes from \(Clip.speeds.lowerBound) to \(Clip.speeds.upperBound); "
+            + "freeze_frame holds a frame"
+        ))
+      }
+      clip.speed = speed
+    }
     if
       let fade = [fadeIn, fadeOut].compactMap(\.self)
         .first(where: { $0 > clip.duration || $0 < .zero })
@@ -188,7 +210,7 @@ public struct SetClip: ToolCommand {
     if let sticker {
       clip.sticker = sticker.border == 0 && !sticker.shadow && !sticker.paper ? nil : sticker
     }
-    project.timeline.tracks[location.track].clips[location.clip] = clip
+    try project.replaceClip(at: location, with: clip)
   }
 
 }

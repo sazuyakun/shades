@@ -16,7 +16,8 @@ public struct RemoveKeyframes: ToolCommand {
   public static let title = "Remove Keyframes"
   public static let name = "remove_keyframes"
   public static let summary = "Remove a clip's keyframes: all of them, only one property's, or "
-    + "only those at one moment. The property goes back to its fixed value once none are left."
+    + "only those at one moment. The property goes back to its fixed value once none are left "
+    + "(removing speed keyframes retimes the clip, like set_clip speed)."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -45,7 +46,7 @@ public struct RemoveKeyframes: ToolCommand {
     guard clip.keyframes.count < before else {
       throw rejected(.invalidValue("the clip has no keyframes like that"))
     }
-    project.timeline.tracks[location.track].clips[location.clip] = clip
+    try project.replaceClip(at: location, with: clip)
   }
 
 }

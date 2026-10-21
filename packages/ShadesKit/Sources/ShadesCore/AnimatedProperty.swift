@@ -10,11 +10,13 @@ public enum AnimatedProperty: String, Codable, CaseIterable, Sendable {
   case opacity
   /// Sound level, as a gain (1 unchanged).
   case volume
+  /// How fast the clip plays its media (1 normal, 2 twice as fast). Its keyframes make a ramp.
+  case speed
 
   // MARK: Public
 
-  /// Whether it changes the picture (everything but volume).
+  /// Whether it changes how the picture is placed or drawn (everything but volume and speed).
   public var isVisual: Bool {
-    self != .volume
+    self != .volume && self != .speed
   }
 }

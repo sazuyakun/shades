@@ -30,6 +30,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     cleanSound: Bool = false,
     motionBlur: Double = 1,
     footageBlur: Bool = false,
+    speed: Double = 1,
   ) {
     self.init(
       id: id,
@@ -53,6 +54,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       cleanSound: cleanSound,
       motionBlur: motionBlur,
       footageBlur: footageBlur,
+      speed: speed,
     )
   }
 
@@ -79,6 +81,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     cleanSound: Bool = false,
     motionBlur: Double = 1,
     footageBlur: Bool = false,
+    speed: Double = 1,
   ) {
     self.id = id
     self.source = source
@@ -101,9 +104,13 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.cleanSound = cleanSound
     self.motionBlur = motionBlur
     self.footageBlur = footageBlur
+    self.speed = speed
   }
 
   // MARK: Public
+
+  /// The speeds a clip can play at (besides 0, a freeze frame).
+  public static let speeds: ClosedRange<Double> = 0.1 ... 10
 
   public let id: UUID
   public var source: ClipSource
@@ -143,6 +150,9 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var motionBlur: Double
   /// Also blurs movement inside the footage itself, along its optical flow, once that's made.
   public var footageBlur: Bool
+  /// How fast it plays its media while it has no speed keyframes: 1 is normal, 0.5 half speed,
+  /// 2 twice as fast. 0 freezes the frame at `sourceStart`.
+  public var speed: Double
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -213,6 +223,7 @@ extension Clip: Codable {
       cleanSound: container.decodeIfPresent(Bool.self, forKey: .cleanSound) ?? false,
       motionBlur: container.decodeIfPresent(Double.self, forKey: .motionBlur) ?? 1,
       footageBlur: container.decodeIfPresent(Bool.self, forKey: .footageBlur) ?? false,
+      speed: container.decodeIfPresent(Double.self, forKey: .speed) ?? 1,
     )
   }
 
@@ -241,6 +252,7 @@ extension Clip: Codable {
     try container.encode(cleanSound, forKey: .cleanSound)
     try container.encode(motionBlur, forKey: .motionBlur)
     try container.encode(footageBlur, forKey: .footageBlur)
+    try container.encode(speed, forKey: .speed)
   }
 
   // MARK: Private
@@ -269,6 +281,7 @@ extension Clip: Codable {
     case cleanSound
     case motionBlur
     case footageBlur
+    case speed
   }
 
 }

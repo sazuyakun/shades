@@ -88,7 +88,7 @@ enum ProjectSummary {
       "start": seconds(clip.timelineStart),
       "end": seconds(clip.timelineEnd),
       "source_start": seconds(clip.sourceStart),
-      "source_end": seconds(clip.sourceStart + clip.duration),
+      "source_end": seconds(clip.sourceEnd),
       "x": rounded(clip.transform.x),
       "y": rounded(clip.transform.y),
       "scale": rounded(clip.transform.scale),
@@ -134,6 +134,11 @@ enum ProjectSummary {
     if clip.fadeIn > .zero || clip.fadeOut > .zero {
       fields["fade_in"] = seconds(clip.fadeIn)
       fields["fade_out"] = seconds(clip.fadeOut)
+    }
+    if clip.isFrozen {
+      fields["freeze_frame"] = .bool(true)
+    } else if clip.speed != 1 {
+      fields["speed"] = rounded(clip.speed)
     }
     if clip.blend != .normal {
       fields["blend"] = .string(clip.blend.rawValue)

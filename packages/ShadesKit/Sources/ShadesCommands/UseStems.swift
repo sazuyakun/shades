@@ -48,9 +48,10 @@ public struct UseStems: Command {
         duration: clip.duration,
         timelineStart: clip.timelineStart,
         volume: clip.volume,
-        keyframes: clip.keyframes.filter { $0.property == .volume },
+        keyframes: clip.keyframes.filter { $0.property == .volume || $0.property == .speed },
         fadeIn: clip.fadeIn,
         fadeOut: clip.fadeOut,
+        speed: clip.speed,
       ))
     }
   }
