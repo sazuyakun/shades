@@ -2,8 +2,8 @@ import ShadesCommands
 import ShadesCore
 import SwiftUI
 
-/// Video tab for a clip: where it sits, how big, its rotation, opacity (each animatable) and depth
-/// slot.
+/// Video tab for a clip: where it sits, how big, its rotation, opacity (each animatable), depth
+/// slot and motion blur.
 struct ClipVideoInspector: View {
 
   // MARK: Internal
@@ -34,6 +34,7 @@ struct ClipVideoInspector: View {
         Text("Replace background").tag(DepthSlot.replaceBackground)
       }
       .help("Where this layer sits relative to the person cut out of the clips below it")
+      MotionBlurControls(clip: clip, onError: onError)
       HStack {
         Button("Reset Transform") {
           resetTransform()
