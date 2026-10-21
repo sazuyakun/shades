@@ -28,6 +28,7 @@ public enum CommandRegistry {
     AddAdjustment.self,
     SetTransition.self,
     SetMasterGain.self,
+    SetShutter.self,
     AddText.self,
     SetText.self,
     DetachAudio.self,

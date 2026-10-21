@@ -22,6 +22,8 @@ public struct SetClip: ToolCommand {
     fadeIn: MediaTime? = nil,
     fadeOut: MediaTime? = nil,
     cleanSound: Bool? = nil,
+    motionBlur: Double? = nil,
+    footageBlur: Bool? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -39,6 +41,8 @@ public struct SetClip: ToolCommand {
     self.fadeIn = fadeIn
     self.fadeOut = fadeOut
     self.cleanSound = cleanSound
+    self.motionBlur = motionBlur
+    self.footageBlur = footageBlur
   }
 
   // MARK: Public
@@ -46,7 +50,7 @@ public struct SetClip: ToolCommand {
   public static let title = "Change Clip"
   public static let name = "set_clip"
   public static let summary = "Change a clip's position, size, rotation, 3D tilt and depth, "
-    + "opacity, depth slot, volume or sound fades. Leave out what shouldn't change."
+    + "opacity, depth slot, motion blur, volume or sound fades. Leave out what shouldn't change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -81,6 +85,16 @@ public struct SetClip: ToolCommand {
         maximum: 4,
       ),
       "audio_enabled": JSONSchema.boolean("Whether a video clip plays its own sound"),
+      "motion_blur": JSONSchema.number(
+        "How long the clip blurs as it moves, as a share of the timeline's shutter: 1 follows "
+          + "the timeline (default), 0 none, 2 twice as long",
+        minimum: 0,
+        maximum: 4,
+      ),
+      "footage_blur": JSONSchema.boolean(
+        "Also blur movement inside the footage (a pan, a running subject) along its optical "
+          + "flow. Turning it on queues the flow analysis; the blur shows once that finishes"
+      ),
       "fade_in": JSONSchema.number("Seconds the sound takes to rise from silence", minimum: 0),
       "fade_out": JSONSchema.number("Seconds the sound takes to fall to silence", minimum: 0),
       "clean_sound": JSONSchema.boolean(
@@ -114,6 +128,8 @@ public struct SetClip: ToolCommand {
   public let fadeIn: MediaTime?
   public let fadeOut: MediaTime?
   public let cleanSound: Bool?
+  public let motionBlur: Double?
+  public let footageBlur: Bool?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -135,12 +151,23 @@ public struct SetClip: ToolCommand {
     if let volume, !(0 ... 4).contains(volume) {
       throw rejected(.invalidValue("volume goes from 0 to 4"))
     }
+    if let motionBlur, !(0 ... 4).contains(motionBlur) {
+      throw rejected(.invalidValue("motion blur goes from 0 (none) to 4 times the shutter"))
+    }
     var clip = project.timeline.tracks[location.track].clips[location.clip]
     if
       let fade = [fadeIn, fadeOut].compactMap(\.self)
         .first(where: { $0 > clip.duration || $0 < .zero })
     {
       throw rejected(.invalidRange("a fade of \(fade.seconds) s doesn't fit the clip"))
+    }
+    if
+      footageBlur == true,
+      clip.mediaID.flatMap(project.media(withID:)).map({ !$0.hasVideo || $0.isStill }) ?? true
+    {
+      throw rejected(
+        .invalidValue("footage blur needs a video clip; still layers blur as they move")
+      )
     }
     clip.fadeIn = fadeIn.map(project.onFrame) ?? clip.fadeIn
     clip.fadeOut = fadeOut.map(project.onFrame) ?? clip.fadeOut
@@ -156,6 +183,8 @@ public struct SetClip: ToolCommand {
     clip.depth = depthSlot ?? clip.depth
     clip.volume = volume ?? clip.volume
     clip.isAudioEnabled = audioEnabled ?? clip.isAudioEnabled
+    clip.motionBlur = motionBlur ?? clip.motionBlur
+    clip.footageBlur = footageBlur ?? clip.footageBlur
     if let sticker {
       clip.sticker = sticker.border == 0 && !sticker.shadow && !sticker.paper ? nil : sticker
     }
