@@ -43,6 +43,7 @@ public struct AddCaptions: Command {
     let index = free ?? project.addTrack(.text)
     let label = project.timeline.label(of: project.timeline.tracks[index])
     for line in lines {
+      let count = line.text.split(separator: " ", omittingEmptySubsequences: true).count
       try AddText(
         text: line.text,
         at: line.start,
@@ -50,7 +51,9 @@ public struct AddCaptions: Command {
         track: label,
         style: style,
         reveal: reveal,
-        words: line.words,
+        // why: timings that don't pair up with the text's words can't time them, so the
+        // reveal spreads the words instead.
+        words: line.words.count == count ? line.words : nil,
       ).apply(to: &project)
     }
   }
