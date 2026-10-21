@@ -7,8 +7,8 @@ import UniformTypeIdentifiers
 public enum FrameRenderer {
 
   /// Renders the frame at `seconds` as PNG data, no wider or taller than `maxSide` pixels, with
-  /// cut-outs from `mattes` for depth slots. Pass a long-lived `context` when rendering often; a
-  /// new one compiles the shaders again.
+  /// cut-outs from `mattes` for depth slots and optical flow from `flows` for footage blur. Pass
+  /// a long-lived `context` when rendering often; a new one compiles the shaders again.
   @MainActor
   public static func png(
     of project: Project,
@@ -16,6 +16,7 @@ public enum FrameRenderer {
     maxSide: Int,
     context: RenderContext? = nil,
     mattes: [Media.ID: URL] = [:],
+    flows: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> Data {
     try await pngData(from: image(
       of: project,
@@ -23,6 +24,7 @@ public enum FrameRenderer {
       maxSide: maxSide,
       context: context,
       mattes: mattes,
+      flows: flows,
     ))
   }
 
@@ -34,11 +36,13 @@ public enum FrameRenderer {
     maxSide: Int,
     context: RenderContext? = nil,
     mattes: [Media.ID: URL] = [:],
+    flows: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> CGImage {
     let composition = try await Composition.forRendering(
       project,
       context: context,
       mattes: mattes,
+      flows: flows,
     )
     let generator = AVAssetImageGenerator(asset: composition.asset)
     generator.videoComposition = composition.videoComposition

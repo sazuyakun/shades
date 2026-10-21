@@ -46,6 +46,8 @@ public final class Player {
   public var proxies = [Media.ID: URL]()
   /// Cut-outs by media, for depth slots (text behind a person). Set them, then `load`.
   public var mattes = [Media.ID: URL]()
+  /// Optical flow by media, for footage motion blur. Set them, then `load`.
+  public var flows = [Media.ID: URL]()
   /// Noise-reduced sound by media, for clips set to clean sound. Set them, then `load`.
   public var cleanSound = [Media.ID: URL]()
   /// Whether what's playing now uses any proxy, for the viewer's "Proxy" badge.
@@ -79,6 +81,7 @@ public final class Player {
     let structure = Composition.Structure(timeline)
     if
       structure == self.structure, proxies == loadedProxies, mattes == loadedMattes,
+      flows == loadedFlows,
       cleanSound == loadedCleanSound,
       let composition,
       let item = avPlayer.currentItem
@@ -106,6 +109,7 @@ public final class Player {
       quality: .preview,
       sources: proxies,
       mattes: mattes,
+      flows: flows,
       cleanSound: cleanSound,
     )
     // why: a newer edit started its own load while this one was building; it wins.
@@ -122,6 +126,7 @@ public final class Player {
     self.structure = structure
     loadedProxies = proxies
     loadedMattes = mattes
+    loadedFlows = flows
     loadedCleanSound = cleanSound
     isUsingProxies = timeline.allClips.contains { $0.mediaID.flatMap { proxies[$0] } != nil }
     // why: read after building, so a seek made while it built lands, not the time before it.
@@ -198,6 +203,7 @@ public final class Player {
   @ObservationIgnored private var cuedTime: Double?
   @ObservationIgnored private var loadedProxies = [Media.ID: URL]()
   @ObservationIgnored private var loadedMattes = [Media.ID: URL]()
+  @ObservationIgnored private var loadedFlows = [Media.ID: URL]()
   @ObservationIgnored private var loadedCleanSound = [Media.ID: URL]()
   @ObservationIgnored private var sharedContext: RenderContext?
   /// Seconds between frames on the loaded timeline.

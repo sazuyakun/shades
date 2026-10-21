@@ -52,7 +52,8 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
       guard case .video(let trackID, _) = layer.source else {
         return []
       }
-      return [trackID, layer.matteTrackID].compactMap { $0.map { NSNumber(value: $0) } }
+      return [trackID, layer.matteTrackID, layer.flowTrackID]
+        .compactMap { $0.map { NSNumber(value: $0) } }
     }
     return trackIDs.isEmpty ? nil : trackIDs
   }
@@ -67,6 +68,8 @@ struct CompositionLayer: Sendable {
   let source: LayerSource
   /// Where the clip's cut-out frames come from, when it has one.
   let matteTrackID: CMPersistentTrackID?
+  /// Where its media's optical flow frames come from, when it has one (for footage blur).
+  let flowTrackID: CMPersistentTrackID?
   /// The transition the clip is part of here, if any.
   let transition: TransitionPart?
 }

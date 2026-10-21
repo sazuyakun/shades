@@ -123,6 +123,19 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       let pose = place(time)
       let matte = layer.matteTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
         .map(LayerPicture.frame)
+      let length = shutter * clip.motionBlur
+      let footage = layer.flowTrackID.flatMap { trackID -> FootageBlur? in
+        guard clip.footageBlur, length > 0, let flow = request.sourceFrame(byTrackID: trackID)
+        else {
+          return nil
+        }
+        let half = MediaTime(seconds: length / 2, timescale: Shutter.timescale)
+        return FootageBlur(
+          flow: flow,
+          length: (clip.sourceTime(at: time + half) - clip.sourceTime(at: time - half)).seconds,
+          taps: instruction.quality.footageTaps,
+        )
+      }
       return picture.map { picture in
         RenderLayer(
           source: picture,
@@ -152,11 +165,12 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
             ? []
             : Shutter.poses(
               around: time,
-              length: shutter * clip.motionBlur,
+              length: length,
               size: drawSize,
               limit: instruction.quality.layerSamples,
               place: place,
             ),
+          footageBlur: footage,
         )
       }
     }

@@ -61,6 +61,13 @@ final class MetalRenderer: Sendable {
       fragment: "trailFragment",
       mixing: .replace,
     )
+    reachPipeline = try Self.makePipeline(
+      device: device,
+      library: library,
+      fragment: "reachFragment",
+      mixing: .replace,
+      format: Self.travelFormat,
+    )
     // why: in a 2×2×2 grid, red changes fastest, then green, then blue: each corner maps to itself.
     let identity: [Float] = (0 ..< 8).flatMap { (corner: Int) -> [Float] in
       let red = Float(corner & 1)
@@ -96,6 +103,11 @@ final class MetalRenderer: Sendable {
     guard let commands = queue.makeCommandBuffer() else {
       logger.error("frame.renderFailed reason=commandBuffer")
       throw .renderFailed
+    }
+    let travels = try layers.map { layer throws(EngineError) in
+      try layer.footageBlur.map { footage throws(EngineError) in
+        try travel(of: footage, commands: commands)
+      }
     }
     var mask: (any MTLTexture)?
     if let base = order.maskBase {
@@ -135,6 +147,7 @@ final class MetalRenderer: Sendable {
           sampling: effect?.sampling ?? samplePipeline,
           seed: seed,
           scale: scale,
+          travel: travels[index],
           commands: commands,
         )
         encoder = try startPass(on: outputTexture, clearing: false, commands: commands)
@@ -158,6 +171,7 @@ final class MetalRenderer: Sendable {
         isMasked: isMasked,
         seed: seed,
         backdrop: backdrop,
+        travel: travels[index],
         encoder: encoder,
       )
     }
@@ -190,6 +204,9 @@ final class MetalRenderer: Sendable {
   /// Half floats, so dozens of faint moments add up without banding.
   private static let trailFormat = MTLPixelFormat.rgba16Float
 
+  /// Two half floats: how far footage travels across and down, in uv.
+  private static let travelFormat = MTLPixelFormat.rg16Float
+
   /// The fragment that runs a plugin's or Claude's `effect` function between shading and
   /// compositing a layer (its signature is in docs/SYSTEM.md, Plugins).
   private static let effectWrapper = """
@@ -201,6 +218,7 @@ final class MetalRenderer: Sendable {
       texture2d<half> backdrop [[texture(2)]],
       texture3d<float> lut [[texture(3)]],
       texture2d<float> curves [[texture(4)]],
+      texture2d<float> travel [[texture(5)]],
       constant LayerLook &look [[buffer(0)]],
       constant LayerMaskShape *masks [[buffer(1)]],
       constant float2 *points [[buffer(2)]]
@@ -208,7 +226,7 @@ final class MetalRenderer: Sendable {
       constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
       float2 uv = look.isAdjustment != 0 ? in.screen : in.uv;
       texture2d<half> picture = look.isAdjustment != 0 ? backdrop : source;
-      float4 shaded = shade(in, picture, uv, lut, curves, look, masks, points, linearSampler);
+      float4 shaded = shade(in, picture, travel, uv, lut, curves, look, masks, points, linearSampler);
       float4 changed = effect(
         shaded, uv, look.effectTime, look.effectAmount, picture, linearSampler
       );
@@ -220,12 +238,13 @@ final class MetalRenderer: Sendable {
       texture2d<half> source [[texture(0)]],
       texture3d<float> lut [[texture(3)]],
       texture2d<float> curves [[texture(4)]],
+      texture2d<float> travel [[texture(5)]],
       constant LayerLook &look [[buffer(0)]],
       constant LayerMaskShape *masks [[buffer(1)]],
       constant float2 *points [[buffer(2)]]
     ) {
       constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-      float4 shaded = shade(in, source, in.uv, lut, curves, look, masks, points, linearSampler);
+      float4 shaded = shade(in, source, travel, in.uv, lut, curves, look, masks, points, linearSampler);
       float4 changed = effect(
         shaded, in.uv, look.effectTime, look.effectAmount, source, linearSampler
       );
@@ -244,6 +263,8 @@ final class MetalRenderer: Sendable {
   /// Draws a moving layer's averaged trail over the frame, or in place (blend modes).
   private let trailPipeline: any MTLRenderPipelineState
   private let replacingTrailPipeline: any MTLRenderPipelineState
+  /// Works out, from a flow frame, how far the footage smearing onto each point travels.
+  private let reachPipeline: any MTLRenderPipelineState
   /// The buffer moving layers' moments are summed in, kept between frames: at full size it's
   /// tens of megabytes. Frames are drawn in order on one queue, so sharing it is safe.
   private let trail = Mutex<(any MTLTexture)?>(nil)
@@ -467,6 +488,53 @@ final class MetalRenderer: Sendable {
     blit.endEncoding()
   }
 
+  /// How far the footage smearing onto each point of a footage-blurred layer travels while the
+  /// shutter is open, worked out from its flow frame at the flow's own (small) size.
+  private func travel(
+    of footage: FootageBlur,
+    commands: any MTLCommandBuffer,
+  ) throws(EngineError) -> any MTLTexture {
+    let flow = try texture(for: footage.flow)
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+      pixelFormat: Self.travelFormat,
+      width: flow.width,
+      height: flow.height,
+      mipmapped: false,
+    )
+    descriptor.usage = [.renderTarget, .shaderRead]
+    descriptor.storageMode = .private
+    guard let travel = device.makeTexture(descriptor: descriptor) else {
+      logger.error("frame.renderFailed reason=travel")
+      throw .renderFailed
+    }
+    let size = CGSize(width: flow.width, height: flow.height)
+    var look = LayerLook(
+      size: size,
+      grade: nil,
+      effects: nil,
+      crop: .none,
+      maskCount: 0,
+      blend: .normal,
+      isMasked: false,
+      isAdjustment: false,
+      hasLUT: false,
+      hasCurves: false,
+      seed: 0,
+      transition: nil,
+      clipTime: 0,
+      footage: footage,
+    )
+    var uniforms = FrameUniforms(stored: size, rotation: .identity, output: size)
+    let encoder = try startPass(on: travel, clearing: true, toClear: true, commands: commands)
+    encoder.setRenderPipelineState(reachPipeline)
+    encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
+    encoder.setFragmentBytes(&look, length: MemoryLayout<LayerLook>.stride, index: 0)
+    encoder.setFragmentTexture(flow, index: 0)
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+    encoder.endEncoding()
+    return travel
+  }
+
   /// The frame-sized buffer a moving layer's moments are summed in, made once per frame size.
   private func trailTexture(like output: any MTLTexture) throws(EngineError) -> any MTLTexture {
     let device = device
@@ -502,6 +570,7 @@ final class MetalRenderer: Sendable {
     sampling: any MTLRenderPipelineState,
     seed: Double,
     scale: Double,
+    travel: (any MTLTexture)?,
     commands: any MTLCommandBuffer,
   ) throws(EngineError) {
     let encoder = try startPass(on: trail, clearing: true, toClear: true, commands: commands)
@@ -524,6 +593,7 @@ final class MetalRenderer: Sendable {
         masks: layer.masks,
         transition: layer.transition,
         clipTime: layer.clipTime,
+        footageBlur: layer.footageBlur,
       )
       try encode(
         moment,
@@ -532,6 +602,7 @@ final class MetalRenderer: Sendable {
         isMasked: false,
         seed: seed,
         backdrop: nil,
+        travel: travel,
         encoder: encoder,
       )
     }
@@ -624,6 +695,7 @@ final class MetalRenderer: Sendable {
     isMasked: Bool,
     seed: Double,
     backdrop: (any MTLTexture)?,
+    travel: (any MTLTexture)?,
     encoder: any MTLRenderCommandEncoder,
   ) throws(EngineError) {
     let lut = layer.grade?.lut.flatMap { lutTexture(at: URL(filePath: $0)) }
@@ -643,10 +715,12 @@ final class MetalRenderer: Sendable {
       seed: seed,
       transition: layer.transition,
       clipTime: layer.clipTime,
+      footage: layer.footageBlur,
     )
-    let neutral = defaults.withLock { ($0.lut, $0.curves) }
+    let neutral = defaults.withLock { ($0.lut, $0.curves, $0.blank) }
     encoder.setFragmentTexture(lut ?? neutral.0, index: 3)
     encoder.setFragmentTexture(curveTexture ?? neutral.1, index: 4)
+    encoder.setFragmentTexture(travel ?? neutral.2, index: 5)
     encoder.setFragmentBytes(&look, length: MemoryLayout<LayerLook>.stride, index: 0)
     try encoder.setFragmentBuffer(buffer(of: masks.shapes), offset: 0, index: 1)
     try encoder.setFragmentBuffer(buffer(of: masks.points), offset: 0, index: 2)
@@ -829,6 +903,7 @@ struct RenderLayer {
     transition: TransitionStyle? = nil,
     clipTime: Double = 0,
     shutter: [LayerPose] = [],
+    footageBlur: FootageBlur? = nil,
   ) {
     self.source = source
     self.rotation = rotation
@@ -846,6 +921,7 @@ struct RenderLayer {
     self.transition = transition
     self.clipTime = clipTime
     self.shutter = shutter
+    self.footageBlur = footageBlur
   }
 
   // MARK: Internal
@@ -875,6 +951,8 @@ struct RenderLayer {
   /// Where it is at the moments the shutter is open, when it moves enough to blur; drawn once
   /// at `transform` otherwise.
   let shutter: [LayerPose]
+  /// How its footage smears along its own motion, when it's switched on and the flow is made.
+  let footageBlur: FootageBlur?
 
   /// Whether this is an adjustment clip, working on the frame drawn so far.
   var isAdjustment: Bool {

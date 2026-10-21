@@ -11,6 +11,10 @@ enum Shutter {
   /// The farthest, in pixels, a layer may jump between two drawn moments before the steps show.
   static let step = 1.5
 
+  /// A timescale fine enough for many moments inside even a short shutter (the timeline's 600
+  /// would round them together), and a multiple of it so sums stay exact.
+  static let timescale: Int32 = 48000
+
   /// The layer's poses at the moments the shutter is open: `length` seconds centred on `time`,
   /// enough of them (up to `limit`) that it never jumps more than `step` pixels in a `size`
   /// frame. Empty when it barely moves, so it's drawn once, sharp. `place` gives its pose at
@@ -41,10 +45,6 @@ enum Shutter {
   }
 
   // MARK: Private
-
-  /// A timescale fine enough for many moments inside even a short shutter (the timeline's 600
-  /// would round them together), and a multiple of it so sums stay exact.
-  private static let timescale: Int32 = 48000
 
   private static func moment(_ seconds: Double) -> MediaTime {
     MediaTime(seconds: seconds, timescale: timescale)

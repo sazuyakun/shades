@@ -107,6 +107,9 @@ struct LayerLook {
   float cropTop;
   float cropBottom;
   int maskCount;             // how many of the layer's masks are bound
+  float footageLength; // seconds of source the shutter spans; 0 = no footage blur
+  int footageTaps;     // the most taps a pixel of moving footage is smeared over
+  float flowScale;     // a flow value's distance from 0.5 times this is pictures a second
 };
 
 // Must match `LayerMaskShape` in LayerMaskShape.swift: one layer mask, placed for this frame.
@@ -135,9 +138,30 @@ static float luma(float3 c) {
   return dot(c, float3(0.2126, 0.7152, 0.0722));
 }
 
-// The source, softened by `blur` (a small disc of taps around the point).
-static float4 sampleSoft(texture2d<half> source, sampler s, float2 uv, constant LayerLook &look) {
-  float4 color = float4(source.sample(s, uv));
+// The source at `uv`, smeared over `travel` (how far the footage there moves while the shutter
+// is open, from `reachFragment`), with taps spread along the path.
+static float4 sampleMoving(texture2d<half> source, texture2d<float> travel, sampler s, float2 uv, constant LayerLook &look) {
+  float4 here = float4(source.sample(s, uv));
+  if (look.footageLength <= 0) {
+    return here;
+  }
+  float2 path = travel.sample(s, uv).rg;
+  float2 size = float2(source.get_width(), source.get_height());
+  int taps = min(int(round(length(path * size) / 1.5)), look.footageTaps);
+  if (taps < 2) {
+    return here;
+  }
+  float4 sum = float4(0);
+  for (int i = 0; i < taps; i++) {
+    sum += float4(source.sample(s, uv + path * (float(i) / float(taps - 1) - 0.5)));
+  }
+  return sum / float(taps);
+}
+
+// The source, smeared along its motion, then softened by `blur` (a small disc of taps around
+// the point).
+static float4 sampleSoft(texture2d<half> source, texture2d<float> travel, sampler s, float2 uv, constant LayerLook &look) {
+  float4 color = sampleMoving(source, travel, s, uv, look);
   if (look.blur <= 0) {
     return color;
   }
@@ -305,8 +329,8 @@ static float maskCoverage(float2 p, float aspect, constant LayerLook &look, cons
 
 // The layer's picture keyed, graded and given its effects: straight colour and alpha, before
 // it's masked, wiped or mixed with what's under it.
-static float4 shade(VertexOut in, texture2d<half> picture, float2 uv, texture3d<float> lut, texture2d<float> curves, constant LayerLook &look, constant LayerMaskShape *masks, constant float2 *points, sampler s) {
-  float4 color = sampleSoft(picture, s, uv, look);
+static float4 shade(VertexOut in, texture2d<half> picture, texture2d<float> travel, float2 uv, texture3d<float> lut, texture2d<float> curves, constant LayerLook &look, constant LayerMaskShape *masks, constant float2 *points, sampler s) {
+  float4 color = sampleSoft(picture, travel, s, uv, look);
   float alpha = color.a;
   float3 rgb = alpha > 0 ? color.rgb / alpha : color.rgb;
   alpha *= cropCoverage(in.upright, look) * maskCoverage(in.upright, in.aspect, look, masks, points);
@@ -361,6 +385,7 @@ fragment float4 layerFragment(
   texture2d<half> backdrop [[texture(2)]],
   texture3d<float> lut [[texture(3)]],
   texture2d<float> curves [[texture(4)]],
+  texture2d<float> travel [[texture(5)]],
   constant LayerLook &look [[buffer(0)]],
   constant LayerMaskShape *masks [[buffer(1)]],
   constant float2 *points [[buffer(2)]]
@@ -368,7 +393,7 @@ fragment float4 layerFragment(
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
   float2 uv = look.isAdjustment != 0 ? in.screen : in.uv;
   texture2d<half> picture = look.isAdjustment != 0 ? backdrop : source;
-  float4 shaded = shade(in, picture, uv, lut, curves, look, masks, points, linearSampler);
+  float4 shaded = shade(in, picture, travel, uv, lut, curves, look, masks, points, linearSampler);
   return composite(shaded, in, mask, backdrop, look, linearSampler);
 }
 
@@ -385,12 +410,13 @@ fragment float4 sampleFragment(
   texture2d<half> source [[texture(0)]],
   texture3d<float> lut [[texture(3)]],
   texture2d<float> curves [[texture(4)]],
+  texture2d<float> travel [[texture(5)]],
   constant LayerLook &look [[buffer(0)]],
   constant LayerMaskShape *masks [[buffer(1)]],
   constant float2 *points [[buffer(2)]]
 ) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-  return weighted(shade(in, source, in.uv, lut, curves, look, masks, points, linearSampler), in);
+  return weighted(shade(in, source, travel, in.uv, lut, curves, look, masks, points, linearSampler), in);
 }
 
 // Draws a moving layer's trail (its moments summed, so averaged) over the frame, then masks,
@@ -407,6 +433,41 @@ fragment float4 trailFragment(
   float alpha = saturate(sum.a);
   float3 rgb = alpha > 0 ? sum.rgb / sum.a : float3(0);
   return composite(float4(rgb, alpha), in, mask, backdrop, look, linearSampler);
+}
+
+// How far (in uv) the footage at `uv` moves while the shutter is open, from its optical flow.
+// Motion within one stored step of still is compression noise, not movement.
+static float2 travelAt(texture2d<half> flow, sampler s, float2 uv, constant LayerLook &look) {
+  float2 speed = (float2(flow.sample(s, uv).rg) - 0.5) * look.flowScale;
+  float moving = max(length(speed) - look.flowScale / 255.0, 0.0);
+  return moving > 0 ? normalize(speed) * moving * look.footageLength : float2(0);
+}
+
+// For each point of a flow frame, drawn at the flow's size, the travel that smears onto it: its
+// own, or the longest of its neighbours' whose smear reaches it along their path. That's how a
+// moving thing's blur spills past its edges onto the still background around it.
+fragment float4 reachFragment(
+  VertexOut in [[stage_in]],
+  texture2d<half> flow [[texture(0)]],
+  constant LayerLook &look [[buffer(0)]]
+) {
+  constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
+  float2 texel = 1.0 / float2(flow.get_width(), flow.get_height());
+  float2 best = travelAt(flow, linearSampler, in.screen, look);
+  for (int i = 0; i < 8; i++) {
+    float angle = float(i) * 0.7853982;
+    float2 direction = float2(cos(angle), sin(angle));
+    for (int step = 1; step <= 24; step++) {
+      float2 offset = direction * texel * float(step);
+      float2 travel = travelAt(flow, linearSampler, in.screen + offset, look);
+      float along = length(travel);
+      if (along > length(best) && length(offset) <= along * 0.5
+          && abs(dot(normalize(offset), travel / along)) > 0.9) {
+        best = travel;
+      }
+    }
+  }
+  return float4(best, 0, 0);
 }
 
 // A cut-out's gray value, written into the one-channel mask.

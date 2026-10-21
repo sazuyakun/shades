@@ -24,6 +24,7 @@ struct LayerLook {
     seed: Double,
     transition: TransitionStyle?,
     clipTime: Double,
+    footage: FootageBlur? = nil,
   ) {
     let grade = grade ?? Grade()
     let effects = effects ?? Effects()
@@ -85,6 +86,9 @@ struct LayerLook {
       case .iris: 3
       default: 0
       }
+    footageLength = Float(abs(footage?.length ?? 0))
+    footageTaps = Int32(footage?.taps ?? 0)
+    flowScale = Float(2 * FlowVideo.range)
   }
 
   // MARK: Internal
@@ -139,5 +143,8 @@ struct LayerLook {
   let cropTop: Float
   let cropBottom: Float
   let maskCount: Int32
+  let footageLength: Float
+  let footageTaps: Int32
+  let flowScale: Float
 
 }

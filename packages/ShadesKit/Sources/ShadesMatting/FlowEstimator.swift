@@ -1,3 +1,4 @@
+import CoreImage
 import CoreVideo
 import Foundation
 import ShadesCore
@@ -39,8 +40,15 @@ enum FlowEstimator {
 
   // MARK: Private
 
-  /// The flow (pixels moved, two floats a pixel) resampled to `width`×`height` and written as
-  /// speeds in pictures a second.
+  /// Shared across frames: making a CoreImage context is slow, and one is safe to share. No
+  /// colour management, so stored speeds pass through untouched.
+  private static let context = CIContext(options: [
+    .workingColorSpace: NSNull(),
+    .outputColorSpace: NSNull(),
+  ])
+
+  /// The flow (pixels moved, two floats a pixel) resampled to `width`×`height`, written as
+  /// speeds in pictures a second and steadied.
   private static func encoded(
     _ flow: CVPixelBuffer,
     interval: Double,
@@ -56,21 +64,50 @@ enum FlowEstimator {
     let flowWidth = CVPixelBufferGetWidth(flow)
     let flowHeight = CVPixelBufferGetHeight(flow)
     let rowBytes = CVPixelBufferGetBytesPerRow(flow)
-    let scale = { (value: Double) in UInt8((FlowVideo.value(of: value) * 255).rounded()) }
+    let stored = { (speed: Double) in UInt8((FlowVideo.value(of: speed) * 255).rounded()) }
     for row in 0 ..< height {
-      let sourceRow = base + (row * flowHeight / height) * rowBytes
-      let vectors = sourceRow.assumingMemoryBound(to: Float.self)
+      let vectors = (base + (row * flowHeight / height) * rowBytes)
+        .assumingMemoryBound(to: Float.self)
       for column in 0 ..< width {
         let at = (column * flowWidth / width) * 2
-        let across = Double(vectors[at]) / Double(flowWidth) / interval
-        let down = Double(vectors[at + 1]) / Double(flowHeight) / interval
         let pixel = (row * width + column) * 4
-        bytes[pixel + 1] = scale(down)
-        bytes[pixel + 2] = scale(across)
+        bytes[pixel + 1] = stored(Double(vectors[at + 1]) / Double(flowHeight) / interval)
+        bytes[pixel + 2] = stored(Double(vectors[at]) / Double(flowWidth) / interval)
         bytes[pixel + 3] = 255
       }
     }
-    return bytes
+    return steadied(bytes, width: width, height: height)
+  }
+
+  /// BGRA `bytes` with each channel replaced by the median of its 3×3 neighbourhood: Vision's
+  /// odd stray vectors at edges would otherwise smear the picture sideways. A median only picks
+  /// values already there, so the stored speeds stay exact.
+  private static func steadied(_ bytes: [UInt8], width: Int, height: Int) -> [UInt8] {
+    let bounds = CGRect(x: 0, y: 0, width: width, height: height)
+    let image = CIImage(
+      bitmapData: Data(bytes),
+      bytesPerRow: width * 4,
+      size: bounds.size,
+      format: .BGRA8,
+      colorSpace: nil,
+    )
+    .clampedToExtent()
+    .applyingFilter("CIMedianFilter")
+    var steadied = bytes
+    steadied.withUnsafeMutableBytes { buffer in
+      guard let base = buffer.baseAddress else {
+        return
+      }
+      context.render(
+        image,
+        toBitmap: base,
+        rowBytes: width * 4,
+        bounds: bounds,
+        format: .BGRA8,
+        colorSpace: nil,
+      )
+    }
+    return steadied
   }
 
 }

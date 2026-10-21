@@ -23,14 +23,15 @@ extension Composition {
   public static let timePitchAlgorithm = AVAudioTimePitchAlgorithm.spectral
 
   /// Builds the project's timeline from its original media, for rendering frames or a file:
-  /// with cut-outs from `mattes` and noise-reduced sound from `cleanSound`, drawn in the middle
-  /// of a black `canvas` when one is given. Pass a long-lived `context` when rendering often; a
-  /// new one compiles the shaders again.
+  /// with cut-outs from `mattes`, optical flow from `flows` (footage blur) and noise-reduced
+  /// sound from `cleanSound`, drawn in the middle of a black `canvas` when one is given. Pass a
+  /// long-lived `context` when rendering often; a new one compiles the shaders again.
   @MainActor
   public static func forRendering(
     _ project: Project,
     context: RenderContext? = nil,
     mattes: [Media.ID: URL] = [:],
+    flows: [Media.ID: URL] = [:],
     cleanSound: [Media.ID: URL] = [:],
     canvas: CGSize? = nil,
   ) async throws(EngineError) -> Composition {
@@ -50,6 +51,7 @@ extension Composition {
       frameCounter: FrameCounter(),
       quality: .full,
       mattes: mattes,
+      flows: flows,
       cleanSound: cleanSound,
       canvas: canvas,
     )
@@ -80,7 +82,8 @@ extension Composition {
 
   /// Builds the playable form of the project's timeline, reading each media file from
   /// `sources` (its proxy) when given there. Clips whose media has a cut-out in `mattes` get it
-  /// as a matching track, for depth slots, and clips set to clean sound play `cleanSound`. With
+  /// as a matching track, for depth slots, likewise their optical flow in `flows` (footage blur),
+  /// and clips set to clean sound play `cleanSound`. With
   /// a `canvas`, frames are that size, with the picture in the middle on black. `quality` sets
   /// how finely motion blur is drawn.
   @MainActor
@@ -93,6 +96,7 @@ extension Composition {
     quality: RenderQuality,
     sources: [Media.ID: URL] = [:],
     mattes: [Media.ID: URL] = [:],
+    flows: [Media.ID: URL] = [:],
     cleanSound: [Media.ID: URL] = [:],
     canvas: CGSize? = nil,
   ) async throws(EngineError) -> Composition {
@@ -108,6 +112,7 @@ extension Composition {
       var videoTrack: AVMutableCompositionTrack?
       var audioTrack: AVMutableCompositionTrack?
       var matteTrack: AVMutableCompositionTrack?
+      var flowTrack: AVMutableCompositionTrack?
       var placed = [PlacedClip]()
       for clip in track.clips {
         guard let mediaID = clip.mediaID else {
@@ -148,24 +153,30 @@ extension Composition {
               try piece.insert(from: video, into: target)
             }
             var hasMatte = false
-            if
-              let matteURL = mattes[media.id],
-              let matte = try await library.tracks(at: matteURL).video
-            {
-              let target = try matteTrack ?? addTrack(.video, to: asset)
-              matteTrack = target
-              // why: a matte can end a frame early; only the part it covers is used.
-              let available = try await matte.load(.timeRange).end
-              let covered = pieces.compactMap { $0.ending(by: available) }
-              for piece in covered {
-                try piece.insert(from: matte, into: target)
-              }
-              hasMatte = !covered.isEmpty
+            if let url = mattes[media.id] {
+              hasMatte = try await insertAnalysis(
+                url,
+                pieces: pieces,
+                into: &matteTrack,
+                of: asset,
+                library: library,
+              )
+            }
+            var hasFlow = false
+            if let url = flows[media.id] {
+              hasFlow = try await insertAnalysis(
+                url,
+                pieces: pieces,
+                into: &flowTrack,
+                of: asset,
+                library: library,
+              )
             }
             placed.append(PlacedClip(
               clip: clip,
               rotation: source.rotation,
               hasMatte: hasMatte,
+              hasFlow: hasFlow,
               drawn: nil,
             ))
           }
@@ -201,6 +212,7 @@ extension Composition {
         videoLayers.append(VideoLayer(
           trackID: videoTrack?.trackID,
           matteTrackID: matteTrack?.trackID,
+          flowTrackID: flowTrack?.trackID,
           handleTrackID: handleTrackID,
           clips: placed,
           transitions: track.transitions,
@@ -324,6 +336,31 @@ extension Composition {
       }
     }
     return moments.filter { clip.timelineStart <= $0 && $0 <= clip.timelineEnd }.sorted()
+  }
+
+  /// Puts the parts of an analysis video (a cut-out or optical flow) matching a clip's `pieces`
+  /// of its media into `track`, adding the track the first time. Returns whether any of it was
+  /// there to use.
+  @MainActor
+  private static func insertAnalysis(
+    _ url: URL,
+    pieces: [MediaPiece],
+    into track: inout AVMutableCompositionTrack?,
+    of asset: AVMutableComposition,
+    library: MediaLibrary,
+  ) async throws -> Bool {
+    guard let video = try await library.tracks(at: url).video else {
+      return false
+    }
+    let target = try track ?? addTrack(.video, to: asset)
+    track = target
+    // why: an analysis video can end a frame early; only the part it covers is used.
+    let available = try await video.load(.timeRange).end
+    let covered = pieces.compactMap { $0.ending(by: available) }
+    for piece in covered {
+      try piece.insert(from: video, into: target)
+    }
+    return !covered.isEmpty
   }
 
   /// Adds a track holding the frames transitions on `track` show past their clips' edges: the
@@ -490,6 +527,7 @@ extension Composition {
           clipID: $0.id,
           source: .text,
           matteTrackID: nil,
+          flowTrackID: nil,
           transition: nil,
         ) }
       }
@@ -517,6 +555,7 @@ private struct VideoLayer {
 
   let trackID: CMPersistentTrackID?
   let matteTrackID: CMPersistentTrackID?
+  let flowTrackID: CMPersistentTrackID?
   let handleTrackID: CMPersistentTrackID?
   let clips: [PlacedClip]
   let transitions: [(outgoing: Clip, incoming: Clip, transition: Transition)]
@@ -568,6 +607,7 @@ private struct VideoLayer {
       clipID: placed.clip.id,
       source: source,
       matteTrackID: placed.hasMatte && !fromHandles ? matteTrackID : nil,
+      flowTrackID: placed.hasFlow && !fromHandles ? flowTrackID : nil,
       transition: transition,
     )
   }
@@ -576,13 +616,34 @@ private struct VideoLayer {
 
 // MARK: - PlacedClip
 
-/// A clip placed in the composition: its rotation, whether its cut-out came with it, and how
-/// it's drawn when it isn't video (a still or a drawing).
+/// A clip placed in the composition: its rotation, whether its cut-out and optical flow came
+/// with it, and how it's drawn when it isn't video (a still or a drawing).
 private struct PlacedClip {
+
+  // MARK: Lifecycle
+
+  init(
+    clip: Clip,
+    rotation: CGAffineTransform,
+    hasMatte: Bool,
+    hasFlow: Bool = false,
+    drawn: LayerSource?,
+  ) {
+    self.clip = clip
+    self.rotation = rotation
+    self.hasMatte = hasMatte
+    self.hasFlow = hasFlow
+    self.drawn = drawn
+  }
+
+  // MARK: Internal
+
   let clip: Clip
   let rotation: CGAffineTransform
   let hasMatte: Bool
+  let hasFlow: Bool
   let drawn: LayerSource?
+
 }
 
 // MARK: - TrackStructure
