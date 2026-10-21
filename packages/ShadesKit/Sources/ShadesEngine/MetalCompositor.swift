@@ -38,24 +38,18 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     let isCanvas = CVPixelBufferGetWidth(output) != width || CVPixelBufferGetHeight(output) !=
       height
     let time = MediaTime(seconds: request.compositionTime.seconds)
-    let camera = instruction.renderState.camera(at: time)
+    let shutter = instruction.renderState.shutter()
     let layers = instruction.layers.compactMap { layer -> RenderLayer? in
       guard let style = instruction.renderState.style(of: layer.clipID), style.isVisible else {
         return nil
       }
-      let transition = layer.transition.map { part in
-        TransitionStyle(
-          kind: part.kind,
-          progress: part.progress(at: time),
-          isIncoming: part.isIncoming,
-        )
-      }
+      let transition = layer.transition?.style(at: time)
       let opacity = style.clip.opacity(at: time) * (transition?.opacity ?? 1)
       guard opacity > 0 else {
         return nil
       }
       let clip = style.clip
-      var transform = clip.transform(at: time)
+      var offset = CGPoint.zero
       let picture: LayerPicture?
       let rotation: CGAffineTransform
       var isText = false
@@ -88,8 +82,6 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       case .adjustment:
         picture = .backdrop
         rotation = .identity
-        // why: an adjustment works on the whole frame, wherever the clip or camera would move it.
-        transform = .identity
 
       case .text:
         let drawn = clip.text.flatMap { content in
@@ -102,20 +94,34 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           )
         }
         picture = drawn.map { LayerPicture.surface($0.surface) }
-        transform.x += drawn.map { Double($0.offset.x) } ?? 0
-        transform.y += drawn.map { Double($0.offset.y) } ?? 0
+        offset = drawn?.offset ?? .zero
         rotation = .identity
         isText = true
       }
-      transform.x += transition?.offsetX ?? 0
+      let isAdjustment = clip.source == .adjustment
+      let follows = style.followsCamera && !isAdjustment
+      let place = { (moment: MediaTime) -> LayerPose in
+        // why: an adjustment works on the whole frame, wherever the clip or camera would move it.
+        guard !isAdjustment else {
+          return LayerPose(transform: .identity, camera: .identity)
+        }
+        var transform = clip.transform(at: moment)
+        transform.x += Double(offset.x) + (layer.transition?.style(at: moment).offsetX ?? 0)
+        transform.y += Double(offset.y)
+        return LayerPose(
+          transform: transform,
+          camera: follows ? instruction.renderState.camera(at: moment) : .identity,
+        )
+      }
+      let pose = place(time)
       let matte = layer.matteTrackID.flatMap { request.sourceFrame(byTrackID: $0) }
         .map(LayerPicture.frame)
       return picture.map { picture in
         RenderLayer(
           source: picture,
           rotation: rotation,
-          transform: transform,
-          camera: style.followsCamera && clip.source != .adjustment ? camera : .identity,
+          transform: pose.transform,
+          camera: pose.camera,
           opacity: opacity,
           depth: clip.depth,
           matte: matte,
@@ -129,6 +135,15 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           blend: clip.blend,
           transition: transition,
           clipTime: clip.sourceTime(at: time).seconds,
+          shutter: isAdjustment
+            ? []
+            : Shutter.poses(
+              around: time,
+              length: shutter * clip.motionBlur,
+              size: instruction.pictureSize,
+              limit: instruction.quality.layerSamples,
+              place: place,
+            ),
         )
       }
     }

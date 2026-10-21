@@ -89,6 +89,7 @@ public final class Player {
       renderState: renderState,
       renderContext: renderContext(),
       frameCounter: frameCounter,
+      quality: .preview,
       sources: proxies,
       mattes: mattes,
       cleanSound: cleanSound,

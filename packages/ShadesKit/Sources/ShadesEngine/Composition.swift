@@ -45,6 +45,7 @@ extension Composition {
       renderState: renderState,
       renderContext: renderContext,
       frameCounter: FrameCounter(),
+      quality: .full,
       mattes: mattes,
       cleanSound: cleanSound,
       canvas: canvas,
@@ -76,7 +77,8 @@ extension Composition {
   /// Builds the playable form of the project's timeline, reading each media file from
   /// `sources` (its proxy) when given there. Clips whose media has a cut-out in `mattes` get it
   /// as a matching track, for depth slots, and clips set to clean sound play `cleanSound`. With
-  /// a `canvas`, frames are that size, with the picture in the middle on black.
+  /// a `canvas`, frames are that size, with the picture in the middle on black. `quality` sets
+  /// how finely motion blur is drawn.
   @MainActor
   static func build(
     _ project: Project,
@@ -84,6 +86,7 @@ extension Composition {
     renderState: RenderState,
     renderContext: RenderContext,
     frameCounter: FrameCounter,
+    quality: RenderQuality,
     sources: [Media.ID: URL] = [:],
     mattes: [Media.ID: URL] = [:],
     cleanSound: [Media.ID: URL] = [:],
@@ -224,6 +227,7 @@ extension Composition {
       renderState: renderState,
       renderContext: renderContext,
       frameCounter: frameCounter,
+      quality: quality,
     )
     return Composition(
       asset: asset,
@@ -413,6 +417,7 @@ extension Composition {
     renderState: RenderState,
     renderContext: RenderContext,
     frameCounter: FrameCounter,
+    quality: RenderQuality,
   ) -> [CompositionInstruction] {
     var edges: Set = [MediaTime.zero, duration]
     for clip in layers.flatMap({ $0.clips.map(\.clip) }) + text.flatMap(\.self) {
@@ -451,6 +456,7 @@ extension Composition {
         renderState: renderState,
         renderContext: renderContext,
         frameCounter: frameCounter,
+        quality: quality,
       )
     }
   }

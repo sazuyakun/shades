@@ -16,6 +16,7 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
     renderState: RenderState,
     renderContext: RenderContext,
     frameCounter: FrameCounter,
+    quality: RenderQuality,
   ) {
     self.timeRange = timeRange
     self.layers = layers
@@ -23,6 +24,7 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
     self.renderState = renderState
     self.renderContext = renderContext
     self.frameCounter = frameCounter
+    self.quality = quality
   }
 
   // MARK: Internal
@@ -37,6 +39,8 @@ final class CompositionInstruction: NSObject, AVVideoCompositionInstructionProto
   let renderState: RenderState
   let renderContext: RenderContext
   let frameCounter: FrameCounter
+  /// How finely motion blur is drawn: lighter for playback.
+  let quality: RenderQuality
 
   var requiredSourceTrackIDs: [NSValue]? {
     let trackIDs = layers.flatMap { layer -> [NSNumber] in
@@ -74,6 +78,11 @@ struct TransitionPart: Sendable {
   /// How far through the transition `time` is, 0 to 1.
   func progress(at time: MediaTime) -> Double {
     min(max((time - start).seconds / max(duration.seconds, 0.001), 0), 1)
+  }
+
+  /// How the transition shapes the clip at `time`.
+  func style(at time: MediaTime) -> TransitionStyle {
+    TransitionStyle(kind: kind, progress: progress(at: time), isIncoming: isIncoming)
   }
 }
 

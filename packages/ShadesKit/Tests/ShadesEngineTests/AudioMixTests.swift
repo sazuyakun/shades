@@ -37,6 +37,7 @@ struct AudioMixTests {
       renderState: RenderState(),
       renderContext: RenderContext(),
       frameCounter: FrameCounter(),
+      quality: .full,
     )
     let parameters = try #require(composition.audioMix(for: timeline).inputParameters.first)
     var start: Float = 0

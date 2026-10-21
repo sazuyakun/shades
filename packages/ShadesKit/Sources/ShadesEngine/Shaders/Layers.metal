@@ -268,6 +268,41 @@ fragment float4 layerFragment(
   return composite(shaded, in, mask, backdrop, look, linearSampler);
 }
 
+// One moment of a moving layer, premultiplied and weighted by its share of the shutter (the
+// quad's opacity), ready to be added into the layer's trail.
+static float4 weighted(float4 shaded, VertexOut in) {
+  float alpha = shaded.a * in.opacity;
+  return float4(shaded.rgb * alpha, alpha);
+}
+
+// Adds one moment of a moving layer, keyed, graded and given its effects, into its trail.
+fragment float4 sampleFragment(
+  VertexOut in [[stage_in]],
+  texture2d<half> source [[texture(0)]],
+  texture3d<float> lut [[texture(3)]],
+  texture2d<float> curves [[texture(4)]],
+  constant LayerLook &look [[buffer(0)]]
+) {
+  constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
+  return weighted(shade(in, source, in.uv, lut, curves, look, linearSampler), in);
+}
+
+// Draws a moving layer's trail (its moments summed, so averaged) over the frame, then masks,
+// wipes and mixes it like any layer.
+fragment float4 trailFragment(
+  VertexOut in [[stage_in]],
+  texture2d<half> trail [[texture(0)]],
+  texture2d<half> mask [[texture(1)]],
+  texture2d<half> backdrop [[texture(2)]],
+  constant LayerLook &look [[buffer(0)]]
+) {
+  constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
+  float4 sum = float4(trail.sample(linearSampler, in.screen));
+  float alpha = saturate(sum.a);
+  float3 rgb = alpha > 0 ? sum.rgb / sum.a : float3(0);
+  return composite(float4(rgb, alpha), in, mask, backdrop, look, linearSampler);
+}
+
 // A cut-out's gray value, written into the one-channel mask.
 fragment half4 matteFragment(VertexOut in [[stage_in]], texture2d<half> source [[texture(0)]]) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);

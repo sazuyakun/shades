@@ -348,3 +348,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Apple's GPU image pipeline: a `CIImage` is a recipe (scale this, place it over that), and a `CIContext` renders the recipe into real pixels.
 **JS/TS analogy:** Like building a chain of canvas `drawImage` and `transform` calls lazily, then running it all at once on the GPU.
 **In Shades:** `RenderContext.place(_:onCanvas:)` scales the 4:3 picture onto the black export canvas.
+
+## Closures as parameters (`(MediaTime) -> LayerPose`)
+**What it is:** A function type written as `(Input) -> Output`. A function can take another function (a closure) as a parameter and call it as often as it needs. When the closure is the last argument, it can go after the parentheses (a "trailing closure").
+**JS/TS analogy:** Passing a callback, e.g. `poses(time, (moment) => place(moment))`. The type `(MediaTime) -> LayerPose` is TypeScript's `(moment: MediaTime) => LayerPose`.
+**In Shades:** `Shutter.poses(around:…place:)` asks the compositor's `place` closure where a layer is at each moment inside the shutter.
+
+## Accumulation buffers (additive blending into half floats)
+**What it is:** A texture you draw into many times with "add" blending (`one + one`), so every draw sums onto what's there. Each draw is weighted (here by 1/n), so the result is an average. It uses half floats (`rgba16Float`), because 8-bit colour would lose the faint 1/32 shares to rounding.
+**JS/TS analogy:** Like adding many `ImageData` arrays into one `Float32Array` and dividing at the end, but done by the GPU.
+**In Shades:** `MetalRenderer.accumulate` sums a moving layer's moments into its trail for motion blur. `trailFragment` then draws the average like any layer.

@@ -29,11 +29,19 @@ public final class RenderState: Sendable {
     }
     self.styles.withLock { $0 = styles }
     camera.withLock { $0 = timeline.camera }
+    shutterLength.withLock {
+      $0 = timeline.shutterAngle / 360 / Double(timeline.format.framesPerSecond)
+    }
   }
 
   /// Where the timeline's camera is at `time`.
   func camera(at time: MediaTime) -> ClipTransform {
     camera.withLock { $0 }.transform(at: time, fixed: .identity)
+  }
+
+  /// How long the shutter is open each frame, in seconds: how far back and on moving layers blur.
+  func shutter() -> Double {
+    shutterLength.withLock { $0 }
   }
 
   /// How the clip is drawn, if it's on the timeline.
@@ -45,6 +53,7 @@ public final class RenderState: Sendable {
 
   private let styles = Mutex<[Clip.ID: LayerStyle]>([:])
   private let camera = Mutex<[Keyframe]>([])
+  private let shutterLength = Mutex<Double>(0)
 
 }
 

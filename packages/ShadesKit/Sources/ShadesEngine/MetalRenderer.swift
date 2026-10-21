@@ -27,20 +27,39 @@ final class MetalRenderer: Sendable {
       device: device,
       library: library,
       fragment: "layerFragment",
-      blending: true,
+      mixing: .over,
     )
     replacingPipeline = try Self.makePipeline(
       device: device,
       library: library,
       fragment: "layerFragment",
-      blending: false,
+      mixing: .replace,
     )
     mattePipeline = try Self.makePipeline(
       device: device,
       library: library,
       fragment: "matteFragment",
-      blending: false,
+      mixing: .replace,
       format: .r8Unorm,
+    )
+    samplePipeline = try Self.makePipeline(
+      device: device,
+      library: library,
+      fragment: "sampleFragment",
+      mixing: .add,
+      format: Self.trailFormat,
+    )
+    trailPipeline = try Self.makePipeline(
+      device: device,
+      library: library,
+      fragment: "trailFragment",
+      mixing: .over,
+    )
+    replacingTrailPipeline = try Self.makePipeline(
+      device: device,
+      library: library,
+      fragment: "trailFragment",
+      mixing: .replace,
     )
     // why: in a 2×2×2 grid, red changes fastest, then green, then blue: each corner maps to itself.
     let identity: [Float] = (0 ..< 8).flatMap { (corner: Int) -> [Float] in
@@ -105,6 +124,25 @@ final class MetalRenderer: Sendable {
         encoder = try startPass(on: outputTexture, clearing: false, commands: commands)
       }
       let effect = layer.effects?.shader.flatMap { effectPipelines(at: URL(filePath: $0)) }
+      if layer.shutter.count > 1 {
+        encoder.endEncoding()
+        let trail = try trailTexture(like: outputTexture)
+        try accumulate(
+          layer,
+          into: trail,
+          sampling: effect?.sampling ?? samplePipeline,
+          seed: seed,
+          commands: commands,
+        )
+        encoder = try startPass(on: outputTexture, clearing: false, commands: commands)
+        encoder.setRenderPipelineState(layer.needsBackdrop
+          ? replacingTrailPipeline
+          : trailPipeline)
+        encoder.setFragmentTexture(isMasked ? mask : blank, index: 1)
+        encoder.setFragmentTexture(backdrop ?? blank, index: 2)
+        try drawTrail(trail, of: layer, size: outputSize, isMasked: isMasked, encoder: encoder)
+        continue
+      }
       encoder.setRenderPipelineState(layer.needsBackdrop
         ? effect?.replacing ?? replacingPipeline
         : effect?.blending ?? pipeline)
@@ -145,6 +183,9 @@ final class MetalRenderer: Sendable {
   /// LUTs and curves kept at most; a LUT is up to a few megabytes on the GPU.
   private static let lookCacheLimit = 16
 
+  /// Half floats, so dozens of faint moments add up without banding.
+  private static let trailFormat = MTLPixelFormat.rgba16Float
+
   /// The fragment that runs a plugin's or Claude's `effect` function between shading and
   /// compositing a layer (its signature is in docs/SYSTEM.md, Plugins).
   private static let effectWrapper = """
@@ -167,6 +208,21 @@ final class MetalRenderer: Sendable {
       );
       return composite(changed, in, mask, backdrop, look, linearSampler);
     }
+
+    fragment float4 effectSampleFragment(
+      VertexOut in [[stage_in]],
+      texture2d<half> source [[texture(0)]],
+      texture3d<float> lut [[texture(3)]],
+      texture2d<float> curves [[texture(4)]],
+      constant LayerLook &look [[buffer(0)]]
+    ) {
+      constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
+      float4 shaded = shade(in, source, in.uv, lut, curves, look, linearSampler);
+      float4 changed = effect(
+        shaded, in.uv, look.effectTime, look.effectAmount, source, linearSampler
+      );
+      return weighted(changed, in);
+    }
     """
 
   private let layersSource: String
@@ -175,6 +231,14 @@ final class MetalRenderer: Sendable {
   private let pipeline: any MTLRenderPipelineState
   private let replacingPipeline: any MTLRenderPipelineState
   private let mattePipeline: any MTLRenderPipelineState
+  /// Adds one moment of a moving layer into its trail.
+  private let samplePipeline: any MTLRenderPipelineState
+  /// Draws a moving layer's averaged trail over the frame, or in place (blend modes).
+  private let trailPipeline: any MTLRenderPipelineState
+  private let replacingTrailPipeline: any MTLRenderPipelineState
+  /// The buffer moving layers' moments are summed in, kept between frames: at full size it's
+  /// tens of megabytes. Frames are drawn in order on one queue, so sharing it is safe.
+  private let trail = Mutex<(any MTLTexture)?>(nil)
   /// Textures bound when a layer has no LUT, curves, mask or backdrop. Held in a lock because
   /// Metal textures can't be shared freely between threads.
   private let defaults: Mutex<DefaultTextures>
@@ -213,25 +277,37 @@ final class MetalRenderer: Sendable {
     }
   }
 
-  /// A pipeline drawing with `fragment`: mixed over what's there by alpha (`blending`), or
-  /// writing its result as is (blend modes and adjustments mix with the backdrop themselves).
+  /// A pipeline drawing with `fragment` into `format`, its result mixed with what's there by
+  /// `mixing`.
   private static func makePipeline(
     device: any MTLDevice,
     library: any MTLLibrary,
     fragment: String,
-    blending: Bool,
+    mixing: Mixing,
     format: MTLPixelFormat = .bgra8Unorm,
   ) throws(EngineError) -> any MTLRenderPipelineState {
     let descriptor = MTLRenderPipelineDescriptor()
     descriptor.vertexFunction = library.makeFunction(name: "layerVertex")
     descriptor.fragmentFunction = library.makeFunction(name: fragment)
-    descriptor.colorAttachments[0].pixelFormat = format
-    if blending {
-      descriptor.colorAttachments[0].isBlendingEnabled = true
-      descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
-      descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
-      descriptor.colorAttachments[0].sourceAlphaBlendFactor = .one
-      descriptor.colorAttachments[0].destinationAlphaBlendFactor = .oneMinusSourceAlpha
+    let attachment = descriptor.colorAttachments[0]
+    attachment?.pixelFormat = format
+    switch mixing {
+    case .over:
+      attachment?.isBlendingEnabled = true
+      attachment?.sourceRGBBlendFactor = .sourceAlpha
+      attachment?.destinationRGBBlendFactor = .oneMinusSourceAlpha
+      attachment?.sourceAlphaBlendFactor = .one
+      attachment?.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+
+    case .add:
+      attachment?.isBlendingEnabled = true
+      attachment?.sourceRGBBlendFactor = .one
+      attachment?.destinationRGBBlendFactor = .one
+      attachment?.sourceAlphaBlendFactor = .one
+      attachment?.destinationAlphaBlendFactor = .one
+
+    case .replace:
+      break
     }
     do {
       return try device.makeRenderPipelineState(descriptor: descriptor)
@@ -328,15 +404,23 @@ final class MetalRenderer: Sendable {
     return texture
   }
 
+  /// Starts drawing into `output`: over what's there, or over `clearing` to black (or `clear`,
+  /// see-through).
   private func startPass(
     on output: any MTLTexture,
     clearing: Bool,
+    toClear clear: Bool = false,
     commands: any MTLCommandBuffer,
   ) throws(EngineError) -> any MTLRenderCommandEncoder {
     let pass = MTLRenderPassDescriptor()
     pass.colorAttachments[0].texture = output
     pass.colorAttachments[0].loadAction = clearing ? .clear : .load
-    pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
+    pass.colorAttachments[0].clearColor = MTLClearColor(
+      red: 0,
+      green: 0,
+      blue: 0,
+      alpha: clear ? 0 : 1,
+    )
     pass.colorAttachments[0].storeAction = .store
     guard let encoder = commands.makeRenderCommandEncoder(descriptor: pass) else {
       logger.error("frame.renderFailed reason=encoder")
@@ -373,6 +457,95 @@ final class MetalRenderer: Sendable {
     }
     blit.copy(from: source, to: destination)
     blit.endEncoding()
+  }
+
+  /// The frame-sized buffer a moving layer's moments are summed in, made once per frame size.
+  private func trailTexture(like output: any MTLTexture) throws(EngineError) -> any MTLTexture {
+    let device = device
+    let width = output.width
+    let height = output.height
+    let texture = trail.withLock { kept -> (any MTLTexture)? in
+      if let current = kept, current.width == width, current.height == height {
+        return current
+      }
+      let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: Self.trailFormat,
+        width: width,
+        height: height,
+        mipmapped: false,
+      )
+      descriptor.usage = [.renderTarget, .shaderRead]
+      descriptor.storageMode = .private
+      kept = device.makeTexture(descriptor: descriptor)
+      return kept
+    }
+    guard let texture else {
+      logger.error("frame.renderFailed reason=trail")
+      throw .renderFailed
+    }
+    return texture
+  }
+
+  /// Sums the moving layer's moments inside the shutter into `trail`, each weighted equally,
+  /// premultiplied: the layer's motion blur before it's masked, wiped and mixed.
+  private func accumulate(
+    _ layer: RenderLayer,
+    into trail: any MTLTexture,
+    sampling: any MTLRenderPipelineState,
+    seed: Double,
+    commands: any MTLCommandBuffer,
+  ) throws(EngineError) {
+    let encoder = try startPass(on: trail, clearing: true, toClear: true, commands: commands)
+    encoder.setRenderPipelineState(sampling)
+    let size = CGSize(width: trail.width, height: trail.height)
+    let weight = layer.opacity / Double(layer.shutter.count)
+    for pose in layer.shutter {
+      let moment = RenderLayer(
+        source: layer.source,
+        rotation: layer.rotation,
+        transform: pose.transform,
+        camera: pose.camera,
+        opacity: weight,
+        depth: layer.depth,
+        matte: nil,
+        isNaturalSize: layer.isNaturalSize,
+        grade: layer.grade,
+        effects: layer.effects,
+        transition: layer.transition,
+        clipTime: layer.clipTime,
+      )
+      try encode(moment, size: size, isMasked: false, seed: seed, backdrop: nil, encoder: encoder)
+    }
+    encoder.endEncoding()
+  }
+
+  /// Draws a moving layer's summed `trail` over the whole frame, then masks, wipes, dips and
+  /// mixes it like a still layer.
+  private func drawTrail(
+    _ trail: any MTLTexture,
+    of layer: RenderLayer,
+    size: CGSize,
+    isMasked: Bool,
+    encoder: any MTLRenderCommandEncoder,
+  ) throws(EngineError) {
+    var look = LayerLook(
+      size: size,
+      grade: nil,
+      effects: nil,
+      blend: layer.blend,
+      isMasked: isMasked,
+      isAdjustment: false,
+      hasLUT: false,
+      hasCurves: false,
+      seed: 0,
+      transition: layer.transition,
+      clipTime: layer.clipTime,
+    )
+    var uniforms = FrameUniforms(stored: size, rotation: .identity, output: size)
+    encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
+    encoder.setFragmentBytes(&look, length: MemoryLayout<LayerLook>.stride, index: 0)
+    encoder.setFragmentTexture(trail, index: 0)
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
   }
 
   /// Draws the base layer's cut-out, placed like the layer, into a half-size mask of the frame.
@@ -543,13 +716,20 @@ final class MetalRenderer: Sendable {
           device: device,
           library: library,
           fragment: "effectFragment",
-          blending: true,
+          mixing: .over,
         ),
         replacing: Self.makePipeline(
           device: device,
           library: library,
           fragment: "effectFragment",
-          blending: false,
+          mixing: .replace,
+        ),
+        sampling: Self.makePipeline(
+          device: device,
+          library: library,
+          fragment: "effectSampleFragment",
+          mixing: .add,
+          format: Self.trailFormat,
         ),
       )
       effects.withLock { $0[file] = pipelines }
@@ -601,6 +781,7 @@ struct RenderLayer {
     blend: BlendMode = .normal,
     transition: TransitionStyle? = nil,
     clipTime: Double = 0,
+    shutter: [LayerPose] = [],
   ) {
     self.source = source
     self.rotation = rotation
@@ -615,6 +796,7 @@ struct RenderLayer {
     self.blend = blend
     self.transition = transition
     self.clipTime = clipTime
+    self.shutter = shutter
   }
 
   // MARK: Internal
@@ -637,6 +819,9 @@ struct RenderLayer {
   let transition: TransitionStyle?
   /// Seconds into the clip, for shader effects that move.
   let clipTime: Double
+  /// Where it is at the moments the shutter is open, when it moves enough to blur; drawn once
+  /// at `transform` otherwise.
+  let shutter: [LayerPose]
 
   /// Whether this is an adjustment clip, working on the frame drawn so far.
   var isAdjustment: Bool {
@@ -675,10 +860,24 @@ private struct DefaultTextures {
 
 // MARK: - EffectPipelines
 
-/// A shader effect compiled both ways: mixed over by alpha, or written as is.
+/// A shader effect compiled three ways: mixed over by alpha, written as is, or added into a
+/// moving layer's trail.
 private struct EffectPipelines {
   let blending: any MTLRenderPipelineState
   let replacing: any MTLRenderPipelineState
+  let sampling: any MTLRenderPipelineState
+}
+
+// MARK: - Mixing
+
+/// How a pipeline's result meets what's already drawn.
+private enum Mixing {
+  /// Over it, by alpha.
+  case over
+  /// Instead of it: the fragment mixed with the backdrop itself.
+  case replace
+  /// Added to it, summing a moving layer's moments.
+  case add
 }
 
 // MARK: - ShaderFile
