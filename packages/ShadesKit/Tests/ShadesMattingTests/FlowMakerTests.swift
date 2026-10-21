@@ -27,9 +27,11 @@ struct FlowMakerTests {
     // why: the square crosses a third of the frame each way in its one second.
     #expect(abs(square.across - 1 / 3) < 0.12)
     #expect(abs(square.down - 1 / 3) < 0.12)
+    // why: decoding the flow video can shift still areas by a couple of stored steps (0.03
+    // pictures a second each); footage blur ignores motion that small.
     let corner = try speeds(in: image, x: 0.08, y: 0.1)
-    #expect(abs(corner.across) < 0.05)
-    #expect(abs(corner.down) < 0.05)
+    #expect(abs(corner.across) < 0.1)
+    #expect(abs(corner.down) < 0.1)
   }
 
   @Test
