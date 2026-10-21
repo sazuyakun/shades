@@ -132,6 +132,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
             effects.blur = max(effects.blur, style.blur)
             return effects
           } ?? clip.effects,
+          crop: clip.crop,
           blend: clip.blend,
           transition: transition,
           clipTime: clip.sourceTime(at: time).seconds,

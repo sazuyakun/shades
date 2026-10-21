@@ -403,3 +403,13 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A button with a small arrow: clicking the button does the main thing, and the arrow opens a menu of alternatives.
 **JS/TS analogy:** A "split button" component (one click handler plus a dropdown).
 **In Shades:** The Video inspector's **Reframe** pans with the subject when clicked; its menu offers **Locked on the Subject**.
+
+## Key paths (`WritableKeyPath<Crop, Double>`, `\.left`)
+**What it is:** `\.left` is a reference to a property, not its value. `crop[keyPath: path]` reads or writes whichever property the path names, and `WritableKeyPath<Root, Value>` is its type: a settable `Value` inside a `Root`.
+**JS/TS analogy:** Like passing the property name `"left"` and doing `crop[name]`, but checked by the compiler (TypeScript's `keyof Crop` plus the value's type).
+**In Shades:** `CropControls` draws one slider per edge from a list of key paths instead of four copies of the same slider.
+
+## Shader derivatives (`fwidth`)
+**What it is:** On the GPU, pixels are shaded in little 2×2 groups, so a fragment shader can ask how fast a value changes from one pixel to the next. `fwidth(p)` is that change: the size of one pixel in `p`'s units.
+**JS/TS analogy:** None in plain JS; it's like knowing the zoom level of a canvas so a 1-pixel line stays 1 pixel wide.
+**In Shades:** `cropCoverage` in Layers.metal softens a crop's edge over exactly one screen pixel, so cut edges stay smooth however the layer is scaled or turned.

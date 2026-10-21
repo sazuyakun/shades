@@ -103,6 +103,7 @@ extension Clip {
       motionBlur: motionBlur,
       footageBlur: footageBlur,
       speed: speed,
+      crop: crop,
     )
   }
 

@@ -49,6 +49,16 @@ struct LayerRenderingTests {
   }
 
   @Test
+  func `a cropped clip shows the layer under it where its edges were cut`() async throws {
+    let project = try await twoLayers { $0.crop = Crop(left: 0.25, top: 0.25) }
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    #expect(try PixelProbe.color(of: png, x: 0.6, y: 0.6).blue > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.1, y: 0.6).red > 200)
+    #expect(try PixelProbe.color(of: png, x: 0.6, y: 0.1).red > 200)
+    #expect(try GoldenFrame.matches(png, named: "v2-cropped-top-left", in: golden))
+  }
+
+  @Test
   func `keyframes move a clip across the frame over time`() async throws {
     let project = try await twoLayers {
       $0.transform.scale = 0.3

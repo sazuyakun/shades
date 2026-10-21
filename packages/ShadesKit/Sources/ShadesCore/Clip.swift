@@ -31,6 +31,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     motionBlur: Double = 1,
     footageBlur: Bool = false,
     speed: Double = 1,
+    crop: Crop = .none,
   ) {
     self.init(
       id: id,
@@ -55,6 +56,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       motionBlur: motionBlur,
       footageBlur: footageBlur,
       speed: speed,
+      crop: crop,
     )
   }
 
@@ -82,6 +84,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     motionBlur: Double = 1,
     footageBlur: Bool = false,
     speed: Double = 1,
+    crop: Crop = .none,
   ) {
     self.id = id
     self.source = source
@@ -105,6 +108,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.motionBlur = motionBlur
     self.footageBlur = footageBlur
     self.speed = speed
+    self.crop = crop
   }
 
   // MARK: Public
@@ -153,6 +157,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
   /// How fast it plays its media while it has no speed keyframes: 1 is normal, 0.5 half speed,
   /// 2 twice as fast. 0 freezes the frame at `sourceStart`.
   public var speed: Double
+  /// What's cut off the edges of its picture.
+  public var crop: Crop
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -224,6 +230,7 @@ extension Clip: Codable {
       motionBlur: container.decodeIfPresent(Double.self, forKey: .motionBlur) ?? 1,
       footageBlur: container.decodeIfPresent(Bool.self, forKey: .footageBlur) ?? false,
       speed: container.decodeIfPresent(Double.self, forKey: .speed) ?? 1,
+      crop: container.decodeIfPresent(Crop.self, forKey: .crop) ?? .none,
     )
   }
 
@@ -253,6 +260,7 @@ extension Clip: Codable {
     try container.encode(motionBlur, forKey: .motionBlur)
     try container.encode(footageBlur, forKey: .footageBlur)
     try container.encode(speed, forKey: .speed)
+    try container.encode(crop, forKey: .crop)
   }
 
   // MARK: Private
@@ -282,6 +290,7 @@ extension Clip: Codable {
     case motionBlur
     case footageBlur
     case speed
+    case crop
   }
 
 }

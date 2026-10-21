@@ -511,6 +511,7 @@ final class MetalRenderer: Sendable {
         isNaturalSize: layer.isNaturalSize,
         grade: layer.grade,
         effects: layer.effects,
+        crop: layer.crop,
         transition: layer.transition,
         clipTime: layer.clipTime,
       )
@@ -532,6 +533,7 @@ final class MetalRenderer: Sendable {
       size: size,
       grade: nil,
       effects: nil,
+      crop: .none,
       blend: layer.blend,
       isMasked: isMasked,
       isAdjustment: false,
@@ -609,6 +611,7 @@ final class MetalRenderer: Sendable {
       size: size,
       grade: layer.grade,
       effects: layer.effects,
+      crop: layer.crop,
       blend: layer.blend,
       isMasked: isMasked,
       isAdjustment: layer.isAdjustment,
@@ -780,6 +783,7 @@ struct RenderLayer {
     isNaturalSize: Bool,
     grade: Grade? = nil,
     effects: Effects? = nil,
+    crop: Crop = .none,
     blend: BlendMode = .normal,
     transition: TransitionStyle? = nil,
     clipTime: Double = 0,
@@ -795,6 +799,7 @@ struct RenderLayer {
     self.isNaturalSize = isNaturalSize
     self.grade = grade
     self.effects = effects
+    self.crop = crop
     self.blend = blend
     self.transition = transition
     self.clipTime = clipTime
@@ -816,6 +821,8 @@ struct RenderLayer {
   let isNaturalSize: Bool
   let grade: Grade?
   let effects: Effects?
+  /// What's cut off the edges of its upright picture.
+  let crop: Crop
   let blend: BlendMode
   /// How a transition it's part of shapes it this frame.
   let transition: TransitionStyle?

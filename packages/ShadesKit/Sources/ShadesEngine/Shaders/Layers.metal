@@ -17,6 +17,7 @@ struct FrameUniforms {
 struct VertexOut {
   float4 position [[position]];
   float2 uv;
+  float2 upright;     // where in the upright picture, 0…1 from its top left
   float2 screen [[center_no_perspective]]; // where in the frame, 0…1 from the top left
   float opacity;
 };
@@ -33,6 +34,7 @@ vertex VertexOut layerVertex(uint id [[vertex_id]], constant FrameUniforms &u [[
     u.matrix.x * upright.x + u.matrix.z * upright.y + u.offset.x,
     u.matrix.y * upright.x + u.matrix.w * upright.y + u.offset.y
   );
+  out.upright = upright;
   float2 onScreen = position.xy / position.w;
   out.screen = float2(onScreen.x * 0.5 + 0.5, 0.5 - onScreen.y * 0.5);
   out.opacity = u.opacity;
@@ -86,6 +88,10 @@ struct LayerLook {
   int hasWindow;
   int windowIsEllipse;
   int windowInverted;
+  float cropLeft;            // fractions of the upright picture cut off each edge
+  float cropRight;
+  float cropTop;
+  float cropBottom;
 };
 
 static float hash(float2 p) {
@@ -202,12 +208,25 @@ static float3 blendWith(float3 base, float3 top, int mode) {
   }
 }
 
+// How much of the upright picture's point `p` survives the crop: 1 inside, 0 outside, with a
+// one-pixel soft edge so cut edges don't stair-step.
+static float cropCoverage(float2 p, constant LayerLook &look) {
+  if (look.cropLeft <= 0 && look.cropRight <= 0 && look.cropTop <= 0 && look.cropBottom <= 0) {
+    return 1.0;
+  }
+  float2 pixel = max(fwidth(p), 0.00001);
+  float2 low = saturate((p - float2(look.cropLeft, look.cropTop)) / pixel + 0.5);
+  float2 high = saturate((float2(1 - look.cropRight, 1 - look.cropBottom) - p) / pixel + 0.5);
+  return low.x * low.y * high.x * high.y;
+}
+
 // The layer's picture keyed, graded and given its effects: straight colour and alpha, before
 // it's masked, wiped or mixed with what's under it.
 static float4 shade(VertexOut in, texture2d<half> picture, float2 uv, texture3d<float> lut, texture2d<float> curves, constant LayerLook &look, sampler s) {
   float4 color = sampleSoft(picture, s, uv, look);
   float alpha = color.a;
   float3 rgb = alpha > 0 ? color.rgb / alpha : color.rgb;
+  alpha *= cropCoverage(in.upright, look);
   if (look.keyTolerance > 0) {
     float distance = length(rgb - float3(look.keyRed, look.keyGreen, look.keyBlue));
     alpha *= smoothstep(look.keyTolerance, look.keyTolerance + max(look.keySoftness, 0.001), distance);

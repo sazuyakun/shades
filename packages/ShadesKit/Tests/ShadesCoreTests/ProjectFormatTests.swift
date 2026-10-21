@@ -5,7 +5,7 @@ import Testing
 /// Saved projects must keep opening as the model grows.
 struct ProjectFormatTests {
   @Test
-  func `a clip saved before text clips and motion blur loads as media following the shutter`(
+  func `a clip saved before text clips, motion blur and crop loads as uncropped media`(
   ) throws {
     let json = """
       {"id":"6A1F2B4C-0000-4000-8000-000000000001","mediaID":"6A1F2B4C-0000-4000-8000-000000000002",
@@ -18,6 +18,7 @@ struct ProjectFormatTests {
     #expect(clip.duration == MediaTime(seconds: 2))
     #expect(clip.motionBlur == 1)
     #expect(clip.footageBlur == false)
+    #expect(clip.crop == .none)
   }
 
   @Test
@@ -50,6 +51,7 @@ struct ProjectFormatTests {
       timelineStart: .zero,
       motionBlur: 0.5,
       footageBlur: true,
+      crop: Crop(left: 0.1, bottom: 0.2),
     )
     let text = Clip(
       source: .text(TextContent(text: "hi")),

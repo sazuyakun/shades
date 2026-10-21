@@ -7,13 +7,14 @@ struct LayerLook {
 
   // MARK: Lifecycle
 
-  /// The look of a layer whose source is `size` pixels: its grade, effects and blend, whether
-  /// it's masked by the subject or an adjustment clip, a `seed` that changes each frame, and how
-  /// a transition it's part of shapes it.
+  /// The look of a layer whose source is `size` pixels: its grade, effects, crop and blend,
+  /// whether it's masked by the subject or an adjustment clip, a `seed` that changes each frame,
+  /// and how a transition it's part of shapes it.
   init(
     size: CGSize,
     grade: Grade?,
     effects: Effects?,
+    crop: Crop,
     blend: BlendMode,
     isMasked: Bool,
     isAdjustment: Bool,
@@ -69,6 +70,10 @@ struct LayerLook {
     hasWindow = window == nil ? 0 : 1
     windowIsEllipse = window?.isEllipse == false ? 0 : 1
     windowInverted = window?.inverted == true ? 1 : 0
+    cropLeft = Float(crop.left)
+    cropRight = Float(crop.right)
+    cropTop = Float(crop.top)
+    cropBottom = Float(crop.bottom)
     effectTime = Float(clipTime)
     effectAmount = Float(effects.shaderAmount)
     wipe =
@@ -127,5 +132,9 @@ struct LayerLook {
   let hasWindow: Int32
   let windowIsEllipse: Int32
   let windowInverted: Int32
+  let cropLeft: Float
+  let cropRight: Float
+  let cropTop: Float
+  let cropBottom: Float
 
 }

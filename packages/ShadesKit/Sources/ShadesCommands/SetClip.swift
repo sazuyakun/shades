@@ -25,6 +25,7 @@ public struct SetClip: ToolCommand {
     motionBlur: Double? = nil,
     footageBlur: Bool? = nil,
     speed: Double? = nil,
+    crop: Crop? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -45,6 +46,7 @@ public struct SetClip: ToolCommand {
     self.motionBlur = motionBlur
     self.footageBlur = footageBlur
     self.speed = speed
+    self.crop = crop
   }
 
   // MARK: Public
@@ -52,8 +54,8 @@ public struct SetClip: ToolCommand {
   public static let title = "Change Clip"
   public static let name = "set_clip"
   public static let summary = "Change a clip's position, size, rotation, 3D tilt and depth, "
-    + "opacity, depth slot, motion blur, volume, sound fades or speed. Leave out what shouldn't "
-    + "change."
+    + "crop, opacity, depth slot, motion blur, volume, sound fades or speed. Leave out what "
+    + "shouldn't change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -111,6 +113,12 @@ public struct SetClip: ToolCommand {
         minimum: Clip.speeds.lowerBound,
         maximum: Clip.speeds.upperBound,
       ),
+      "crop": JSONSchema.object([
+        "left": JSONSchema.number("Fraction of the picture's width cut off the left", minimum: 0),
+        "right": JSONSchema.number("Fraction of the width cut off the right", minimum: 0),
+        "top": JSONSchema.number("Fraction of the picture's height cut off the top", minimum: 0),
+        "bottom": JSONSchema.number("Fraction of the height cut off the bottom", minimum: 0),
+      ]),
       "sticker": JSONSchema.object([
         "border": JSONSchema.number(
           "White die-cut border as a fraction of the picture; with border 0 and shadow and "
@@ -142,6 +150,8 @@ public struct SetClip: ToolCommand {
   public let motionBlur: Double?
   public let footageBlur: Bool?
   public let speed: Double?
+  /// Replaces the whole crop; edges left out are uncut.
+  public let crop: Crop?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -165,6 +175,16 @@ public struct SetClip: ToolCommand {
     }
     if let motionBlur, !(0 ... 4).contains(motionBlur) {
       throw rejected(.invalidValue("motion blur goes from 0 (none) to 4 times the shutter"))
+    }
+    if let crop {
+      let edges = [crop.left, crop.right, crop.top, crop.bottom]
+      guard
+        edges.allSatisfy({ $0 >= 0 }), crop.left + crop.right < 1, crop.top + crop.bottom < 1
+      else {
+        throw rejected(.invalidValue(
+          "crop edges are fractions from 0, and opposite edges must leave some picture"
+        ))
+      }
     }
     var clip = project.timeline.tracks[location.track].clips[location.clip]
     if let speed {
@@ -207,6 +227,7 @@ public struct SetClip: ToolCommand {
     clip.isAudioEnabled = audioEnabled ?? clip.isAudioEnabled
     clip.motionBlur = motionBlur ?? clip.motionBlur
     clip.footageBlur = footageBlur ?? clip.footageBlur
+    clip.crop = crop ?? clip.crop
     if let sticker {
       clip.sticker = sticker.border == 0 && !sticker.shadow && !sticker.paper ? nil : sticker
     }

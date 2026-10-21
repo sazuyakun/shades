@@ -2,8 +2,8 @@ import ShadesCommands
 import ShadesCore
 import SwiftUI
 
-/// Video tab for a clip: where it sits, how big, its rotation, opacity (each animatable), depth
-/// slot and motion blur.
+/// Video tab for a clip: where it sits, how big, its rotation, opacity (each animatable), crop,
+/// depth slot and motion blur.
 struct ClipVideoInspector: View {
 
   // MARK: Internal
@@ -23,6 +23,9 @@ struct ClipVideoInspector: View {
       }
       ForEach(AnimatedProperty.allCases.filter(\.isVisual), id: \.self) { property in
         AnimatedSlider(clip: clip, property: property, onError: onError)
+      }
+      if clip.source != .adjustment {
+        CropControls(clip: clip, onError: onError)
       }
       Picker("Depth", selection: Binding(
         get: { clip.depth },
