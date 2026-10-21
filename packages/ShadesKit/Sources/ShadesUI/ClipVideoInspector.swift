@@ -107,8 +107,8 @@ struct ClipVideoInspector: View {
 
   /// Puts the clip back upright, centered and solid, dropping its motion (its speed stays).
   private func resetTransform() {
-    let reset = SetClip(clipID: clip.id, x: 0, y: 0, scale: 1, rotation: 0, opacity: 1)
-    let animated = (AnimatedProperty.cameraMoves + [.opacity]).filter { property in
+    let reset = SetClip(clipID: clip.id, x: 0, y: 0, scale: 1, rotation: 0, bend: 0, opacity: 1)
+    let animated = (AnimatedProperty.cameraMoves + [.bend, .opacity]).filter { property in
       clip.keyframes.contains { $0.property == property }
     }
     let commands: [any Command] = [reset]
