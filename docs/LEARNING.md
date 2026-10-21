@@ -383,3 +383,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A Core Graphics group: everything drawn between `beginTransparencyLayer` and `endTransparencyLayer` is composited as one picture, so a shadow (or alpha) applies to the group once instead of to each piece.
 **JS/TS analogy:** Like wrapping elements in a `<div>` with `filter: drop-shadow(...)` instead of giving each child its own `box-shadow`.
 **In Shades:** `TextRenderer` draws letters one at a time; the layer gives the text a single shadow, so neighbouring letters' shadows don't double up where they overlap.
+
+## Default argument values (evaluated at each call)
+**What it is:** A parameter can have a default, `func make(at url: URL = newTempFile())`. Swift works out the default every time the function is called without that argument, so each call can get a fresh value; callers who pass one get theirs instead.
+**JS/TS analogy:** The same as JavaScript's `function make(url = newTempFile())`, which also runs the default expression on each call (unlike Python's once-only defaults).
+**In Shades:** `LUTFixture.make` writes to a new temporary `.cube` file by default, or over an existing one when a test passes `at:` to check that an edited LUT is read again.

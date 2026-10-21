@@ -166,7 +166,7 @@ final class MetalRenderer: Sendable {
   /// read), or `nil` when it compiles.
   func shaderProblem(at url: URL) -> String? {
     _ = effectPipelines(at: url)
-    return effectProblems.withLock { $0[ShaderFile(url)] }
+    return effectProblems.withLock { $0[FileVersion(url)] }
   }
 
   /// Wraps a pixel buffer's IOSurface as a Metal texture: the GPU uses the same memory directly.
@@ -242,13 +242,13 @@ final class MetalRenderer: Sendable {
   /// Textures bound when a layer has no LUT, curves, mask or backdrop. Held in a lock because
   /// Metal textures can't be shared freely between threads.
   private let defaults: Mutex<DefaultTextures>
-  private let luts = Mutex<[URL: any MTLTexture]>([:])
+  private let luts = Mutex<[FileVersion: any MTLTexture]>([:])
   /// LUTs that couldn't be read, so they're tried (and logged) once, not every frame.
-  private let unreadableLUTs = Mutex<Set<URL>>([])
+  private let unreadableLUTs = Mutex<Set<FileVersion>>([])
   private let curves = Mutex<[Curves: any MTLTexture]>([:])
   /// Compiled shader effects by file, and why the ones that failed didn't compile.
-  private let effects = Mutex<[ShaderFile: EffectPipelines]>([:])
-  private let effectProblems = Mutex<[ShaderFile: String]>([:])
+  private let effects = Mutex<[FileVersion: EffectPipelines]>([:])
+  private let effectProblems = Mutex<[FileVersion: String]>([:])
 
   private static func layersSource() throws(EngineError) -> String {
     guard
@@ -652,17 +652,19 @@ final class MetalRenderer: Sendable {
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
   }
 
-  /// The LUT at `url` on the GPU, read the first time it's used; `nil` if it can't be read.
+  /// The LUT at `url` on the GPU, read the first time it's used and again after the file
+  /// changes; `nil` if it can't be read.
   private func lutTexture(at url: URL) -> (any MTLTexture)? {
-    if let cached = luts.withLock({ $0[url] }) {
+    let file = FileVersion(url)
+    if let cached = luts.withLock({ $0[file] }) {
       return cached
     }
-    guard !unreadableLUTs.withLock({ $0.contains(url) }) else {
+    guard !unreadableLUTs.withLock({ $0.contains(file) }) else {
       return nil
     }
     guard let cube = CubeLUT(contentsOf: url) else {
       logger.error("lut.unreadable path=\(url.path, privacy: .private)")
-      unreadableLUTs.withLock { _ = $0.insert(url) }
+      unreadableLUTs.withLock { _ = $0.insert(file) }
       return nil
     }
     let device = device
@@ -671,9 +673,9 @@ final class MetalRenderer: Sendable {
         cache.removeAll()
       }
       // why: a LUT the GPU can't hold is drawn without, like an unreadable file (already logged).
-      cache[url] = try? Self.makeLUT(device: device, size: cube.size, values: cube.values)
+      cache[file] = try? Self.makeLUT(device: device, size: cube.size, values: cube.values)
     }
-    return luts.withLock { $0[url] }
+    return luts.withLock { $0[file] }
   }
 
   private func curvesTexture(for curves: Curves) -> (any MTLTexture)? {
@@ -694,7 +696,7 @@ final class MetalRenderer: Sendable {
   /// The pipelines for the shader effect at `url`, compiled the first time; `nil` when it
   /// doesn't compile (the reason is kept for `shaderProblem`).
   private func effectPipelines(at url: URL) -> EffectPipelines? {
-    let file = ShaderFile(url)
+    let file = FileVersion(url)
     if let compiled = effects.withLock({ $0[file] }) {
       return compiled
     }
@@ -880,10 +882,10 @@ private enum Mixing {
   case add
 }
 
-// MARK: - ShaderFile
+// MARK: - FileVersion
 
-/// A shader effect's file as it is now: edited files are compiled again.
-private struct ShaderFile: Hashable {
+/// A LUT's or shader effect's file as it is now, so an edited file is read again.
+private struct FileVersion: Hashable {
   init(_ url: URL) {
     self.url = url
     // why: a missing file has no date; reading it then reports it can't be read.

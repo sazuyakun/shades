@@ -21,13 +21,29 @@ struct LookRenderingTests {
 
   @Test
   func `curves and a LUT reshape colour`() async throws {
-    let lut = try writeLUT { red, green, blue in (1 - red, 1 - green, 1 - blue) }
+    let lut = try LUTFixture.make { red, green, blue in (1 - red, 1 - green, 1 - blue) }
     let inverted = try await frame(top: nil) { $0.grade = Grade(lut: lut.path) }
     #expect(try PixelProbe.color(of: inverted, x: 0.5, y: 0.5).blue > 200)
     let crushed = try await frame(top: nil) {
       $0.grade = Grade(curves: Curves(master: [DrawingPoint(x: 0, y: 0), DrawingPoint(x: 1, y: 0)]))
     }
     #expect(try PixelProbe.color(of: crushed, x: 0.5, y: 0.5).red < 10)
+  }
+
+  @Test
+  func `an edited LUT is read again`() async throws {
+    let context = try RenderContext()
+    let lut = try LUTFixture.make { red, green, blue in (1 - red, 1 - green, 1 - blue) }
+    let inverted = try await frame(top: nil, context: context) { $0.grade = Grade(lut: lut.path) }
+    #expect(try PixelProbe.color(of: inverted, x: 0.5, y: 0.5).blue > 200)
+    _ = try LUTFixture.make(at: lut) { red, green, blue in (red, green, blue) }
+    // why: the edit must look like a newer file; file dates are only kept to the second.
+    try FileManager.default.setAttributes(
+      [.modificationDate: Date().addingTimeInterval(5)],
+      ofItemAtPath: lut.path,
+    )
+    let unchanged = try await frame(top: nil, context: context) { $0.grade = Grade(lut: lut.path) }
+    #expect(try PixelProbe.color(of: unchanged, x: 0.5, y: 0.5).blue < 60)
   }
 
   @Test
@@ -98,6 +114,7 @@ struct LookRenderingTests {
   private func frame(
     top: FixtureColor?,
     adjustment: Clip? = nil,
+    context: RenderContext? = nil,
     change: (inout Clip) -> Void = { _ in },
   ) async throws -> Data {
     let red = try await media(FixtureColor(red: 100, green: 30, blue: 30))
@@ -119,7 +136,12 @@ struct LookRenderingTests {
       tracks.append(Track(kind: .video, clips: [adjustment]))
     }
     let project = Project(media: allMedia, timeline: Timeline(format: .half, tracks: tracks))
-    return try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    return try await FrameRenderer.png(
+      of: project,
+      atSeconds: 0.5,
+      maxSide: 320,
+      context: context,
+    )
   }
 
   /// A clip red on its left half and blue on its right, graded by `grade`.
@@ -159,22 +181,6 @@ struct LookRenderingTests {
 
   private func clip(of media: Media) -> Clip {
     Clip(mediaID: media.id, sourceStart: .zero, duration: media.duration, timelineStart: .zero)
-  }
-
-  /// A 17-point `.cube` file mapping each colour through `map`.
-  private func writeLUT(_ map: (Double, Double, Double) -> (Double, Double, Double)) throws -> URL {
-    var lines = ["LUT_3D_SIZE 17"]
-    for blue in 0 ..< 17 {
-      for green in 0 ..< 17 {
-        for red in 0 ..< 17 {
-          let out = map(Double(red) / 16, Double(green) / 16, Double(blue) / 16)
-          lines.append("\(out.0) \(out.1) \(out.2)")
-        }
-      }
-    }
-    let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).cube")
-    try lines.joined(separator: "\n").write(to: url, atomically: true, encoding: .utf8)
-    return url
   }
 
 }
