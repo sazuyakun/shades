@@ -50,6 +50,9 @@ enum Guide {
     keyframes; video tracks follow it, captions stay put.
     - track_motion follows a box through a video clip (a background job) and saves a named \
     path; follow then makes any layer move with it, or with the cut-out's subject.
+    - Anything that moves blurs like film: set_shutter sets the timeline's shutter angle (180 \
+    by default, 0 for none) and set_clip motion_blur scales it for one clip (0 keeps a layer \
+    sharp, 2 doubles its smear).
 
     Colour and effects
     - set_look grades clips (exposure, contrast, saturation, temperature, tint, lift, gamma, \
