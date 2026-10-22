@@ -62,6 +62,7 @@ public actor StemSeparator {
         }
       }
       progress(Double(index + 1) / Double(starts.count))
+      await JobQueue.pausePoint()
     }
     return sums.mapValues { channels in
       channels.map { channel in zip(channel, weights).map { $0 / max($1, 1e-6) } }

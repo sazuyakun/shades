@@ -1,6 +1,7 @@
 import Accelerate
 import AVFoundation
 import ShadesCore
+import ShadesMedia
 
 // MARK: - MatteMaker
 
@@ -62,6 +63,7 @@ public enum MatteMaker {
       }
       index += 1
       progress(Double(index) / Double(times.count))
+      await JobQueue.pausePoint()
     }
     try await writer.finish()
   }

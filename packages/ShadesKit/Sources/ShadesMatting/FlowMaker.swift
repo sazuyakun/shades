@@ -1,5 +1,6 @@
 import AVFoundation
 import ShadesCore
+import ShadesMedia
 
 /// Makes a video's optical flow for footage motion blur: a small video, frame for frame with the
 /// source and in its stored orientation, whose red and green say how fast each pixel moves (see
@@ -57,6 +58,7 @@ public enum FlowMaker {
       }
       previous = (image, frame.requestedTime)
       progress(Double(written) / Double(times.count))
+      await JobQueue.pausePoint()
     }
     if written == 0, let previous {
       let still = [UInt8](repeating: 128, count: width * height * 4)

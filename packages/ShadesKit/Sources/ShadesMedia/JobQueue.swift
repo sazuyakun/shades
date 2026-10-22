@@ -1,15 +1,26 @@
 import Foundation
+import IOKit.ps
 import Observation
 
 /// Runs heavy background work one job at a time at low priority, so editing never waits on it.
-/// Jobs pause while the Mac is hot or in Low Power Mode. The toolbar's ring and Claude read it.
+/// Jobs pause while the Mac is hot, in Low Power Mode or (except exports) on battery: before
+/// they start, and between chunks of work at each `pausePoint()`. The toolbar's ring and Claude
+/// read it.
 @MainActor
 @Observable
 public final class JobQueue {
 
   // MARK: Lifecycle
 
-  public init() { }
+  /// `pauseCheck` says why jobs should wait right now, given whether the job pauses on battery
+  /// (`nil` to run), asked again every `checkInterval` while paused; tests pass their own.
+  public init(
+    pauseCheck: @escaping @Sendable (_ pausesOnBattery: Bool) -> String? = JobQueue.systemPause,
+    checkInterval: Duration = .seconds(5),
+  ) {
+    self.pauseCheck = pauseCheck
+    self.checkInterval = checkInterval
+  }
 
   // MARK: Public
 
@@ -31,12 +42,38 @@ public final class JobQueue {
     jobs.filter { !$0.state.isFinished }
   }
 
-  /// Adds work to the end of the queue and returns its ID.
+  /// Why background work would pause now, from the Mac's heat, Low Power Mode and power source.
+  public nonisolated static func systemPause(pausesOnBattery: Bool) -> String? {
+    let info = ProcessInfo.processInfo
+    if info.thermalState == .serious || info.thermalState == .critical {
+      return "Paused while your Mac cools down."
+    }
+    if info.isLowPowerModeEnabled {
+      return "Paused in Low Power Mode."
+    }
+    if pausesOnBattery, isOnBattery() {
+      return "Paused on battery power. Plug in to carry on."
+    }
+    return nil
+  }
+
+  /// Waits while the job running this code should pause; work calls it between chunks (frames,
+  /// segments). Outside a job it returns at once.
+  public nonisolated static func pausePoint() async {
+    await pauseGate.get()?()
+  }
+
+  /// Adds work to the end of the queue and returns its ID. Work the user is waiting for, like an
+  /// export, passes `pausesOnBattery: false`.
   @discardableResult
-  public func enqueue(_ title: String, work: @escaping Work) -> Job.ID {
+  public func enqueue(
+    _ title: String,
+    pausesOnBattery: Bool = true,
+    work: @escaping Work,
+  ) -> Job.ID {
     let job = Job(id: UUID(), title: title, state: .queued)
     jobs.append(job)
-    pending.append((job.id, work))
+    pending.append((job.id, pausesOnBattery, work))
     startIfIdle()
     return job.id
   }
@@ -60,20 +97,24 @@ public final class JobQueue {
 
   // MARK: Private
 
-  @ObservationIgnored private var pending = [(id: Job.ID, work: Work)]()
+  /// The running job's way to wait while paused, for `pausePoint()`.
+  private nonisolated static let pauseGate = TaskLocal<(@Sendable () async -> Void)?>(
+    wrappedValue: nil
+  )
+
+  @ObservationIgnored private let pauseCheck: @Sendable (_ pausesOnBattery: Bool) -> String?
+  @ObservationIgnored private let checkInterval: Duration
+  @ObservationIgnored private var pending = [(id: Job.ID, pausesOnBattery: Bool, work: Work)]()
   @ObservationIgnored private var runner: Task<Void, Never>?
   /// The job running now, in its own task so cancelling it leaves the loop and later jobs alone.
   @ObservationIgnored private var running: (id: Job.ID, work: Task<JobState, Never>)?
 
-  private static func currentPauseReason() -> String? {
-    let info = ProcessInfo.processInfo
-    if info.thermalState == .serious || info.thermalState == .critical {
-      return "Paused while your Mac cools down."
-    }
-    if info.isLowPowerModeEnabled {
-      return "Paused in Low Power Mode."
-    }
-    return nil
+  /// Whether the Mac is running on its battery.
+  private nonisolated static func isOnBattery() -> Bool {
+    let sources = IOPSCopyPowerSourcesInfo().takeRetainedValue()
+    // why: a Mac with no power source info (a virtual machine) counts as plugged in.
+    let providing = IOPSGetProvidingPowerSourceType(sources)?.takeUnretainedValue() as String?
+    return providing == kIOPSBatteryPowerValue
   }
 
   private func startIfIdle() {
@@ -81,11 +122,21 @@ public final class JobQueue {
       return
     }
     runner = Task(priority: .utility) {
-      while let next = pending.first {
-        pending.removeFirst()
-        await waitWhilePaused()
+      while let first = pending.first {
+        // why: a paused job stays queued (so it can be cancelled) while one that may run, like
+        // an export on battery, goes ahead of it.
+        guard let index = pending.firstIndex(where: { pauseCheck($0.pausesOnBattery) == nil })
+        else {
+          pauseReason = pauseCheck(first.pausesOnBattery)
+          try? await Task.sleep(for: checkInterval) // why: this task is never cancelled.
+          continue
+        }
+        pauseReason = nil
+        let next = pending.remove(at: index)
         update(next.id, to: .running(progress: nil))
-        let work = Task { await run(next.work, id: next.id) }
+        let work = Task {
+          await run(next.work, id: next.id, pausesOnBattery: next.pausesOnBattery)
+        }
         running = (next.id, work)
         update(next.id, to: await work.value)
         running = nil
@@ -95,17 +146,22 @@ public final class JobQueue {
     }
   }
 
-  private func run(_ work: Work, id: Job.ID) async -> JobState {
+  private func run(_ work: Work, id: Job.ID, pausesOnBattery: Bool) async -> JobState {
     let report: Progress = { [weak self] fraction in
       Task { @MainActor in self?.report(fraction, for: id) }
     }
-    do throws(JobError) {
-      try await work(report)
-      return Task.isCancelled ? .cancelled : .done
-    } catch {
-      switch error {
-      case .cancelled: return .cancelled
-      case .failed(let message): return .failed(message)
+    let pause: @Sendable () async -> Void = { [weak self] in
+      await self?.waitWhilePaused(pausesOnBattery: pausesOnBattery)
+    }
+    return await Self.pauseGate.withValue(pause) {
+      do throws(JobError) {
+        try await work(report)
+        return Task.isCancelled ? .cancelled : .done
+      } catch {
+        switch error {
+        case .cancelled: return .cancelled
+        case .failed(let message): return .failed(message)
+        }
       }
     }
   }
@@ -137,11 +193,12 @@ public final class JobQueue {
     }
   }
 
-  /// Holds the next job while the Mac is hot or saving power.
-  private func waitWhilePaused() async {
-    while let reason = Self.currentPauseReason() {
+  /// Holds a running job at a pause point while the Mac is hot or saving power, until it's
+  /// cancelled.
+  private func waitWhilePaused(pausesOnBattery: Bool) async {
+    while !Task.isCancelled, let reason = pauseCheck(pausesOnBattery) {
       pauseReason = reason
-      try? await Task.sleep(for: .seconds(5)) // why: a cancelled wait just checks again.
+      try? await Task.sleep(for: checkInterval) // why: a cancelled wait just stops.
     }
     pauseReason = nil
   }

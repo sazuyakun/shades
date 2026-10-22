@@ -33,7 +33,7 @@ let package = Package(
     .target(name: "ShadesDocument", dependencies: ["ShadesCore"]),
     .target(name: "ShadesAudio", dependencies: ["ShadesCore", "ShadesMedia"]),
     .target(name: "ShadesPolish", dependencies: ["ShadesCore", "ShadesCommands"]),
-    .target(name: "ShadesMatting", dependencies: ["ShadesCore"]),
+    .target(name: "ShadesMatting", dependencies: ["ShadesCore", "ShadesMedia"]),
     .target(
       name: "ShadesCaptions",
       dependencies: [

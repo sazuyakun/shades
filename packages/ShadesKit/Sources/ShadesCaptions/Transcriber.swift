@@ -24,6 +24,7 @@ public enum Transcriber {
       } else {
         try await ModelStore.download(model) { progress($0 * 0.3) }
       }
+    await JobQueue.pausePoint()
     let samples: [Float]
     do {
       samples = try await AudioDecoder.mono(from: url, sampleRate: sampleRate)

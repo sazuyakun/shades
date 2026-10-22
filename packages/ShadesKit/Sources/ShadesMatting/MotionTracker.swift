@@ -1,5 +1,6 @@
 import AVFoundation
 import ShadesCore
+import ShadesMedia
 import Vision
 
 /// Follows something through a video, frame by frame, from a box drawn around it at one moment.
@@ -74,6 +75,7 @@ public actor MotionTracker {
         y: center.y,
       ))
       progress(Double(path.count) / Double(times.count))
+      await JobQueue.pausePoint()
     }
     guard path.count > 1 else {
       logger.error("track.failed reason=lost path=\(url.path, privacy: .private)")

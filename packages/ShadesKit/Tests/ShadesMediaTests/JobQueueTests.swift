@@ -31,6 +31,56 @@ struct JobQueueTests {
   }
 
   @Test
+  func `on battery analysis waits, cancellable, while an export goes ahead`() async {
+    let queue = JobQueue(
+      pauseCheck: { pausesOnBattery in pausesOnBattery ? "on battery" : nil },
+      checkInterval: .milliseconds(10),
+    )
+    let analysis = queue.enqueue("Transcribing") { _ in }
+    queue.enqueue("Exporting", pausesOnBattery: false) { _ in }
+    while queue.jobs.last?.state != .done {
+      try? await Task.sleep(for: .milliseconds(10)) // why: a cancelled wait just checks again.
+    }
+    #expect(queue.jobs.first?.state == .queued)
+    #expect(queue.pauseReason == "on battery")
+    queue.cancel(analysis)
+    await queue.waitUntilIdle()
+    #expect(queue.jobs.first?.state == .cancelled)
+  }
+
+  @Test
+  func `a running job holds at its pause point until it may carry on`() async {
+    let paused = Atomic(false)
+    let queue = JobQueue(
+      pauseCheck: { _ in paused.load(ordering: .relaxed) ? "too hot" : nil },
+      checkInterval: .milliseconds(10),
+    )
+    let carriedOn = Atomic(false)
+    queue.enqueue("Cutting out") { _ in
+      paused.store(true, ordering: .relaxed)
+      await JobQueue.pausePoint()
+      carriedOn.store(true, ordering: .relaxed)
+    }
+    while queue.pauseReason == nil {
+      try? await Task.sleep(for: .milliseconds(10)) // why: a cancelled wait just checks again.
+    }
+    try? await Task.sleep(for: .milliseconds(50)) // why: gives a broken pause time to show.
+    let carriedOnWhilePaused = carriedOn.load(ordering: .relaxed)
+    #expect(!carriedOnWhilePaused)
+    #expect(queue.jobs.first?.state == .running(progress: nil))
+    paused.store(false, ordering: .relaxed)
+    await queue.waitUntilIdle()
+    let carriedOnAfter = carriedOn.load(ordering: .relaxed)
+    #expect(carriedOnAfter)
+    #expect(queue.pauseReason == nil)
+  }
+
+  @Test
+  func `a pause point outside a job returns at once`() async {
+    await JobQueue.pausePoint()
+  }
+
+  @Test
   func `a queued job can be cancelled before it starts`() async {
     let queue = JobQueue()
     queue

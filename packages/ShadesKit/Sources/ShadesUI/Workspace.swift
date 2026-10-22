@@ -524,6 +524,7 @@ extension Workspace: ProjectHost {
         do throws(AudioError) {
           speech = try await SpeechActivity.detect(in: media.url)
           progress(0.5)
+          await JobQueue.pausePoint()
           beats = try await BeatDetector.detect(in: media.url)
         } catch {
           throw .failed(error.errorDescription ?? "The sound couldn't be analysed.")
@@ -1000,7 +1001,7 @@ extension Workspace: ProjectHost {
     let outputs = request.outputs(for: project.timeline)
     for output in outputs {
       let title = "Exporting \(output.url.lastPathComponent)"
-      jobs.enqueue(title) { [weak self] progress throws(JobError) in
+      jobs.enqueue(title, pausesOnBattery: false) { [weak self] progress throws(JobError) in
         do throws(ExportError) {
           try await Exporter.write(
             output,
