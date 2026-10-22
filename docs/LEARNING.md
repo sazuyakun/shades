@@ -493,3 +493,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** `.coordinateSpace(.named("masks"))` names a view's space; a `DragGesture(coordinateSpace: .named("masks"))` inside it then reports the finger's location in that space, wherever the dragged view sits.
 **JS/TS analogy:** Like reading `event.clientX` minus the container's `getBoundingClientRect()` on every `pointermove`, done for you.
 **In Shades:** `MaskOverlay` measures handle drags and the Draw Mask lasso in the viewer's space, then turns them into points of the clip's picture.
+
+## Video colour tags (YCbCr matrix, primaries, transfer)
+**What it is:** Video codecs store pictures as YCbCr (brightness plus two colour differences), not RGB. The file's colour tags say which maths turns that back into RGB: the YCbCr matrix (BT.601 or BT.709), the primaries and the transfer curve. Without tags, each Mac guesses, and a wrong matrix shifts saturated colours while greys stay put.
+**JS/TS analogy:** Like an image without an embedded colour profile: browsers may assume different profiles, so the same file looks slightly different on two machines.
+**In Shades:** `VideoFixture` tags its test videos as Rec.709, the same as iPhone footage, so golden frames match on the dev Mac and on CI. `PixelProbe` and `GoldenFrame` read frames in their own colour space so nothing gets colour-matched.
