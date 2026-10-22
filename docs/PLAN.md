@@ -72,7 +72,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 39 | HDR clips are tone-mapped from 8-bit frames, so smooth 10-bit gradients (skies) can band slightly; media imported before 2026-10-21 has no colour tags, so it's converted but shows no HDR badge until imported again | After M9 |
 | 38 | Opening the project that's already open can lose the last ~1 s of edits (before autosave runs) and any History changes not yet saved | After M9 |
 | 36 | Choices from lists aren't in the ⌘K palette: `EditorAction` is a fixed list, so plugin templates, overlays, sounds, looks and styles, the motion presets and keyframe easing are picked only from their menus. Normalize Loudness (⌥L) shows no result in the app, only the new master level; its measurement reaches Claude alone | After M9 |
-| 34 | The viewer's mask handles, and the Track tool's box (`Clip.pictureBox`), place the picture by the clip's position, scale and rotation only: they ignore the timeline camera and 3D tilt, and mask handles don't show on text clips (whose masks are set in the inspector or over MCP) | After M9 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 
 ## 3. Constraints & setup notes

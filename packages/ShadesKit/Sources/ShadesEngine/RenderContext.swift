@@ -26,6 +26,64 @@ public final class RenderContext: Sendable {
     renderer.shaderProblem(at: url)
   }
 
+  /// Where `clip`'s upright picture lands in the frame at `time` on the timeline, as the
+  /// compositor places it (its track following the timeline's camera or not); `nil` for text
+  /// that can't be drawn or a clip whose media is missing.
+  public func projection(
+    of clip: Clip,
+    in project: Project,
+    at time: MediaTime,
+  ) -> LayerProjection? {
+    let timeline = project.timeline
+    let frame = CGSize(width: timeline.format.width, height: timeline.format.height)
+    guard clip.source != .adjustment else {
+      return LayerProjection(
+        picture: frame,
+        isNaturalSize: false,
+        frame: frame,
+        transform: .identity,
+        camera: .identity,
+      )
+    }
+    var transform = clip.transform(at: time)
+    let picture: CGSize
+    switch clip.source {
+    case .media(let id):
+      guard let media = project.media(withID: id) else {
+        return nil
+      }
+      picture = CGSize(width: media.width, height: media.height)
+
+    case .text:
+      guard
+        let drawn = text(
+          of: clip,
+          at: time,
+          width: timeline.format.width,
+          height: timeline.format.height,
+        )
+      else {
+        return nil
+      }
+      picture = CGSize(width: drawn.surface.width, height: drawn.surface.height)
+      transform.x += Double(drawn.offset.x)
+      transform.y += Double(drawn.offset.y)
+
+    case .drawing,
+         .adjustment:
+      picture = frame
+    }
+    let follows = timeline.tracks.first { $0.clips.contains { $0.id == clip.id } }?
+      .followsCamera ?? false
+    return LayerProjection(
+      picture: picture,
+      isNaturalSize: clip.text != nil,
+      frame: frame,
+      transform: transform,
+      camera: follows ? timeline.camera(at: time) : .identity,
+    )
+  }
+
   // MARK: Internal
 
   let renderer: MetalRenderer
@@ -49,6 +107,22 @@ public final class RenderContext: Sendable {
       throw .renderFailed
     }
     return buffer
+  }
+
+  /// A text clip drawn as it looks at `time` on the timeline, at the scale of a
+  /// `width`×`height` frame (from the cache when drawn the same way recently).
+  func text(of clip: Clip, at time: MediaTime, width: Int, height: Int) -> DrawnText? {
+    clip.text.flatMap { content in
+      var content = content
+      content.path?.offset = clip.value(of: .pathOffset, at: time)
+      return text(
+        content,
+        at: clip.sourceTime(at: time).seconds,
+        duration: clip.duration.seconds,
+        width: width,
+        height: height,
+      )
+    }
   }
 
   /// A text clip drawn as it looks at `time` (seconds into its source) on a transparent surface

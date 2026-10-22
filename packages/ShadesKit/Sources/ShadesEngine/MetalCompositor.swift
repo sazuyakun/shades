@@ -94,17 +94,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         rotation = .identity
 
       case .text:
-        let drawn = clip.text.flatMap { content in
-          var content = content
-          content.path?.offset = clip.value(of: .pathOffset, at: time)
-          return instruction.renderContext.text(
-            content,
-            at: source.seconds,
-            duration: clip.duration.seconds,
-            width: width,
-            height: height,
-          )
-        }
+        let drawn = instruction.renderContext.text(of: clip, at: time, width: width, height: height)
         picture = drawn.map { LayerPicture.surface($0.surface) }
         offset = drawn?.offset ?? .zero
         solid = drawn?.solid

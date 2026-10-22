@@ -75,7 +75,9 @@ struct TrackingCanvas: View {
       onError("Move the playhead over a video clip, then draw the box around what to follow.")
       return
     }
-    let picture = clip.pictureBox(box, media: media, format: project.timeline.format, at: playhead)
+    // why: no GPU means no frames to track in either; the box just finds no picture.
+    let projection = try? player.renderContext().projection(of: clip, in: project, at: playhead)
+    let picture = projection?.pictureBox(under: box) ?? .zero
     guard !picture.isEmpty else {
       onError("Draw the box over the video's picture.")
       return

@@ -18,9 +18,8 @@ struct MaskOverlay: View {
     GeometryReader { geometry in
       if let target {
         let place = MaskPlacement(
-          project: editor.project,
           clip: target.clip,
-          aspect: target.aspect,
+          projection: target.projection,
           playhead: playhead,
           size: geometry.size,
         )
@@ -59,18 +58,20 @@ struct MaskOverlay: View {
     MediaTime(seconds: player.currentTime)
   }
 
-  /// The one selected clip showing at the playhead, if its picture's shape is known.
-  private var target: (clip: Clip, aspect: Double)? {
+  /// The one selected clip showing at the playhead, and where its picture is in the frame.
+  private var target: (clip: Clip, projection: LayerProjection)? {
     let timeline = editor.project.timeline
     guard
       editor.selection.count == 1, let id = editor.selection.first,
       let clip = timeline.clip(withID: id), clip.contains(playhead),
       timeline.tracks.first(where: { $0.clips.contains { $0.id == id } })?.kind != .audio,
-      let aspect = editor.project.pictureAspect(of: clip)
+      // why: without a GPU nothing is drawn, so there's nothing to put handles on either.
+      let projection = try? player.renderContext()
+        .projection(of: clip, in: editor.project, at: playhead)
     else {
       return nil
     }
-    return (clip, aspect)
+    return (clip, projection)
   }
 
 }
@@ -106,7 +107,7 @@ private struct MaskLasso: View {
 
   /// Turns the dragged outline into a path mask around it.
   private func finish() {
-    let points = outline.map(place.picturePoint)
+    let points = outline.compactMap(place.picturePoint)
     outline = []
     onFinish()
     guard
@@ -139,39 +140,28 @@ private struct MaskLasso: View {
 
 // MARK: - MaskPlacement
 
-/// Where a clip's picture sits in the viewer at the playhead: turns its picture points into
-/// viewer points and back (the camera and 3D tilt aside).
+/// Where a clip's picture sits in the viewer at the playhead (moved, tilted and seen through the
+/// camera as it's drawn): turns its picture points into viewer points and back.
 struct MaskPlacement {
 
   /// The coordinate space mask gestures are measured in.
   static let space = "masks"
 
-  let project: Project
   let clip: Clip
-  let aspect: Double
+  let projection: LayerProjection
   let playhead: MediaTime
   let size: CGSize
 
-  /// The viewer point showing `point` of the picture (fractions from its top left).
-  func viewPoint(_ point: CGPoint) -> CGPoint {
-    let offset = project.frameOffset(
-      of: (point.x, point.y),
-      in: clip,
-      pictureAspect: aspect,
-      at: playhead,
-    )
-    return CGPoint(x: (offset.x + 0.5) * size.width, y: (offset.y + 0.5) * size.height)
+  /// The viewer point showing `point` of the picture (fractions from its top left), unless it's
+  /// behind the viewer.
+  func viewPoint(_ point: CGPoint) -> CGPoint? {
+    projection.framePoint(of: point).map { CGPoint(x: $0.x * size.width, y: $0.y * size.height) }
   }
 
-  /// The picture point (fractions from its top left) showing at viewer point `point`.
-  func picturePoint(_ point: CGPoint) -> CGPoint {
-    let picture = project.picturePoint(
-      at: (point.x / size.width - 0.5, point.y / size.height - 0.5),
-      in: clip,
-      pictureAspect: aspect,
-      at: playhead,
-    )
-    return CGPoint(x: picture.x, y: picture.y)
+  /// The picture point (fractions from its top left) showing at viewer point `point`, unless
+  /// the picture is seen edge-on there.
+  func picturePoint(_ point: CGPoint) -> CGPoint? {
+    projection.picturePoint(at: CGPoint(x: point.x / size.width, y: point.y / size.height))
   }
 
 }
@@ -192,7 +182,7 @@ private struct MaskHandles: View {
 
   var body: some View {
     Path { path in
-      path.addLines(outline.map(place.viewPoint))
+      path.addLines(outline.compactMap(place.viewPoint))
       path.closeSubpath()
     }
     .stroke(.white.opacity(0.9), style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
@@ -298,22 +288,28 @@ private struct MaskHandle: View {
   let onDrag: (CGPoint) -> Void
 
   var body: some View {
-    Circle()
-      .fill(.white)
-      .overlay {
-        if isCentre {
-          Image(systemName: "plus")
-            .font(.system(size: 7, weight: .bold))
-            .foregroundStyle(.black)
+    if let spot = place.viewPoint(at) {
+      Circle()
+        .fill(.white)
+        .overlay {
+          if isCentre {
+            Image(systemName: "plus")
+              .font(.system(size: 7, weight: .bold))
+              .foregroundStyle(.black)
+          }
         }
-      }
-      .frame(width: isSmall ? 6 : 10, height: isSmall ? 6 : 10)
-      .position(place.viewPoint(at))
-      .gesture(
-        DragGesture(minimumDistance: 1, coordinateSpace: .named(MaskPlacement.space))
-          .onChanged { onDrag(place.picturePoint($0.location)) }
-          .onEnded { _ in editor.endCoalescing() }
-      )
+        .frame(width: isSmall ? 6 : 10, height: isSmall ? 6 : 10)
+        .position(spot)
+        .gesture(
+          DragGesture(minimumDistance: 1, coordinateSpace: .named(MaskPlacement.space))
+            .onChanged { drag in
+              if let picture = place.picturePoint(drag.location) {
+                onDrag(picture)
+              }
+            }
+            .onEnded { _ in editor.endCoalescing() }
+        )
+    }
   }
 
   // MARK: Private
