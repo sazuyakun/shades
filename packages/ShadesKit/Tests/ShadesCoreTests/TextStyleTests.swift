@@ -39,6 +39,14 @@ struct TextStyleTests {
   }
 
   @Test
+  func `an extrusion keeps its defaults for what it leaves out`() throws {
+    let json = Data(#"{"extrusion": {"depth": 0.8}}"#.utf8)
+    let style = try JSONDecoder().decode(TextStyle.self, from: json)
+    #expect(style.extrusion == TextExtrusion(depth: 0.8, bevel: TextExtrusion().bevel))
+    #expect(TextStyle.caption.extrusion == nil)
+  }
+
+  @Test
   func `text on a path round-trips and its offset is a keyframeable value`() throws {
     let content = TextContent(
       text: "round and round",

@@ -68,6 +68,21 @@ final class MetalRenderer: Sendable {
       mixing: .replace,
       format: Self.travelFormat,
     )
+    solidPipeline = try Self.makePipeline(
+      device: device,
+      library: library,
+      vertex: "solidVertex",
+      fragment: "solidFragment",
+      mixing: .stack,
+      format: Self.trailFormat,
+    )
+    addPipeline = try Self.makePipeline(
+      device: device,
+      library: library,
+      fragment: "addFragment",
+      mixing: .add,
+      format: Self.trailFormat,
+    )
     // why: in a 2×2×2 grid, red changes fastest, then green, then blue: each corner maps to itself.
     let identity: [Float] = (0 ..< 8).flatMap { (corner: Int) -> [Float] in
       let red = Float(corner & 1)
@@ -138,9 +153,29 @@ final class MetalRenderer: Sendable {
         encoder = try startPass(on: outputTexture, clearing: false, commands: commands)
       }
       let effect = layer.effects?.shader.flatMap { effectPipelines(at: URL(filePath: $0)) }
+      if let solid = layer.solid {
+        encoder.endEncoding()
+        let trail = try keptTexture(.trail, like: outputTexture)
+        try drawSolid(layer, solid, into: trail, commands: commands)
+        encoder = try startPass(on: outputTexture, clearing: false, commands: commands)
+        encoder.setRenderPipelineState(layer.needsBackdrop
+          ? replacingTrailPipeline
+          : trailPipeline)
+        encoder.setFragmentTexture(isMasked ? mask : blank, index: 1)
+        encoder.setFragmentTexture(backdrop ?? blank, index: 2)
+        try drawTrail(
+          trail,
+          of: layer,
+          size: outputSize,
+          opacity: layer.shutter.count > 1 ? 1 : layer.opacity,
+          isMasked: isMasked,
+          encoder: encoder,
+        )
+        continue
+      }
       if layer.shutter.count > 1 {
         encoder.endEncoding()
-        let trail = try trailTexture(like: outputTexture)
+        let trail = try keptTexture(.trail, like: outputTexture)
         try accumulate(
           layer,
           into: trail,
@@ -156,7 +191,14 @@ final class MetalRenderer: Sendable {
           : trailPipeline)
         encoder.setFragmentTexture(isMasked ? mask : blank, index: 1)
         encoder.setFragmentTexture(backdrop ?? blank, index: 2)
-        try drawTrail(trail, of: layer, size: outputSize, isMasked: isMasked, encoder: encoder)
+        try drawTrail(
+          trail,
+          of: layer,
+          size: outputSize,
+          opacity: 1,
+          isMasked: isMasked,
+          encoder: encoder,
+        )
         continue
       }
       encoder.setRenderPipelineState(layer.needsBackdrop
@@ -269,9 +311,13 @@ final class MetalRenderer: Sendable {
   private let replacingTrailPipeline: any MTLRenderPipelineState
   /// Works out, from a flow frame, how far the footage smearing onto each point travels.
   private let reachPipeline: any MTLRenderPipelineState
+  /// Stacks the slices of solid 3D letters, back to front.
+  private let solidPipeline: any MTLRenderPipelineState
+  /// Adds one moment of a moving solid layer into its trail.
+  private let addPipeline: any MTLRenderPipelineState
   /// The buffer moving layers' moments are summed in, kept between frames: at full size it's
   /// tens of megabytes. Frames are drawn in order on one queue, so sharing it is safe.
-  private let trail = Mutex<(any MTLTexture)?>(nil)
+  private let kept = Mutex<[KeptTexture: any MTLTexture]>([:])
   /// Textures bound when a layer has no LUT, curves, mask or backdrop. Held in a lock because
   /// Metal textures can't be shared freely between threads.
   private let defaults: Mutex<DefaultTextures>
@@ -315,12 +361,13 @@ final class MetalRenderer: Sendable {
   private static func makePipeline(
     device: any MTLDevice,
     library: any MTLLibrary,
+    vertex: String = "layerVertex",
     fragment: String,
     mixing: Mixing,
     format: MTLPixelFormat = .bgra8Unorm,
   ) throws(EngineError) -> any MTLRenderPipelineState {
     let descriptor = MTLRenderPipelineDescriptor()
-    descriptor.vertexFunction = library.makeFunction(name: "layerVertex")
+    descriptor.vertexFunction = library.makeFunction(name: vertex)
     descriptor.fragmentFunction = library.makeFunction(name: fragment)
     let attachment = descriptor.colorAttachments[0]
     attachment?.pixelFormat = format
@@ -328,6 +375,13 @@ final class MetalRenderer: Sendable {
     case .over:
       attachment?.isBlendingEnabled = true
       attachment?.sourceRGBBlendFactor = .sourceAlpha
+      attachment?.destinationRGBBlendFactor = .oneMinusSourceAlpha
+      attachment?.sourceAlphaBlendFactor = .one
+      attachment?.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+
+    case .stack:
+      attachment?.isBlendingEnabled = true
+      attachment?.sourceRGBBlendFactor = .one
       attachment?.destinationRGBBlendFactor = .oneMinusSourceAlpha
       attachment?.sourceAlphaBlendFactor = .one
       attachment?.destinationAlphaBlendFactor = .oneMinusSourceAlpha
@@ -539,13 +593,17 @@ final class MetalRenderer: Sendable {
     return travel
   }
 
-  /// The frame-sized buffer a moving layer's moments are summed in, made once per frame size.
-  private func trailTexture(like output: any MTLTexture) throws(EngineError) -> any MTLTexture {
+  /// A frame-sized half-float buffer kept for `purpose` between frames, made again only when the
+  /// frame size changes.
+  private func keptTexture(
+    _ purpose: KeptTexture,
+    like output: any MTLTexture,
+  ) throws(EngineError) -> any MTLTexture {
     let device = device
     let width = output.width
     let height = output.height
-    let texture = trail.withLock { kept -> (any MTLTexture)? in
-      if let current = kept, current.width == width, current.height == height {
+    let texture = kept.withLock { kept -> (any MTLTexture)? in
+      if let current = kept[purpose], current.width == width, current.height == height {
         return current
       }
       let descriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -556,14 +614,112 @@ final class MetalRenderer: Sendable {
       )
       descriptor.usage = [.renderTarget, .shaderRead]
       descriptor.storageMode = .private
-      kept = device.makeTexture(descriptor: descriptor)
-      return kept
+      kept[purpose] = device.makeTexture(descriptor: descriptor)
+      return kept[purpose]
     }
     guard let texture else {
-      logger.error("frame.renderFailed reason=trail")
+      logger.error("frame.renderFailed reason=keptTexture")
       throw .renderFailed
     }
     return texture
+  }
+
+  /// Draws `layer`'s solid letters into `target` (cleared first, premultiplied): where the layer
+  /// is, or averaged over its moments inside the shutter when it moves.
+  private func drawSolid(
+    _ layer: RenderLayer,
+    _ solid: SolidText,
+    into target: any MTLTexture,
+    commands: any MTLCommandBuffer,
+  ) throws(EngineError) {
+    let size = CGSize(width: target.width, height: target.height)
+    guard layer.shutter.count > 1 else {
+      let encoder = try startPass(on: target, clearing: true, toClear: true, commands: commands)
+      try encodeSolid(
+        layer,
+        solid,
+        at: LayerPose(transform: layer.transform, camera: layer.camera),
+        size: size,
+        encoder: encoder,
+      )
+      encoder.endEncoding()
+      return
+    }
+    let moment = try keptTexture(.solidMoment, like: target)
+    try startPass(on: target, clearing: true, toClear: true, commands: commands).endEncoding()
+    var uniforms = FrameUniforms(
+      stored: size,
+      rotation: .identity,
+      output: size,
+      opacity: layer.opacity / Double(layer.shutter.count),
+    )
+    for pose in layer.shutter {
+      let slices = try startPass(on: moment, clearing: true, toClear: true, commands: commands)
+      try encodeSolid(layer, solid, at: pose, size: size, encoder: slices)
+      slices.endEncoding()
+      let adding = try startPass(on: target, clearing: false, commands: commands)
+      adding.setRenderPipelineState(addPipeline)
+      adding.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
+      adding.setFragmentTexture(moment, index: 0)
+      adding.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: uniforms.vertexCount)
+      adding.endEncoding()
+    }
+  }
+
+  /// Stacks the slices of `layer`'s solid letters, placed at `pose`, from the back forward.
+  private func encodeSolid(
+    _ layer: RenderLayer,
+    _ solid: SolidText,
+    at pose: LayerPose,
+    size: CGSize,
+    encoder: any MTLRenderCommandEncoder,
+  ) throws(EngineError) {
+    guard case .surface(let surface) = layer.source else {
+      logger.fault("frame.invariantBroken reason=solidWithoutText")
+      assertionFailure("only text is drawn solid")
+      return
+    }
+    let picture = try texture(for: surface)
+    var uniforms = FrameUniforms(
+      stored: CGSize(width: picture.width, height: picture.height),
+      rotation: .identity,
+      output: size,
+      transform: pose.transform,
+      camera: pose.camera,
+      isNaturalSize: true,
+    )
+    var shape = SolidUniforms(solid, transform: pose.transform, camera: pose.camera, output: size)
+    let masks = LayerMaskShape.shapes(of: layer.masks)
+    var look = LayerLook(
+      size: size,
+      grade: nil,
+      effects: nil,
+      crop: layer.crop,
+      maskCount: masks.shapes.count,
+      blend: .normal,
+      isMasked: false,
+      isAdjustment: false,
+      hasLUT: false,
+      hasCurves: false,
+      seed: 0,
+      transition: nil,
+      clipTime: 0,
+    )
+    encoder.setRenderPipelineState(solidPipeline)
+    encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
+    encoder.setVertexBytes(&shape, length: MemoryLayout<SolidUniforms>.stride, index: 1)
+    encoder.setFragmentBytes(&look, length: MemoryLayout<LayerLook>.stride, index: 0)
+    try encoder.setFragmentBuffer(buffer(of: masks.shapes), offset: 0, index: 1)
+    try encoder.setFragmentBuffer(buffer(of: masks.points), offset: 0, index: 2)
+    encoder.setFragmentBytes(&shape, length: MemoryLayout<SolidUniforms>.stride, index: 3)
+    encoder.setFragmentTexture(picture, index: 0)
+    encoder.setFragmentTexture(try texture(for: solid.distance, format: .r8Unorm), index: 5)
+    encoder.drawPrimitives(
+      type: .triangleStrip,
+      vertexStart: 0,
+      vertexCount: uniforms.vertexCount,
+      instanceCount: Int(shape.slices),
+    )
   }
 
   /// Sums the moving layer's moments inside the shutter into `trail`, each weighted equally,
@@ -619,6 +775,7 @@ final class MetalRenderer: Sendable {
     _ trail: any MTLTexture,
     of layer: RenderLayer,
     size: CGSize,
+    opacity: Double,
     isMasked: Bool,
     encoder: any MTLRenderCommandEncoder,
   ) throws(EngineError) {
@@ -637,7 +794,12 @@ final class MetalRenderer: Sendable {
       transition: layer.transition,
       clipTime: layer.clipTime,
     )
-    var uniforms = FrameUniforms(stored: size, rotation: .identity, output: size)
+    var uniforms = FrameUniforms(
+      stored: size,
+      rotation: .identity,
+      output: size,
+      opacity: opacity,
+    )
     encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
     encoder.setFragmentBytes(&look, length: MemoryLayout<LayerLook>.stride, index: 0)
     encoder.setFragmentTexture(trail, index: 0)
@@ -869,10 +1031,13 @@ final class MetalRenderer: Sendable {
     }
   }
 
-  /// Wraps a BGRA IOSurface as a Metal texture without copying.
-  private func texture(for surface: IOSurface) throws(EngineError) -> any MTLTexture {
+  /// Wraps an IOSurface (BGRA unless `format` says otherwise) as a Metal texture without copying.
+  private func texture(
+    for surface: IOSurface,
+    format: MTLPixelFormat = .bgra8Unorm,
+  ) throws(EngineError) -> any MTLTexture {
     let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-      pixelFormat: .bgra8Unorm,
+      pixelFormat: format,
       width: surface.width,
       height: surface.height,
       mipmapped: false,
@@ -913,6 +1078,7 @@ struct RenderLayer {
     clipTime: Double = 0,
     shutter: [LayerPose] = [],
     footageBlur: FootageBlur? = nil,
+    solid: SolidText? = nil,
   ) {
     self.source = source
     self.rotation = rotation
@@ -931,6 +1097,7 @@ struct RenderLayer {
     self.clipTime = clipTime
     self.shutter = shutter
     self.footageBlur = footageBlur
+    self.solid = solid
   }
 
   // MARK: Internal
@@ -962,6 +1129,8 @@ struct RenderLayer {
   let shutter: [LayerPose]
   /// How its footage smears along its own motion, when it's switched on and the flow is made.
   let footageBlur: FootageBlur?
+  /// Drawn as solid 3D letters (extruded text), when it is.
+  let solid: SolidText?
 
   /// Whether this is an adjustment clip, working on the frame drawn so far.
   var isAdjustment: Bool {
@@ -1016,6 +1185,8 @@ private enum Mixing {
   case over
   /// Instead of it: the fragment mixed with the backdrop itself.
   case replace
+  /// Over it, already premultiplied: solid letters' slices.
+  case stack
   /// Added to it, summing a moving layer's moments.
   case add
 }
@@ -1033,4 +1204,14 @@ private struct FileVersion: Hashable {
 
   let url: URL
   let modified: Date?
+}
+
+// MARK: - KeptTexture
+
+/// What a texture kept between frames is for.
+private enum KeptTexture {
+  /// A moving layer's moments summed (or a solid layer's slices stacked).
+  case trail
+  /// One moment of a moving solid layer, before it's added to its trail.
+  case solidMoment
 }

@@ -17,6 +17,7 @@ public struct TextStyle: Codable, Hashable, Sendable {
     highlight: HexColor? = nil,
     arc: Double = 0,
     spacing: Double = 0,
+    extrusion: TextExtrusion? = nil,
   ) {
     self.font = font
     self.size = size
@@ -29,6 +30,7 @@ public struct TextStyle: Codable, Hashable, Sendable {
     self.highlight = highlight
     self.arc = arc
     self.spacing = spacing
+    self.extrusion = extrusion
   }
 
   // MARK: Public
@@ -55,6 +57,8 @@ public struct TextStyle: Codable, Hashable, Sendable {
   public var arc: Double
   /// Extra room between letters as a fraction of the size; negative tightens them.
   public var spacing: Double
+  /// Makes the letters solid 3D shapes with depth, a bevel and lighting; `nil` is flat.
+  public var extrusion: TextExtrusion?
 
 }
 
@@ -82,6 +86,7 @@ extension TextStyle {
       highlight: container.decodeIfPresent(HexColor.self, forKey: .highlight),
       arc: container.decodeIfPresent(Double.self, forKey: .arc) ?? 0,
       spacing: container.decodeIfPresent(Double.self, forKey: .spacing) ?? 0,
+      extrusion: container.decodeIfPresent(TextExtrusion.self, forKey: .extrusion),
     )
   }
 
@@ -99,6 +104,7 @@ extension TextStyle {
     case highlight
     case arc
     case spacing
+    case extrusion
   }
 
 }

@@ -86,7 +86,8 @@ enum TextRenderer {
     let box = content.word == nil
       ? layout.box
       : shown.reduce(shown.first ?? .zero) { $0.union($1) }.integral
-    let margin = ceil(fontSize * 0.5)
+    // why: solid letters cast no flat shadow, so they need room only for their outline.
+    let margin = style.extrusion == nil ? ceil(fontSize * 0.5) : ceil(fontSize * style.outline) + 4
     guard
       let (buffer, context) = surface(
         width: Int(box.width + margin * 2),
@@ -97,7 +98,7 @@ enum TextRenderer {
     }
     defer { CVPixelBufferUnlockBaseAddress(buffer, []) }
     context.translateBy(x: margin - box.minX, y: margin - box.minY)
-    if style.shadow {
+    if style.shadow, style.extrusion == nil {
       context.setShadow(
         offset: CGSize(width: 0, height: -fontSize * 0.06),
         blur: fontSize * 0.25,

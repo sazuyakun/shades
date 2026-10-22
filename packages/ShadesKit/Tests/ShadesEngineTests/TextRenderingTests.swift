@@ -1,3 +1,4 @@
+import CoreVideo
 import Foundation
 import ShadesCore
 @testable import ShadesEngine
@@ -171,6 +172,68 @@ struct TextRenderingTests {
     }
     let left = try #require(lettered.first)
     #expect(abs(left - 0.5) < 0.05, "halfway along at the halfway moment")
+  }
+
+  @Test
+  func `a distance field measures how far each pixel is inside or outside the ink`() throws {
+    var made: CVPixelBuffer?
+    CVPixelBufferCreate(nil, 40, 40, kCVPixelFormatType_32BGRA, nil, &made)
+    let square = try #require(made)
+    CVPixelBufferLockBaseAddress(square, [])
+    let bytes = try #require(CVPixelBufferGetBaseAddress(square)?
+      .assumingMemoryBound(to: UInt8.self))
+    let row = CVPixelBufferGetBytesPerRow(square)
+    for y in 0 ..< 40 {
+      for x in 0 ..< 40 {
+        let isInk = (10 ..< 30).contains(x) && (10 ..< 30).contains(y)
+        bytes[y * row + x * 4 + 3] = isInk ? 255 : 0
+      }
+    }
+    CVPixelBufferUnlockBaseAddress(square, [])
+    let field = try #require(DistanceField.make(from: square, unit: 1))
+    CVPixelBufferLockBaseAddress(field, .readOnly)
+    defer { CVPixelBufferUnlockBaseAddress(field, .readOnly) }
+    let values = try #require(CVPixelBufferGetBaseAddress(field)?
+      .assumingMemoryBound(to: UInt8.self))
+    let fieldRow = CVPixelBufferGetBytesPerRow(field)
+    let value = { (x: Int, y: Int) in Int(values[y * fieldRow + x]) - 128 }
+    #expect(value(20, 20) == 10, "the middle is ten pixels in (less the half-pixel edge)")
+    #expect(value(10, 20) > 0 && value(8, 20) < 0, "either side of the edge")
+    #expect(value(0, 0) == -14, "the corner is ten pixels out on each axis")
+  }
+
+  @Test
+  func `solid letters turned to the side show their depth`() async throws {
+    var style = TextStyle(size: 0.18, color: HexColor("#FFD84A") ?? .white, anchor: .center)
+    style.shadow = false
+    let flat = TextContent(text: "3D", style: style)
+    style.extrusion = TextExtrusion(depth: 0.6, bevel: 0.05)
+    let solid = TextContent(text: "3D", style: style)
+    let turn = { (clip: inout Clip) in clip.transform = ClipTransform(tiltX: -15, tiltY: 40) }
+    /// The leftmost column with ink in the middle row.
+    let leftEdge = { (png: Data) throws -> Double in
+      try stride(from: 0.3, through: 0.7, by: 0.005).first { x in
+        try PixelProbe.color(of: png, x: x, y: 0.5).blue < 120
+      } ?? 1
+    }
+    let flatPNG = try await frame(flat, at: 0.5, change: turn)
+    let solidPNG = try await frame(solid, at: 0.5, change: turn)
+    #expect(try leftEdge(solidPNG) < leftEdge(flatPNG) - 0.02, "the side shows past the face")
+    #expect(try GoldenFrame.matches(solidPNG, named: "title-extruded", in: golden))
+  }
+
+  @Test
+  func `solid letters bend and blur as they move`() async throws {
+    var style = TextStyle(size: 0.16, anchor: .center)
+    style.extrusion = TextExtrusion(depth: 0.4, bevel: 0.04)
+    let png = try await frame(TextContent(text: "BENT", style: style), at: 1) { clip in
+      clip.transform = ClipTransform(tiltX: -20, bend: -120)
+      clip.keyframes = [
+        Keyframe(property: .x, time: .zero, value: -0.4),
+        Keyframe(property: .x, time: MediaTime(seconds: 2), value: 0.4),
+      ]
+    }
+    #expect(try GoldenFrame.matches(png, named: "title-extruded-bent-moving", in: golden))
   }
 
   // MARK: Private

@@ -62,6 +62,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       let picture: LayerPicture?
       let rotation: CGAffineTransform
       var isText = false
+      var solid: SolidText?
       switch layer.source {
       case .video(let trackID, let sourceRotation):
         picture = request.sourceFrame(byTrackID: trackID).map(LayerPicture.frame)
@@ -106,6 +107,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
         }
         picture = drawn.map { LayerPicture.surface($0.surface) }
         offset = drawn?.offset ?? .zero
+        solid = drawn?.solid
         rotation = .identity
         isText = true
       }
@@ -175,6 +177,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
               place: place,
             ),
           footageBlur: footage,
+          solid: solid,
         )
       }
     }

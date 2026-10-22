@@ -93,6 +93,29 @@ struct TextInspector: View {
         onChange: change { $0.arc = $1.rounded() },
         onEnd: editor.endCoalescing,
       )
+      Toggle("Solid 3D Letters", isOn: Binding(
+        get: { content.style.extrusion != nil },
+        set: { style(\.extrusion).wrappedValue = $0 ? TextExtrusion() : nil },
+      ))
+      .help("Extrude the letters into depth with a bevel; tilt, turn or bend the clip to see it")
+      if let extrusion = content.style.extrusion {
+        InspectorSlider(
+          label: "Letter Depth",
+          value: extrusion.depth,
+          range: 0.05 ... 2,
+          format: { "\(Int(($0 * 100).rounded()))%" },
+          onChange: change { $0.extrusion?.depth = $1 },
+          onEnd: editor.endCoalescing,
+        )
+        InspectorSlider(
+          label: "Bevel",
+          value: extrusion.bevel,
+          range: 0 ... 0.2,
+          format: { "\(Int(($0 * 100).rounded()))%" },
+          onChange: change { $0.extrusion?.bevel = $1 },
+          onEnd: editor.endCoalescing,
+        )
+      }
       Text("Align").foregroundStyle(Theme.secondaryText)
       Picker("Align", selection: style(\.align)) {
         ForEach(TextAlign.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }

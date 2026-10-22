@@ -15,5 +15,13 @@ extension TextStyle {
     guard (-0.3 ... 2).contains(spacing) else {
       throw rejected(.invalidValue("spacing goes from -0.3 to 2 of the size"))
     }
+    if let extrusion {
+      guard (0.02 ... 3).contains(extrusion.depth) else {
+        throw rejected(.invalidValue("extrusion depth goes from 0.02 to 3 of the size"))
+      }
+      guard (0 ... 0.2).contains(extrusion.bevel) else {
+        throw rejected(.invalidValue("extrusion bevel goes from 0 to 0.2 of the size"))
+      }
+    }
   }
 }

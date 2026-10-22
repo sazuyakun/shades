@@ -25,28 +25,40 @@ struct VertexOut {
   float opacity;
 };
 
-// A point of the flat layer (pixels from its centre, y up) curved round an upright axis: its
-// width wraps an arc of `bend` radians, the middle staying put and the sides bending away.
-static float3 bent(float2 pixel, constant FrameUniforms &u) {
+// A point of the flat layer (pixels from its centre, y up), `z` pixels in front of it, curved
+// round an upright axis: its width wraps an arc of `bend` radians, the middle staying put and
+// the sides bending away.
+static float3 bent(float2 pixel, float z, constant FrameUniforms &u) {
   if (u.bend == 0) {
-    return float3(pixel, 0);
+    return float3(pixel, z);
   }
   float radius = u.fit.x * u.frameSize.x / u.bend;
   float angle = pixel.x / radius;
-  return float3(radius * sin(angle), pixel.y, radius * (cos(angle) - 1));
+  float around = radius + z;
+  return float3(around * sin(angle), pixel.y, around * cos(angle) - radius);
 }
 
-// The layer is a strip of `columns` slices, bottom and top corners in turn from left to right.
-vertex VertexOut layerVertex(uint id [[vertex_id]], constant FrameUniforms &u [[buffer(0)]]) {
-  float2 upright = float2(float(id / 2) / float(u.columns), id % 2 == 0 ? 1.0 : 0.0);
-  float2 pixel = float2(upright.x * 2 - 1, 1 - upright.y * 2) * u.fit * u.frameSize * 0.5;
-  float4 position = u.transform * float4(bent(pixel, u), 1);
-  VertexOut out;
-  out.position = position;
-  out.uv = float2(
+// Corner `id` of the layer's strip of `columns` slices, in the upright picture (0…1 from its top
+// left): bottom and top corners in turn, from left to right.
+static float2 stripCorner(uint id, constant FrameUniforms &u) {
+  return float2(float(id / 2) / float(u.columns), id % 2 == 0 ? 1.0 : 0.0);
+}
+
+// Where a point of the upright picture is in the stored frame.
+static float2 storedUV(float2 upright, constant FrameUniforms &u) {
+  return float2(
     u.matrix.x * upright.x + u.matrix.z * upright.y + u.offset.x,
     u.matrix.y * upright.x + u.matrix.w * upright.y + u.offset.y
   );
+}
+
+vertex VertexOut layerVertex(uint id [[vertex_id]], constant FrameUniforms &u [[buffer(0)]]) {
+  float2 upright = stripCorner(id, u);
+  float2 pixel = float2(upright.x * 2 - 1, 1 - upright.y * 2) * u.fit * u.frameSize * 0.5;
+  float4 position = u.transform * float4(bent(pixel, 0, u), 1);
+  VertexOut out;
+  out.position = position;
+  out.uv = storedUV(upright, u);
   out.upright = upright;
   out.aspect = (u.fit.x * u.frameSize.x) / max(u.fit.y * u.frameSize.y, 1.0);
   float2 onScreen = position.xy / position.w;
@@ -513,4 +525,102 @@ fragment float4 reachFragment(
 fragment half4 matteFragment(VertexOut in [[stage_in]], texture2d<half> source [[texture(0)]]) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
   return half4(source.sample(linearSampler, in.uv).r, 0, 0, 1);
+}
+
+// Must match `SolidUniforms` in SolidUniforms.swift.
+struct Solid {
+  float4x4 turn;   // the layer's own turn and the camera's: which way its faces point
+  float depth;     // how deep the letters go, in pixels
+  float bevel;     // how far the slope round their front edges reaches in, in pixels
+  float unit;      // pixels per step of the distance field
+  int slices;      // copies of the letters stacked through the depth
+  int backFirst;   // 1 when the front faces the viewer: slices go from the back forward
+};
+
+struct SolidOut {
+  float4 position [[position]];
+  float2 uv;
+  float2 upright;
+  float aspect [[flat]];
+  float behind;    // how far behind the front face this slice is, in pixels
+  float turned;    // how far the bend has turned this point, in radians
+};
+
+// One slice of solid letters, `behind` pixels back from the front, placed like the layer.
+vertex SolidOut solidVertex(
+  uint id [[vertex_id]],
+  uint instance [[instance_id]],
+  constant FrameUniforms &u [[buffer(0)]],
+  constant Solid &solid [[buffer(1)]]
+) {
+  int slice = solid.backFirst != 0 ? solid.slices - 1 - int(instance) : int(instance);
+  float behind = solid.depth * float(slice) / float(max(solid.slices - 1, 1));
+  float2 upright = stripCorner(id, u);
+  float2 pixel = float2(upright.x * 2 - 1, 1 - upright.y * 2) * u.fit * u.frameSize * 0.5;
+  SolidOut out;
+  out.position = u.transform * float4(bent(pixel, -behind, u), 1);
+  out.uv = storedUV(upright, u);
+  out.upright = upright;
+  out.aspect = (u.fit.x * u.frameSize.x) / max(u.fit.y * u.frameSize.y, 1.0);
+  out.behind = behind;
+  out.turned = u.bend == 0 ? 0.0 : pixel.x * u.bend / (u.fit.x * u.frameSize.x);
+  return out;
+}
+
+// How far `uv` is inside the letters' edge, in pixels (negative outside).
+static float inside(texture2d<half> distance, sampler s, float2 uv, constant Solid &solid) {
+  return (float(distance.sample(s, uv).r) * 255.0 - 128.0) * solid.unit;
+}
+
+// One slice of solid letters: where they reach at its depth (pulled in by the bevel near the
+// front), lit by a light above left as they turn. Premultiplied, stacked over the slices drawn
+// before it.
+fragment float4 solidFragment(
+  SolidOut in [[stage_in]],
+  texture2d<half> source [[texture(0)]],
+  texture2d<half> distance [[texture(5)]],
+  constant LayerLook &look [[buffer(0)]],
+  constant LayerMaskShape *masks [[buffer(1)]],
+  constant float2 *points [[buffer(2)]],
+  constant Solid &solid [[buffer(3)]]
+) {
+  constexpr sampler s(filter::linear, address::clamp_to_edge);
+  float edge = inside(distance, s, in.uv, solid) - max(solid.bevel - in.behind, 0.0);
+  float cover = saturate(edge + 0.5) * cropCoverage(in.upright, look)
+    * maskCoverage(in.upright, in.aspect, look, masks, points);
+  if (cover <= 0) {
+    discard_fragment();
+  }
+  float4 color = float4(source.sample(s, in.uv));
+  float3 rgb = color.a > 0.004 ? color.rgb / color.a : color.rgb;
+  float2 texel = 1.0 / float2(distance.get_width(), distance.get_height());
+  float2 slope = float2(
+    inside(distance, s, in.uv + float2(texel.x, 0), solid) - inside(distance, s, in.uv - float2(texel.x, 0), solid),
+    inside(distance, s, in.uv - float2(0, texel.y), solid) - inside(distance, s, in.uv + float2(0, texel.y), solid)
+  );
+  float2 outward = length(slope) > 0.0001 ? -normalize(slope) : float2(0);
+  bool isFace = edge > 1.5;
+  float3 normal;
+  if (in.behind < 0.5 && (solid.bevel < 0.5 || isFace)) {
+    normal = float3(0, 0, 1);
+  } else if (in.behind > solid.depth - 0.5 && isFace) {
+    normal = float3(0, 0, -1);
+  } else if (in.behind < solid.bevel) {
+    normal = normalize(float3(outward, 1));
+  } else {
+    normal = float3(outward, 0);
+  }
+  float c = cos(in.turned);
+  float n = sin(in.turned);
+  normal = float3(normal.x * c + normal.z * n, normal.y, normal.z * c - normal.x * n);
+  float3 facing = normalize((solid.turn * float4(normal, 0)).xyz);
+  const float3 light = normalize(float3(-0.4, 0.55, 0.75));
+  float shade = (0.35 + 0.65 * max(dot(facing, light), 0.0)) / (0.35 + 0.65 * light.z);
+  return float4(rgb * shade * cover, cover);
+}
+
+// Adds one moment of a solid layer, weighted by its share of the shutter, into its trail.
+fragment float4 addFragment(VertexOut in [[stage_in]], texture2d<half> moment [[texture(0)]]) {
+  constexpr sampler s(filter::linear, address::clamp_to_edge);
+  return float4(moment.sample(s, in.uv)) * in.opacity;
 }

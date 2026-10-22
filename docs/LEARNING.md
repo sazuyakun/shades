@@ -553,3 +553,18 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A Swift `Character` is what a reader sees as one letter, which can be several Unicode scalars (code points) joined: "कि" is the consonant क plus the vowel sign ि. `string.unicodeScalars` walks the code points one by one, and each scalar's `properties.generalCategory` says whether it's a letter, a combining mark, a number or punctuation.
 **JS/TS analogy:** Like iterating `[...str]` (code points) instead of `str.split("")`, and testing each with `/\p{L}|\p{M}|\p{N}/u`.
 **In Shades:** `PolishPlanner.normalized` keeps letters, marks and numbers scalar by scalar, so Hindi vowel signs and viramas survive while punctuation like the danda (।) goes, and "मतलब।" matches the filler "मतलब".
+
+## Instanced drawing (`[[instance_id]]`)
+**What it is:** One `drawPrimitives(…, instanceCount: n)` call draws the same shape `n` times; the vertex shader reads `[[instance_id]]` (0 … n−1) to tell the copies apart and place each one differently.
+**JS/TS analogy:** Like WebGL2's `drawArraysInstanced` with `gl_InstanceID`, or rendering one React component in a `map` with a different `index` prop, all in a single call.
+**In Shades:** Solid 3D letters are the text's picture drawn as up to 96 instanced slices, each pushed a little further back (`solidVertex`), so turning the text shows its depth.
+
+## Distance fields
+**What it is:** A picture whose every pixel holds how far it is from the edge of a shape (positive inside, negative outside). Comparing it with a number grows or shrinks the shape, and its slope says which way the edge faces.
+**JS/TS analogy:** none built in; like computing, for every cell of a grid, the distance to the nearest wall with a BFS, then reading it back as a lookup table.
+**In Shades:** `DistanceField` measures the text's letters once on the CPU; the solid-letter shader uses it to bevel the front edges and to light the sides.
+
+## `DispatchQueue.concurrentPerform`
+**What it is:** Runs the same closure `n` times in parallel on GCD's worker threads and returns when all are done: a blocking parallel `for` loop.
+**JS/TS analogy:** Like `await Promise.all(batches.map(runInWorker))`, except it blocks the calling thread instead of being awaited.
+**In Shades:** `DistanceField` splits its column and row passes over every core, so a 3D title's field is ready within a preview frame.

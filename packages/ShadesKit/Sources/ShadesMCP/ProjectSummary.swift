@@ -127,6 +127,9 @@ enum ProjectSummary {
       }
       fields["style"] = .string(content.style.font ?? "system bold")
       fields["reveal"] = .string(content.reveal.rawValue)
+      if let extrusion = content.style.extrusion {
+        fields["extrusion"] = ["depth": rounded(extrusion.depth), "bevel": rounded(extrusion.bevel)]
+      }
       if let path = content.path {
         fields["path"] = [
           "points": .number(Double(path.points.count)),

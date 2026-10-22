@@ -54,6 +54,10 @@ struct FrameUniforms {
 
   // MARK: Internal
 
+  /// How far the viewer sits from the frame, in frame heights: about a 28° vertical view, a
+  /// gentle perspective.
+  static let viewingDistance: Float = 2
+
   /// Takes a corner of the layer (pixels from the frame's centre, y up) to the screen, with
   /// perspective.
   let transform: simd_float4x4
@@ -70,18 +74,9 @@ struct FrameUniforms {
     2 * (Int(columns) + 1)
   }
 
-  // MARK: Private
-
-  /// Strips a bent layer is cut into: enough that its curve looks smooth at any size.
-  private static let bentColumns: Int32 = 64
-
-  /// How far the viewer sits from the frame, in frame heights: about a 28° vertical view, a
-  /// gentle perspective.
-  private static let viewingDistance: Float = 2
-
   /// Places a layer in the world (pixels, y up, z towards the viewer): scaled, turned, tilted,
   /// rotated, then moved.
-  private static func model(_ transform: ClipTransform, size: SIMD2<Float>) -> simd_float4x4 {
+  static func model(_ transform: ClipTransform, size: SIMD2<Float>) -> simd_float4x4 {
     translation(
       Float(transform.x) * size.x,
       -Float(transform.y) * size.y,
@@ -95,7 +90,7 @@ struct FrameUniforms {
 
   /// The world as the camera sees it after its move: panning right shifts the world left,
   /// zooming in grows it, moving closer brings it nearer.
-  private static func view(_ camera: ClipTransform, size: SIMD2<Float>) -> simd_float4x4 {
+  static func view(_ camera: ClipTransform, size: SIMD2<Float>) -> simd_float4x4 {
     scaling(Float(camera.scale))
       * rotationZ(radians(camera.rotation))
       * rotationX(radians(camera.tiltX))
@@ -106,6 +101,11 @@ struct FrameUniforms {
         Float(camera.depth) * size.y,
       )
   }
+
+  // MARK: Private
+
+  /// Strips a bent layer is cut into: enough that its curve looks smooth at any size.
+  private static let bentColumns: Int32 = 64
 
   /// Perspective onto the screen: things nearer the viewer look bigger.
   private static func projection(size: SIMD2<Float>) -> simd_float4x4 {

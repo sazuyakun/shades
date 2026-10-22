@@ -40,6 +40,15 @@ public enum Fields {
     "spacing": JSONSchema.number(
       "Extra room between letters as a fraction of the size; negative tightens (default 0)"
     ),
+    "extrusion": JSONSchema.object([
+      "depth": JSONSchema.number(
+        "How deep the solid letters go, as a fraction of the size (default 0.3)"
+      ),
+      "bevel": JSONSchema.number(
+        "How far the slope round their front edges reaches in, as a fraction of the size; 0 "
+          + "is sharp (default 0.03)"
+      ),
+    ]),
   ])
   public static let reveal = JSONSchema.string(
     "How the words come on: none, pop (each pops in as it's said), highlight (the spoken word "

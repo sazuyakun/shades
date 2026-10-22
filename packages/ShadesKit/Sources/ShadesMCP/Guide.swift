@@ -42,6 +42,8 @@ enum Guide {
     - set_text path (points or svg_path) lays text along any line, curve or loop, letters \
     turning with it; align places it at the path's start, middle or end, spacing opens the \
     letters up, and pathOffset keyframes make it travel along. style arc bends it on a circle.
+    - style extrusion {depth, bevel} makes solid 3D letters, lit from above left: tilt_x, \
+    tilt_y, bend or the camera turn them to show their depth and sides.
     - split_words turns a text or caption clip into one clip per word, each still where it sat: \
     then move, keyframe, tilt or set the depth slot of each word on its own (per-word layers).
     - transcribe, then get_transcript for word timings; add_captions turns them into text clips. \

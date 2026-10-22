@@ -23,6 +23,24 @@ struct TextStyleCommandTests {
   }
 
   @Test
+  func `text can be made solid 3D letters within sensible depths and bevels`() throws {
+    var project = Project()
+    try AddText(
+      text: "solid",
+      at: .zero,
+      duration: seconds(2),
+      style: TextStyle(extrusion: TextExtrusion(depth: 0.5, bevel: 0.05)),
+    ).apply(to: &project)
+    let clip = try #require(project.timeline.allClips.first)
+    #expect(clip.text?.style.extrusion?.depth == 0.5)
+    for extrusion in [TextExtrusion(depth: 9), TextExtrusion(bevel: 0.9)] {
+      #expect(throws: CommandError.self) {
+        try SetText(clipID: clip.id, style: TextStyle(extrusion: extrusion)).apply(to: &project)
+      }
+    }
+  }
+
+  @Test
   func `undrawable sizes and outlines are refused`() throws {
     var project = Project()
     #expect(throws: CommandError.self) {
