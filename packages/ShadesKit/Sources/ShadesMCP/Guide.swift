@@ -129,6 +129,9 @@ enum Guide {
 
     Projects: list_projects, new_project and open_project. Point the user at clips with \
     select_clips. Heavy footage plays from proxies; render_frame always uses the originals.
+    Shades works in SDR Rec.709: HDR clips (iPhone HLG, Dolby Vision, PQ) are tone-mapped and \
+    wide-colour clips (P3, Rec.2020) brought inside it, and media lists that as "color". \
+    Exports are Rec.709.
 
     Errors come back as plain words saying what went wrong and what to do; read them and retry.
     """

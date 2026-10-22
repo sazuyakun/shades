@@ -44,9 +44,15 @@ public enum MediaLoader {
       )
     }
     let size: CGSize
+    let formats: [CMFormatDescription]
     do {
-      let (naturalSize, transform) = try await videoTrack.load(.naturalSize, .preferredTransform)
+      let (naturalSize, transform, descriptions) = try await videoTrack.load(
+        .naturalSize,
+        .preferredTransform,
+        .formatDescriptions,
+      )
       size = naturalSize.applying(transform)
+      formats = descriptions
     } catch {
       logger.error("load.failed reason=unreadable path=\(url.path, privacy: .private)")
       throw .unreadable(url)
@@ -57,6 +63,7 @@ public enum MediaLoader {
       width: Int(abs(size.width)),
       height: Int(abs(size.height)),
       hasAudio: !audioTracks.isEmpty,
+      color: formats.first.map(color),
     )
   }
 
@@ -109,6 +116,18 @@ public enum MediaLoader {
   }
 
   // MARK: Private
+
+  /// The colour tags of a video track's format.
+  private static func color(of format: CMFormatDescription) -> VideoColor {
+    let tag = { (key: CFString) in
+      CMFormatDescriptionGetExtension(format, extensionKey: key) as? String
+    }
+    return VideoColor(
+      primaries: tag(kCMFormatDescriptionExtension_ColorPrimaries),
+      transfer: tag(kCMFormatDescriptionExtension_TransferFunction),
+      matrix: tag(kCMFormatDescriptionExtension_YCbCrMatrix),
+    )
+  }
 
   /// The file as a still picture, when it's an image (PNG, JPEG, HEIC…).
   private static func still(at url: URL) -> Media? {

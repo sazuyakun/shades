@@ -16,6 +16,7 @@ public struct Media: Hashable, Sendable, Identifiable {
     hasVideo: Bool = true,
     hasAudio: Bool,
     isStill: Bool = false,
+    color: VideoColor? = nil,
   ) {
     self.id = id
     self.url = url
@@ -25,6 +26,7 @@ public struct Media: Hashable, Sendable, Identifiable {
     self.hasVideo = hasVideo
     self.hasAudio = hasAudio
     self.isStill = isStill
+    self.color = color
   }
 
   // MARK: Public
@@ -41,6 +43,9 @@ public struct Media: Hashable, Sendable, Identifiable {
   public let hasAudio: Bool
   /// A picture rather than a video (a PNG sticker, a photo): it can be placed for any length.
   public let isStill: Bool
+  /// How the video's colours are encoded, from its file's tags; `nil` for sound, stills and
+  /// media imported before colour was read.
+  public let color: VideoColor?
 
   /// The file name without its extension, shown in the browser and timeline.
   public var name: String {
@@ -55,7 +60,7 @@ extension Media: Codable {
 
   // MARK: Lifecycle
 
-  /// Reads media, including media saved before stills existed (always video or sound).
+  /// Reads media, including media saved before stills (always video or sound) or colour tags.
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     try self.init(
@@ -67,6 +72,7 @@ extension Media: Codable {
       hasVideo: container.decode(Bool.self, forKey: .hasVideo),
       hasAudio: container.decode(Bool.self, forKey: .hasAudio),
       isStill: container.decodeIfPresent(Bool.self, forKey: .isStill) ?? false,
+      color: container.decodeIfPresent(VideoColor.self, forKey: .color),
     )
   }
 
@@ -81,6 +87,7 @@ extension Media: Codable {
     case hasVideo
     case hasAudio
     case isStill
+    case color
   }
 
 }

@@ -1,7 +1,8 @@
 import ShadesCore
 import SwiftUI
 
-/// A media file's length, size and audio, as label / value-field rows in the inspector.
+/// A media file's length, size, audio and any colour conversion, as label / value-field rows in
+/// the inspector.
 struct MediaInfo: View {
   let media: Media
   /// Frame rate the duration is shown at: the timeline's.
@@ -20,6 +21,9 @@ struct MediaInfo: View {
           : "Sound only",
       )
       InspectorRow(label: "Audio", value: media.hasAudio ? "Yes" : "None")
+      if let conversion = media.color?.conversion {
+        InspectorRow(label: "Colour", value: conversion)
+      }
     }
   }
 }

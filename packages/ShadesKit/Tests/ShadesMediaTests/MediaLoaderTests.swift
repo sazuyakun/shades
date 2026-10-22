@@ -15,6 +15,23 @@ struct MediaLoaderTests {
   }
 
   @Test
+  func `an HLG video's colour tags are read as HDR to convert`() async throws {
+    let url = try await VideoFixture.make(left: .red, right: .red, colorSpace: .hlg)
+    let color = try #require(try await MediaLoader.load(url).color)
+    #expect(color.primaries == "ITU_R_2020")
+    #expect(color.transfer == "ITU_R_2100_HLG")
+    #expect(color.matrix == "ITU_R_2020")
+    #expect(color.isHDR)
+  }
+
+  @Test
+  func `a Rec.709 video needs no colour conversion`() async throws {
+    let url = try await VideoFixture.make(red: 0, green: 0, blue: 255)
+    let color = try #require(try await MediaLoader.load(url).color)
+    #expect(color.conversion == nil)
+  }
+
+  @Test
   func `a rotated video reports its upright size`() async throws {
     let quarterTurn = CGAffineTransform(a: 0, b: 1, c: -1, d: 0, tx: 180, ty: 0)
     let url = try await VideoFixture.make(left: .red, right: .blue, transform: quarterTurn)

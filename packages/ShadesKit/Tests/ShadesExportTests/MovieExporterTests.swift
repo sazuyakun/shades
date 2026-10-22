@@ -85,6 +85,40 @@ struct MovieExporterTests {
   }
 
   @Test
+  func `an HLG clip exports tone-mapped and tagged as Rec.709`() async throws {
+    let white = FixtureColor(red: 191, green: 191, blue: 191)
+    let video = Media(
+      url: try await VideoFixture.make(left: white, right: white, colorSpace: .hlg),
+      duration: MediaTime(seconds: 1),
+      width: 320,
+      height: 180,
+      hasAudio: false,
+    )
+    let project = Project(media: [video], timeline: Timeline(
+      format: VideoFormat(width: 320, height: 180, framesPerSecond: 30),
+      tracks: [Track(kind: .video, clips: [Clip(
+        mediaID: video.id,
+        sourceStart: .zero,
+        duration: video.duration,
+        timelineStart: .zero,
+      )])],
+    ))
+    let url = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).mp4")
+    try await MovieExporter.export(project, to: url, canvas: .picture, progress: { _ in })
+    let asset = AVURLAsset(url: url)
+    let track = try #require(try await asset.loadTracks(withMediaType: .video).first)
+    let format = try #require(try await track.load(.formatDescriptions).first)
+    let tag = { (key: CFString) in
+      CMFormatDescriptionGetExtension(format, extensionKey: key) as? String
+    }
+    #expect(tag(kCMFormatDescriptionExtension_ColorPrimaries) == "ITU_R_709_2")
+    #expect(tag(kCMFormatDescriptionExtension_TransferFunction) == "ITU_R_709_2")
+    #expect(tag(kCMFormatDescriptionExtension_YCbCrMatrix) == "ITU_R_709_2")
+    let frame = try await frame(of: asset, at: 0.5)
+    #expect(try PixelProbe.color(of: frame, x: 0.5, y: 0.5).red > 225)
+  }
+
+  @Test
   func `an empty timeline has nothing to export`() async {
     await #expect(throws: ExportError.nothingToExport("the timeline is empty")) {
       try await MovieExporter.export(

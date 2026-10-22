@@ -73,7 +73,7 @@ enum ProjectSummary {
   // MARK: Private
 
   private static func json(_ media: Media) -> JSONValue {
-    [
+    var fields: [String: JSONValue] = [
       "id": .string(media.id.uuidString),
       "name": .string(media.name),
       "path": .string(media.url.path),
@@ -83,6 +83,10 @@ enum ProjectSummary {
       "has_video": .bool(media.hasVideo),
       "has_audio": .bool(media.hasAudio),
     ]
+    if let conversion = media.color?.conversion {
+      fields["color"] = .string(conversion)
+    }
+    return .object(fields)
   }
 
   private static func json(of clip: Clip, media: Media?) -> JSONValue {

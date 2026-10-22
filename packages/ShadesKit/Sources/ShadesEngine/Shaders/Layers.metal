@@ -110,6 +110,7 @@ struct LayerLook {
   float footageLength; // seconds of source the shutter spans; 0 = no footage blur
   int footageTaps;     // the most taps a pixel of moving footage is smeared over
   float flowScale;     // a flow value's distance from 0.5 times this is pictures a second
+  int transfer;              // 0 SDR, 1 HLG, 2 PQ: HDR is tone-mapped to SDR Rec.709
 };
 
 // Must match `LayerMaskShape` in LayerMaskShape.swift: one layer mask, placed for this frame.
@@ -136,6 +137,28 @@ static float hash(float2 p) {
 
 static float luma(float3 c) {
   return dot(c, float3(0.2126, 0.7152, 0.0722));
+}
+
+// An HDR colour (already in Rec.709 primaries; AVFoundation converts the gamut) brought into the
+// SDR working space. Light is measured against reference white (203 nits, BT.2408): below 70%
+// of it nothing changes, and brighter light rolls off smoothly towards SDR white, so faces and
+// paper look as bright as in SDR footage while skies and lamps keep some detail. HLG is shown as
+// on a 1000-nit screen (its system gamma, 1.2).
+static float3 toSDR(float3 c, int transfer) {
+  float3 nits;
+  if (transfer == 1) {
+    float3 scene = select((exp((c - 0.55991073) / 0.17883277) + 0.28466892) / 12.0, c * c / 3.0, c <= 0.5);
+    nits = 1000.0 * pow(max(luma(scene), 1e-6), 0.2) * scene;
+  } else {
+    float3 p = pow(max(c, 0.0), 1.0 / 78.84375);
+    nits = 10000.0 * pow(max(p - 0.8359375, 0.0) / (18.8515625 - 18.6875 * p), 1.0 / 0.1593017578);
+  }
+  float3 light = nits / 203.0;
+  float peak = max(light.r, max(light.g, light.b));
+  float knee = 0.7;
+  float mapped = peak <= knee ? peak : knee + (1.0 - knee) * (1.0 - exp(-(peak - knee) / (1.0 - knee)));
+  light *= peak > 0 ? mapped / peak : 0.0;
+  return pow(light, 1.0 / 2.4);
 }
 
 // The source at `uv`, smeared over `travel` (how far the footage there moves while the shutter
@@ -331,6 +354,9 @@ static float maskCoverage(float2 p, float aspect, constant LayerLook &look, cons
 // it's masked, wiped or mixed with what's under it.
 static float4 shade(VertexOut in, texture2d<half> picture, texture2d<float> travel, float2 uv, texture3d<float> lut, texture2d<float> curves, constant LayerLook &look, constant LayerMaskShape *masks, constant float2 *points, sampler s) {
   float4 color = sampleSoft(picture, travel, s, uv, look);
+  if (look.transfer != 0) {
+    color.rgb = toSDR(color.rgb, look.transfer);
+  }
   float alpha = color.a;
   float3 rgb = alpha > 0 ? color.rgb / alpha : color.rgb;
   alpha *= cropCoverage(in.upright, look) * maskCoverage(in.upright, in.aspect, look, masks, points);
@@ -345,6 +371,9 @@ static float4 shade(VertexOut in, texture2d<half> picture, texture2d<float> trav
       float angle = float(i) * 0.7853982;
       float2 offset = float2(cos(angle), sin(angle)) * look.texel * 18.0;
       float3 tap = float3(picture.sample(s, uv + offset).rgb);
+      if (look.transfer != 0) {
+        tap = toSDR(tap, look.transfer);
+      }
       glow += max(tap - 0.75, 0.0);
     }
     rgb += float3(1.0, 0.35, 0.15) * luma(glow / 8.0) * look.halation * 3.0;

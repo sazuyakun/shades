@@ -146,5 +146,7 @@ struct LayerLook {
   let footageLength: Float
   let footageTaps: Int32
   let flowScale: Float
+  /// How the source's values turn into light (`SourceTransfer`): HDR frames are tone-mapped.
+  var transfer = SourceTransfer.sdr.rawValue
 
 }

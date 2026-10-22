@@ -37,12 +37,22 @@ struct TimelineClipView: View {
         }
       }
       .overlay(alignment: .topLeading) {
-        Text(text ?? media?.name ?? "Missing media")
-          .font(.system(size: 10.5))
-          .foregroundStyle(.white)
-          .lineLimit(1)
-          .padding(.horizontal, 7)
-          .padding(.top, 2)
+        HStack(spacing: 4) {
+          Text(text ?? media?.name ?? "Missing media")
+            .font(.system(size: 10.5))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+          if let color = media?.color, let conversion = color.conversion {
+            Text(color.isHDR ? "HDR" : "Wide")
+              .font(.system(size: 8.5, weight: .bold))
+              .foregroundStyle(.white.opacity(0.85))
+              .padding(.horizontal, 4)
+              .background(.black.opacity(0.3), in: .capsule)
+              .help(conversion)
+          }
+        }
+        .padding(.horizontal, 7)
+        .padding(.top, 2)
       }
       .overlay {
         GeometryReader { geometry in

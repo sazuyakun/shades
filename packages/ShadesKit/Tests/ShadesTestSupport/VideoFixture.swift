@@ -21,8 +21,9 @@ public enum VideoFixture {
   }
 
   /// Writes a silent `.mov` whose stored frames are `left` on the left half and `right` on the
-  /// right half, tagged with `transform` the way an iPhone tags portrait video. ProRes 4444 by
-  /// default: unlike H.264 it decodes the same on every machine, so golden frames stay stable.
+  /// right half, tagged with `transform` the way an iPhone tags portrait video, and with
+  /// `colorSpace`'s colour tags. ProRes 4444 by default: unlike H.264
+  /// it decodes the same on every machine, so golden frames stay stable.
   public static func make(
     left: FixtureColor,
     right: FixtureColor,
@@ -31,6 +32,7 @@ public enum VideoFixture {
     height: Int = 180,
     transform: CGAffineTransform = .identity,
     codec: AVVideoCodecType = .proRes4444,
+    colorSpace: FixtureColorSpace = .rec709,
   ) async throws(FixtureError) -> URL {
     let frame = try splitFrame(left: left, right: right, width: width, height: height)
     return try await write(
@@ -39,6 +41,7 @@ public enum VideoFixture {
       height: height,
       transform: transform,
       codec: codec,
+      colorSpace: colorSpace,
     ) { _ in frame }
   }
 
@@ -193,6 +196,7 @@ public enum VideoFixture {
     height: Int,
     transform: CGAffineTransform = .identity,
     codec: AVVideoCodecType = .proRes4444,
+    colorSpace: FixtureColorSpace = .rec709,
     frame: (Int) throws(FixtureError) -> CVPixelBuffer,
   ) async throws(FixtureError) -> URL {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -209,11 +213,7 @@ public enum VideoFixture {
       AVVideoCodecKey: codec,
       AVVideoWidthKey: width,
       AVVideoHeightKey: height,
-      AVVideoColorPropertiesKey: [
-        AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
-        AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
-        AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
-      ],
+      AVVideoColorPropertiesKey: colorSpace.properties,
     ])
     input.transform = transform
     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
