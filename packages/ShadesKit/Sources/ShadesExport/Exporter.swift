@@ -17,6 +17,15 @@ public enum Exporter {
     transcripts: [Media.ID: Transcript],
     progress: @escaping @Sendable (Double) -> Void,
   ) async throws(ExportError) {
+    do {
+      try FileManager.default.createDirectory(
+        at: output.url.deletingLastPathComponent(),
+        withIntermediateDirectories: true,
+      )
+    } catch {
+      logger.error("export.failed reason=folder path=\(output.url.path, privacy: .private)")
+      throw .unwritable(output.url)
+    }
     switch request.kind {
     case .youtube,
          .shorts:
