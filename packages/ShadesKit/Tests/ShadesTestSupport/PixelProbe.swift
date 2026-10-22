@@ -2,7 +2,9 @@ import CoreGraphics
 import Foundation
 import ImageIO
 
-/// Reads single pixels of rendered frames, for checks like "the middle is red".
+/// Reads single pixels of rendered frames, for checks like "the middle is red". Pixels are read in
+/// the frame's own colour space, so they're the stored values on any Mac (device RGB follows the
+/// screen's profile, which differs between the dev machine and CI).
 public enum PixelProbe {
   /// The colour of the PNG at (`x`, `y`), as fractions of its size from the top left.
   public static func color(
@@ -20,7 +22,7 @@ public enum PixelProbe {
         height: 1,
         bitsPerComponent: 8,
         bytesPerRow: 4,
-        space: CGColorSpaceCreateDeviceRGB(),
+        space: image.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
       )
     else {

@@ -75,6 +75,7 @@ public enum GoldenFrame {
     return false
   }
 
+  /// The PNG's stored pixel values, read in its own colour space so no Mac colour-matches them.
   private static func rgba(of png: Data) throws(FixtureError) -> Bitmap {
     guard
       let source = CGImageSourceCreateWithData(png as CFData, nil),
@@ -90,7 +91,7 @@ public enum GoldenFrame {
         height: image.height,
         bitsPerComponent: 8,
         bytesPerRow: image.width * 4,
-        space: CGColorSpaceCreateDeviceRGB(),
+        space: image.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
         bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue,
       )
       context?.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))

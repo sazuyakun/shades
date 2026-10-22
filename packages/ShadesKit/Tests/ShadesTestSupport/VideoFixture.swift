@@ -203,10 +203,17 @@ public enum VideoFixture {
     } catch {
       throw .writerFailed
     }
+    // why: untagged small videos are encoded and decoded with whichever YCbCr matrix each Mac
+    // guesses (BT.601 or 709), which shifts saturated colours between the dev machine and CI.
     let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
       AVVideoCodecKey: codec,
       AVVideoWidthKey: width,
       AVVideoHeightKey: height,
+      AVVideoColorPropertiesKey: [
+        AVVideoColorPrimariesKey: AVVideoColorPrimaries_ITU_R_709_2,
+        AVVideoTransferFunctionKey: AVVideoTransferFunction_ITU_R_709_2,
+        AVVideoYCbCrMatrixKey: AVVideoYCbCrMatrix_ITU_R_709_2,
+      ],
     ])
     input.transform = transform
     let adaptor = AVAssetWriterInputPixelBufferAdaptor(
