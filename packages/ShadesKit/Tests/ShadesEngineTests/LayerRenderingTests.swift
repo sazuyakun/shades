@@ -27,6 +27,7 @@ struct LayerRenderingTests {
     let center = try PixelProbe.color(of: png, x: 0.5, y: 0.5)
     #expect((100 ... 160).contains(center.red))
     #expect((100 ... 160).contains(center.blue))
+    #expect(try GoldenFrame.matches(png, named: "v2-half-opacity", in: golden))
   }
 
   @Test
@@ -131,6 +132,8 @@ struct LayerRenderingTests {
     #expect(try PixelProbe.color(of: start, x: 0.8, y: 0.5).red > 200)
     #expect(try PixelProbe.color(of: end, x: 0.8, y: 0.5).blue > 200)
     #expect(try PixelProbe.color(of: end, x: 0.2, y: 0.5).red > 200)
+    let midway = try await FrameRenderer.png(of: project, atSeconds: 0.3, maxSide: 320)
+    #expect(try GoldenFrame.matches(midway, named: "v2-keyframed-midway", in: golden))
   }
 
   @Test

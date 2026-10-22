@@ -66,6 +66,7 @@ struct TextRenderingTests {
     let right = try #require(lettered.last)
     #expect(abs((left + right) / 2 - 0.5) < 0.03, "still centred")
     #expect(right - left > 0.6, "twice as wide as the title alone")
+    #expect(try GoldenFrame.matches(png, named: "title-scaled-twice", in: golden))
   }
 
   @Test

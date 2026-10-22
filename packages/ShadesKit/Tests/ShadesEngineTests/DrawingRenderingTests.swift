@@ -29,6 +29,7 @@ struct DrawingRenderingTests {
     let half = try await frame(drawing, at: 0.5)
     #expect(try PixelProbe.color(of: half, x: 0.3, y: 0.5).red > 200)
     #expect(try PixelProbe.color(of: half, x: 0.8, y: 0.5).red < 60)
+    #expect(try GoldenFrame.matches(half, named: "drawing-half-written", in: golden))
     let whole = try await frame(drawing, at: 1.5)
     #expect(try PixelProbe.color(of: whole, x: 0.8, y: 0.5).red > 200)
   }

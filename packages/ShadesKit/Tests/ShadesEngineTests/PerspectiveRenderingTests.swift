@@ -64,6 +64,7 @@ struct PerspectiveRenderingTests {
       try PixelProbe.color(of: png, x: Double(column) / 100, y: 0.86)
     }
     #expect(caption.contains { $0.red > 200 && $0.green > 200 }, "the caption stays at the bottom")
+    #expect(try GoldenFrame.matches(png, named: "camera-zoomed-under-caption", in: golden))
   }
 
   @Test

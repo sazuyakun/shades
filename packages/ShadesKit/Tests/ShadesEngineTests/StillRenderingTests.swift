@@ -21,6 +21,7 @@ struct StillRenderingTests {
     let png = try await frame(over: true, sticker: nil)
     #expect(try PixelProbe.color(of: png, x: 0.5, y: 0.5).red > 200)
     #expect(try PixelProbe.color(of: png, x: 0.1, y: 0.5).blue > 200)
+    #expect(try GoldenFrame.matches(png, named: "see-through-still-over-video", in: golden))
   }
 
   @Test
