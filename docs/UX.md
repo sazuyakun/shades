@@ -69,7 +69,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 
 All shortcuts are remappable.
 
-**Where the rest lives:** the timeline bar has **Templates**, **Motion** (pop, slide in, float, orbit, scatter, stack on the selected clips) and **Sounds** (plugin sound effects at the playhead). With no clip selected, the inspector's Video tab moves the **camera**. Each keyframe diamond has an **easing** menu beside it once a keyframe sits at the playhead. The Color tab has **curves** (all, red, green, blue), a **qualifier** (only some colours), a **window** (only inside a shape) and the **key**'s colour, tolerance and softness.
+**Where the rest lives:** the timeline bar has **Templates**, **Motion** (pop, slide in, float, orbit, scatter, stack on the selected clips) and **Sounds** (plugin sound effects at the playhead). With no clip selected, the inspector's Video tab moves the **camera**. Each keyframe diamond has an **easing** menu beside it once a keyframe sits at the playhead. The Color tab has **curves** (all, red, green, blue), a **qualifier** (only some colours), a **window** (only inside a shape, which can be keyframed and follow the subject or a tracked path) and the **key**'s colour, tolerance and softness.
 
 ## Working with Claude
 There's no AI inside Shades: Claude Code edits over MCP ([SYSTEM.md](SYSTEM.md)), and the app shows what it did.
