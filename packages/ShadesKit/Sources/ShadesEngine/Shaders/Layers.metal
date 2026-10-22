@@ -436,10 +436,10 @@ fragment float4 trailFragment(
 }
 
 // How far (in uv) the footage at `uv` moves while the shutter is open, from its optical flow.
-// Motion within two stored steps of still is decoding noise, not movement.
+// Motion within four stored steps of still is drift in the flow and its video, not movement.
 static float2 travelAt(texture2d<half> flow, sampler s, float2 uv, constant LayerLook &look) {
   float2 speed = (float2(flow.sample(s, uv).rg) - 0.5) * look.flowScale;
-  float moving = max(length(speed) - look.flowScale * 2.0 / 255.0, 0.0);
+  float moving = max(length(speed) - look.flowScale * 4.0 / 255.0, 0.0);
   return moving > 0 ? normalize(speed) * moving * look.footageLength : float2(0);
 }
 
