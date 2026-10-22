@@ -61,7 +61,7 @@ struct MixerPane: View {
       return nil
     }
     let sum = { (channel: (MeterLevel) -> Double) in
-      heard.lazy.map { channel($0) * channel($0) }.reduce(0, +).squareRoot()
+      heard.reduce(0) { $0 + channel($1) * channel($1) }.squareRoot()
     }
     return MeterLevel(left: sum(\.left), right: sum(\.right))
   }
