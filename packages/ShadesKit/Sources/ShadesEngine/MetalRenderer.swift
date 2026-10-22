@@ -226,7 +226,9 @@ final class MetalRenderer: Sendable {
       constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
       float2 uv = look.isAdjustment != 0 ? in.screen : in.uv;
       texture2d<half> picture = look.isAdjustment != 0 ? backdrop : source;
-      float4 shaded = shade(in, picture, travel, uv, lut, curves, look, masks, points, linearSampler);
+      float4 shaded = shade(
+        in, picture, travel, uv, lut, curves, look, masks, points, linearSampler
+      );
       float4 changed = effect(
         shaded, uv, look.effectTime, look.effectAmount, picture, linearSampler
       );
@@ -244,7 +246,9 @@ final class MetalRenderer: Sendable {
       constant float2 *points [[buffer(2)]]
     ) {
       constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-      float4 shaded = shade(in, source, travel, in.uv, lut, curves, look, masks, points, linearSampler);
+      float4 shaded = shade(
+        in, source, travel, in.uv, lut, curves, look, masks, points, linearSampler
+      );
       float4 changed = effect(
         shaded, in.uv, look.effectTime, look.effectAmount, source, linearSampler
       );
