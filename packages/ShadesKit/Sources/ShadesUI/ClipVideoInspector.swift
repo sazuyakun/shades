@@ -87,6 +87,9 @@ struct ClipVideoInspector: View {
       .menuStyle(.button)
       .buttonStyle(CapsuleButtonStyle())
       .fixedSize()
+      if hasCutout {
+        CutoutEdgeControls(clip: clip, onError: onError)
+      }
     }
   }
 

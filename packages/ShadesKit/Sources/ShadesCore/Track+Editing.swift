@@ -107,6 +107,7 @@ extension Clip {
       speed: speed,
       crop: crop,
       masks: masks,
+      cutoutEdge: cutoutEdge,
     )
   }
 

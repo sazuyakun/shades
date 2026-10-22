@@ -21,6 +21,7 @@ struct ProjectFormatTests {
     #expect(clip.link == nil)
     #expect(clip.crop == .none)
     #expect(clip.masks.isEmpty)
+    #expect(clip.cutoutEdge == .none)
   }
 
   @Test
@@ -76,6 +77,7 @@ struct ProjectFormatTests {
           keyframes: [ShapeKeyframe(time: .zero, x: 0.4, y: 0.5, width: 0.3, height: 0.2)],
         )
       ],
+      cutoutEdge: CutoutEdge(feather: 0.02, choke: -0.01, smoothing: 0.3),
     )
     let text = Clip(
       source: .text(TextContent(text: "hi")),

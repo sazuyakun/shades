@@ -806,7 +806,8 @@ final class MetalRenderer: Sendable {
     encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: uniforms.vertexCount)
   }
 
-  /// Draws the base layer's cut-out, placed like the layer, into a half-size mask of the frame.
+  /// Draws the base layer's cut-out, placed like the layer and its edge refined, into a half-size
+  /// mask of the frame.
   private func drawMask(
     of layer: RenderLayer,
     size: CGSize,
@@ -837,6 +838,9 @@ final class MetalRenderer: Sendable {
       throw .renderFailed
     }
     encoder.setRenderPipelineState(mattePipeline)
+    let edge = layer.cutoutEdge
+    var refinement = SIMD4(Float(edge.feather), Float(edge.choke), Float(edge.smoothing), 0)
+    encoder.setFragmentBytes(&refinement, length: MemoryLayout<SIMD4<Float>>.stride, index: 0)
     // why: the matte is already upright, so it's drawn with the layer's placement but no rotation.
     let matteLayer = RenderLayer(
       source: matte,
@@ -1073,6 +1077,7 @@ struct RenderLayer {
     effects: Effects? = nil,
     crop: Crop = .none,
     masks: [LayerMask] = [],
+    cutoutEdge: CutoutEdge = .none,
     blend: BlendMode = .normal,
     transition: TransitionStyle? = nil,
     clipTime: Double = 0,
@@ -1092,6 +1097,7 @@ struct RenderLayer {
     self.effects = effects
     self.crop = crop
     self.masks = masks
+    self.cutoutEdge = cutoutEdge
     self.blend = blend
     self.transition = transition
     self.clipTime = clipTime
@@ -1119,6 +1125,8 @@ struct RenderLayer {
   let crop: Crop
   /// Shapes hiding or revealing parts of its picture, placed for this frame.
   let masks: [LayerMask]
+  /// How its cut-out's edge is refined.
+  let cutoutEdge: CutoutEdge
   let blend: BlendMode
   /// How a transition it's part of shapes it this frame.
   let transition: TransitionStyle?

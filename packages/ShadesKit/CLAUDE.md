@@ -16,7 +16,7 @@ All real Mac code lives here as a Swift package with one module per system. The 
 | ShadesCaptions | WhisperKit transcription (models, audio decoding), caption lines. The only module that imports WhisperKit |
 | ShadesExport | Exports: canvases (the 4:3 picture centred on 16:9 or 9:16 black), movies through `AVAssetExportSession` with our compositor (the engine draws the canvas), frames, GIFs and SRT captions. The queue is the app's `JobQueue` |
 | ShadesMCP | MCP server: commands become Claude tools |
-| ShadesMatting | Cut-outs (mattes): Apple Vision finds the subject, written as a small gray video played like any track; the subject's path over time for reframing; optical flow for footage motion blur, written the same way |
+| ShadesMatting | Cut-outs (mattes): Apple Vision finds the subject, written as a small gray video played like any track (each clip refines its edge, `CutoutEdge`, where the engine's `matteFragment` samples it); the subject's path over time for reframing; optical flow for footage motion blur, written the same way |
 | ShadesPolish | Polish for talking-head footage: the rule-based planner (silences, fillers, retakes, beat snaps, punch-ins) and `ApplyPolish`. Pure logic on Core and Commands |
 | ShadesPlugins | Plugin folders (Settings), loading plugins (`PluginLoader`), and `PluginLibrary`: kept up to date with FSEvents, fonts registered for the app. Data only (on Core); templates are applied by `ApplyTemplate` in Commands |
 | ShadesUI | SwiftUI views (AppKit/Metal where SwiftUI is too slow) |

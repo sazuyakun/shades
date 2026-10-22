@@ -162,6 +162,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           effects: effects(of: clip, at: time, in: transition),
           crop: clip.crop,
           masks: clip.masks.map { $0.placed(at: source) },
+          cutoutEdge: clip.cutoutEdge,
           blend: clip.blend,
           transition: transition,
           clipTime: source.seconds,

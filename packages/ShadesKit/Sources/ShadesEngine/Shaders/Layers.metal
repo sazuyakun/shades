@@ -538,10 +538,31 @@ fragment float4 reachFragment(
   return float4(best, 0, 0);
 }
 
-// A cut-out's gray value, written into the one-channel mask.
-fragment half4 matteFragment(VertexOut in [[stage_in]], texture2d<half> source [[texture(0)]]) {
+// A cut-out's gray value, refined by the clip's `edge` (feather, choke, smoothing, as fractions
+// of the picture's width), written into the one-channel mask. The matte is blurred over a disc
+// wide enough for all three, then cut at a level that moves the edge by the choke, over a
+// width set by the feather.
+fragment half4 matteFragment(VertexOut in [[stage_in]], texture2d<half> source [[texture(0)]], constant float4 &edge [[buffer(0)]]) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-  return half4(source.sample(linearSampler, in.uv).r, 0, 0, 1);
+  float raw = source.sample(linearSampler, in.uv).r;
+  if (edge.x <= 0 && edge.y == 0 && edge.z <= 0) {
+    return half4(raw, 0, 0, 1);
+  }
+  float pixel = 1.0 / float(source.get_width());
+  float radius = abs(edge.y) + edge.x * 0.5 + edge.z * 0.02 + pixel;
+  // why: the radius is in picture widths; a step across the picture's height is a bigger share.
+  float2 reach = float2(1.0, float(source.get_width()) / float(source.get_height())) * radius;
+  float sum = raw;
+  for (int ring = 1; ring <= 3; ring++) {
+    for (int i = 0; i < 12; i++) {
+      float angle = (float(i) + float(ring) * 0.5) * 0.5235988;
+      sum += source.sample(linearSampler, in.uv + float2(cos(angle), sin(angle)) * reach * (float(ring) / 3.0)).r;
+    }
+  }
+  float blurred = sum / 37.0;
+  float level = 0.5 + edge.y / (2.0 * radius);
+  float half_width = max(edge.x, pixel) / (4.0 * radius);
+  return half4(smoothstep(level - half_width, level + half_width, blurred), 0, 0, 1);
 }
 
 // Must match `SolidUniforms` in SolidUniforms.swift.

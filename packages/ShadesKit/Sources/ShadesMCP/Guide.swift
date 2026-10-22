@@ -52,7 +52,9 @@ enum Guide {
     polish_apply applies them as one step, ducking where the speech lands after the cuts and \
     measuring loudness on the polished mix. analyze_audio first gives it speech and noise.
     - make_cutout finds the subject of a clip's media (a background job; watch get_jobs). Then \
-    a layer above set to behindSubject shows between the background and the person. \
+    a layer above set to behindSubject shows between the background and the person. set_clip \
+    cutout_edge refines the outline for that clip: feather softens it, choke pulls it in \
+    (negative pushes it out) and smoothing rounds off jagged edges. \
     auto_reframe crops 16:9 footage to 4:3 and pans with the subject like a calm camera \
     operator (steady, eased, never fast); locked: true keeps one framing instead, and \
     reframe_clip locks it wherever you say.

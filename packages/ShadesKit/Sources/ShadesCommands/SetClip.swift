@@ -27,6 +27,7 @@ public struct SetClip: ToolCommand {
     footageBlur: Bool? = nil,
     speed: Double? = nil,
     crop: Crop? = nil,
+    cutoutEdge: CutoutEdge? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -49,6 +50,7 @@ public struct SetClip: ToolCommand {
     self.footageBlur = footageBlur
     self.speed = speed
     self.crop = crop
+    self.cutoutEdge = cutoutEdge
   }
 
   // MARK: Public
@@ -56,8 +58,8 @@ public struct SetClip: ToolCommand {
   public static let title = "Change Clip"
   public static let name = "set_clip"
   public static let summary = "Change a clip's position, size, rotation, 3D tilt, depth and "
-    + "bend, crop, opacity, depth slot, motion blur, volume, sound fades or speed. Leave out "
-    + "what shouldn't change."
+    + "bend, crop, opacity, depth slot, cut-out edge, motion blur, volume, sound fades or "
+    + "speed. Leave out what shouldn't change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -128,6 +130,24 @@ public struct SetClip: ToolCommand {
         "top": JSONSchema.number("Fraction of the picture's height cut off the top", minimum: 0),
         "bottom": JSONSchema.number("Fraction of the height cut off the bottom", minimum: 0),
       ]),
+      "cutout_edge": JSONSchema.object([
+        "feather": JSONSchema.number(
+          "How wide the cut-out's edge fades, as a fraction of the picture's width",
+          minimum: 0,
+          maximum: 0.1,
+        ),
+        "choke": JSONSchema.number(
+          "Pulls the cut-out's edge in (positive) or pushes it out (negative), as a fraction of "
+            + "the picture's width",
+          minimum: -0.05,
+          maximum: 0.05,
+        ),
+        "smoothing": JSONSchema.number(
+          "Rounds off a jagged cut-out edge and fills small holes",
+          minimum: 0,
+          maximum: 1,
+        ),
+      ]),
       "sticker": JSONSchema.object([
         "border": JSONSchema.number(
           "White die-cut border as a fraction of the picture; with border 0 and shadow and "
@@ -162,6 +182,8 @@ public struct SetClip: ToolCommand {
   public let speed: Double?
   /// Replaces the whole crop; edges left out are uncut.
   public let crop: Crop?
+  /// Replaces how the cut-out's edge is refined; fields left out are untouched (0).
+  public let cutoutEdge: CutoutEdge?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -196,6 +218,17 @@ public struct SetClip: ToolCommand {
       else {
         throw rejected(.invalidValue(
           "crop edges are fractions from 0, and opposite edges must leave some picture"
+        ))
+      }
+    }
+    if let cutoutEdge {
+      guard
+        (0 ... 0.1).contains(cutoutEdge.feather), (-0.05 ... 0.05).contains(cutoutEdge.choke),
+        (0 ... 1).contains(cutoutEdge.smoothing)
+      else {
+        throw rejected(.invalidValue(
+          "a cut-out edge's feather goes from 0 to 0.1, its choke from -0.05 to 0.05 and its "
+            + "smoothing from 0 to 1"
         ))
       }
     }
@@ -242,6 +275,7 @@ public struct SetClip: ToolCommand {
     clip.motionBlur = motionBlur ?? clip.motionBlur
     clip.footageBlur = footageBlur ?? clip.footageBlur
     clip.crop = crop ?? clip.crop
+    clip.cutoutEdge = cutoutEdge ?? clip.cutoutEdge
     if let sticker {
       clip.sticker = sticker.border == 0 && !sticker.shadow && !sticker.paper ? nil : sticker
     }

@@ -76,7 +76,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 36 | Choices from lists aren't in the ⌘K palette: `EditorAction` is a fixed list, so plugin templates, overlays, sounds, looks and styles, the motion presets and keyframe easing are picked only from their menus. Normalize Loudness (⌥L) shows no result in the app, only the new master level; its measurement reaches Claude alone | After M9 |
 | 35 | Footage blur can streak sideways at the corners of flat, evenly coloured moving shapes, where Vision's optical flow points the wrong way (a median steadies most of it). Needs a confidence check, e.g. comparing flow forwards and backwards | After M9 |
 | 34 | The viewer's mask handles, and the Track tool's box (`Clip.pictureBox`), place the picture by the clip's position, scale and rotation only: they ignore the timeline camera and 3D tilt, and mask handles don't show on text clips (whose masks are set in the inspector or over MCP) | After M9 |
-| 16 | Cut-outs have no edge refinement (no feather or choke): the Vision mask is only resized and blended with the previous frame | After M9 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 
 ## 3. Constraints & setup notes

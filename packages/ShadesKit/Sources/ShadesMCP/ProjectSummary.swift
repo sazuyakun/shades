@@ -177,6 +177,13 @@ enum ProjectSummary {
         "bottom": rounded(clip.crop.bottom),
       ]
     }
+    if clip.cutoutEdge != .none {
+      fields["cutout_edge"] = [
+        "feather": rounded(clip.cutoutEdge.feather),
+        "choke": rounded(clip.cutoutEdge.choke),
+        "smoothing": rounded(clip.cutoutEdge.smoothing),
+      ]
+    }
     if !clip.masks.isEmpty {
       fields["masks"] = .array(clip.masks.map { mask in
         .object([

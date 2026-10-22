@@ -34,6 +34,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     crop: Crop = .none,
     masks: [LayerMask] = [],
     link: UUID? = nil,
+    cutoutEdge: CutoutEdge = .none,
   ) {
     self.init(
       id: id,
@@ -61,6 +62,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       crop: crop,
       masks: masks,
       link: link,
+      cutoutEdge: cutoutEdge,
     )
   }
 
@@ -91,6 +93,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     crop: Crop = .none,
     masks: [LayerMask] = [],
     link: UUID? = nil,
+    cutoutEdge: CutoutEdge = .none,
   ) {
     self.id = id
     self.source = source
@@ -117,6 +120,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.crop = crop
     self.masks = masks
     self.link = link
+    self.cutoutEdge = cutoutEdge
   }
 
   // MARK: Public
@@ -172,6 +176,8 @@ public struct Clip: Hashable, Sendable, Identifiable {
   /// Clips sharing a link (a video and its detached sound) move, trim, split and delete
   /// together. `nil` when the clip is on its own.
   public var link: UUID?
+  /// How its cut-out's edge is refined, when its media has one.
+  public var cutoutEdge: CutoutEdge
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -246,6 +252,7 @@ extension Clip: Codable {
       crop: container.decodeIfPresent(Crop.self, forKey: .crop) ?? .none,
       masks: container.decodeIfPresent([LayerMask].self, forKey: .masks) ?? [],
       link: container.decodeIfPresent(UUID.self, forKey: .link),
+      cutoutEdge: container.decodeIfPresent(CutoutEdge.self, forKey: .cutoutEdge) ?? .none,
     )
   }
 
@@ -278,6 +285,7 @@ extension Clip: Codable {
     try container.encode(crop, forKey: .crop)
     try container.encode(masks, forKey: .masks)
     try container.encodeIfPresent(link, forKey: .link)
+    try container.encode(cutoutEdge, forKey: .cutoutEdge)
   }
 
   // MARK: Private
@@ -310,6 +318,7 @@ extension Clip: Codable {
     case crop
     case masks
     case link
+    case cutoutEdge
   }
 
 }
