@@ -23,9 +23,10 @@ extension Composition {
   public static let timePitchAlgorithm = AVAudioTimePitchAlgorithm.spectral
 
   /// Builds the project's timeline from its original media, for rendering frames or a file:
-  /// with cut-outs from `mattes`, optical flow from `flows` (footage blur) and noise-reduced
-  /// sound from `cleanSound`, drawn in the middle of a black `canvas` when one is given. Pass a
-  /// long-lived `context` when rendering often; a new one compiles the shaders again.
+  /// with cut-outs from `mattes`, optical flow from `flows` (footage blur), noise-reduced sound
+  /// from `cleanSound` and stereo copies of mono sound from `stereoSound`, drawn in the middle
+  /// of a black `canvas` when one is given. Pass a long-lived `context` when rendering often; a
+  /// new one compiles the shaders again.
   @MainActor
   public static func forRendering(
     _ project: Project,
@@ -33,6 +34,7 @@ extension Composition {
     mattes: [Media.ID: URL] = [:],
     flows: [Media.ID: URL] = [:],
     cleanSound: [Media.ID: URL] = [:],
+    stereoSound: [Media.ID: URL] = [:],
     canvas: CGSize? = nil,
   ) async throws(EngineError) -> Composition {
     let renderState = RenderState()
@@ -53,6 +55,7 @@ extension Composition {
       mattes: mattes,
       flows: flows,
       cleanSound: cleanSound,
+      stereoSound: stereoSound,
       canvas: canvas,
     )
   }
@@ -83,7 +86,8 @@ extension Composition {
   /// Builds the playable form of the project's timeline, reading each media file from
   /// `sources` (its proxy) when given there. Clips whose media has a cut-out in `mattes` get it
   /// as a matching track, for depth slots, likewise their optical flow in `flows` (footage blur),
-  /// and clips set to clean sound play `cleanSound`. With
+  /// clips set to clean sound play `cleanSound`, and other clips of mono media play its stereo
+  /// copy in `stereoSound` (so their track can pan them). With
   /// a `canvas`, frames are that size, with the picture in the middle on black. `quality` sets
   /// how finely motion blur is drawn.
   @MainActor
@@ -98,6 +102,7 @@ extension Composition {
     mattes: [Media.ID: URL] = [:],
     flows: [Media.ID: URL] = [:],
     cleanSound: [Media.ID: URL] = [:],
+    stereoSound: [Media.ID: URL] = [:],
     canvas: CGSize? = nil,
   ) async throws(EngineError) -> Composition {
     let timeline = project.timeline
@@ -181,8 +186,8 @@ extension Composition {
             ))
           }
           var sound = source.audio
-          if clip.cleanSound, let cleaned = cleanSound[media.id] {
-            sound = try await library.tracks(at: cleaned).audio
+          if let copy = Self.sound(of: clip, cleanSound: cleanSound, stereoSound: stereoSound) {
+            sound = try await library.tracks(at: copy).audio
           }
           if let audio = sound, !clip.isFrozen {
             let target = try audioTrack ?? addTrack(.audio, to: asset)
@@ -295,6 +300,19 @@ extension Composition {
       return parameters
     }
     return mix
+  }
+
+  /// The file a clip's sound plays from instead of its media, if any: its noise-reduced sound
+  /// when it's set to clean sound and that's been made, else its media's stereo copy.
+  static func sound(
+    of clip: Clip,
+    cleanSound: [Media.ID: URL],
+    stereoSound: [Media.ID: URL],
+  ) -> URL? {
+    guard let mediaID = clip.mediaID else {
+      return nil
+    }
+    return clip.cleanSound ? cleanSound[mediaID] ?? stereoSound[mediaID] : stereoSound[mediaID]
   }
 
   static func addTrack(

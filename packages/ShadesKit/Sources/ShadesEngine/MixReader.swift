@@ -12,9 +12,14 @@ public actor MixReader {
 
   /// A reader for `project`'s mix, read from the original media (or `cleanSound`, the
   /// noise-reduced sound, for clips set to use it).
-  public init(project: Project, cleanSound: [Media.ID: URL] = [:]) {
+  public init(
+    project: Project,
+    cleanSound: [Media.ID: URL] = [:],
+    stereoSound: [Media.ID: URL] = [:],
+  ) {
     self.project = project
     self.cleanSound = cleanSound
+    self.stereoSound = stereoSound
   }
 
   // MARK: Public
@@ -60,6 +65,7 @@ public actor MixReader {
   private nonisolated let queue = DispatchSerialQueue(label: "com.sazuyakun.shades.mix")
   private let project: Project
   private let cleanSound: [Media.ID: URL]
+  private let stereoSound: [Media.ID: URL]
   private var reader: AVAssetReader?
   private var output: AVAssetReaderAudioMixOutput?
 
@@ -78,7 +84,10 @@ public actor MixReader {
           continue
         }
         // why: a track doesn't keep its asset alive, and can't be inserted once the asset is gone.
-        let asset = AVURLAsset(url: clip.cleanSound ? cleanSound[media.id] ?? media.url : media.url)
+        let asset = AVURLAsset(
+          url: Composition.sound(of: clip, cleanSound: cleanSound, stereoSound: stereoSound)
+            ?? media.url
+        )
         do {
           guard let audio = try await asset.loadTracks(withMediaType: .audio).first else {
             continue

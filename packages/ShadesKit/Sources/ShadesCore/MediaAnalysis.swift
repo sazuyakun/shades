@@ -12,6 +12,8 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     subjectPath: [SubjectPoint]? = nil,
     tracks: [String: [SubjectPoint]]? = nil,
     cleanSound: String? = nil,
+    channels: Int? = nil,
+    stereoSound: String? = nil,
     waveform: [Float]? = nil,
     stems: [String: String]? = nil,
     flow: String? = nil,
@@ -24,6 +26,8 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
     self.subjectPath = subjectPath
     self.tracks = tracks
     self.cleanSound = cleanSound
+    self.channels = channels
+    self.stereoSound = stereoSound
     self.waveform = waveform
     self.stems = stems
     self.flow = flow
@@ -48,6 +52,10 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   public var tracks: [String: [SubjectPoint]]?
   /// The noise-reduced sound's file name in the project's `cache/sound` folder.
   public var cleanSound: String?
+  /// How many channels the sound has (1 mono, 2 stereo), worked out when a track first pans it.
+  public var channels: Int?
+  /// The stereo copy of mono sound, in the project's `cache/sound` folder, so it can pan.
+  public var stereoSound: String?
   /// The sound's peaks for drawing its waveform, 0 (silent) to 1, `Waveform.peaksPerSecond` a
   /// second.
   public var waveform: [Float]?

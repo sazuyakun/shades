@@ -4,8 +4,8 @@ import ShadesCore
 /// Writes one file of an export request, whatever its kind.
 public enum Exporter {
   /// Writes `output` of `request` from `project`: with cut-outs from `mattes`, optical flow from
-  /// `flows` (footage blur), noise-reduced sound from `cleanSound`, and captions from
-  /// `transcripts` when there are none on the timeline.
+  /// `flows` (footage blur), noise-reduced sound from `cleanSound`, stereo copies of mono sound
+  /// from `stereoSound`, and captions from `transcripts` when there are none on the timeline.
   @MainActor
   public static func write(
     _ output: ExportOutput,
@@ -14,6 +14,7 @@ public enum Exporter {
     mattes: [Media.ID: URL],
     flows: [Media.ID: URL],
     cleanSound: [Media.ID: URL],
+    stereoSound: [Media.ID: URL],
     transcripts: [Media.ID: Transcript],
     progress: @escaping @Sendable (Double) -> Void,
   ) async throws(ExportError) {
@@ -38,6 +39,7 @@ public enum Exporter {
         mattes: mattes,
         flows: flows,
         cleanSound: cleanSound,
+        stereoSound: stereoSound,
         progress: progress,
       )
 

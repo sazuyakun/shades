@@ -147,10 +147,12 @@ public final class Workspace {
     queuedProxies.removeAll()
     queuedWaveforms.removeAll()
     queuedFlows.removeAll()
+    queuedStereo.removeAll()
     player.proxies = [:]
     player.mattes = [:]
     player.flows = [:]
     player.cleanSound = [:]
+    player.stereoSound = [:]
     analysis.clear()
     documentURL = nil
     defaults.set(false, forKey: Keys.isOpen)
@@ -162,6 +164,7 @@ public final class Workspace {
     makeMissingProxies()
     makeMissingWaveforms()
     makeMissingFlows()
+    makeMissingStereo()
     if polishPlan != nil, editor.project != polishBase {
       polishPlan = nil
     }
@@ -253,6 +256,7 @@ public final class Workspace {
   @ObservationIgnored private var polishBase: Project?
   @ObservationIgnored private var queuedProxies = Set<Media.ID>()
   @ObservationIgnored private var queuedWaveforms = Set<Media.ID>()
+  @ObservationIgnored private var queuedStereo = Set<Media.ID>()
   @ObservationIgnored private var queuedFlows = Set<Media.ID>()
   @ObservationIgnored private let notifier = ExportNotifier()
   /// Claude's History as last saved, so an unchanged one isn't written again.
@@ -307,6 +311,54 @@ public final class Workspace {
         }
         try await self?.store(media.id, in: package) { $0.waveform = peaks }
       }
+    }
+  }
+
+  /// Queues a stereo copy of mono sound playing on a panned track (a tap sees mono as one
+  /// channel, so only a stereo copy can pan); its clips switch over once it's made.
+  private func makeMissingStereo() {
+    guard let package = documentURL else {
+      return
+    }
+    let timeline = editor.project.timeline
+    let panned = Set(timeline.tracks.filter { $0.pan != 0 }.flatMap { track in
+      track.clips.filter { timeline.plays($0, on: track) }.compactMap(\.mediaID)
+    })
+    for media in editor.project.media
+      where panned.contains(media.id) && media.hasAudio && !queuedStereo.contains(media.id)
+      && analysis.analyses[media.id]
+      .map({ $0.channels == nil || $0.channels == 1 && $0.stereoSound == nil }) ?? true
+    {
+      queuedStereo.insert(media.id)
+      let file = "\(media.id.uuidString)-stereo.m4a"
+      let destination = package.appending(path: "cache/sound/\(file)")
+      jobs
+        .enqueue("Making stereo sound for \(media.name)") { [weak self] progress throws(JobError) in
+          let channels: Int
+          do throws(MediaError) {
+            channels = try await AudioDecoder.channelCount(of: media.url)
+          } catch {
+            throw .failed(error.errorDescription ?? "The sound couldn't be read.")
+          }
+          guard channels == 1 else {
+            try await self?.store(media.id, in: package) { $0.channels = channels }
+            return
+          }
+          do {
+            let samples = try await AudioDecoder.mono(from: media.url, sampleRate: 48000)
+            progress(0.5)
+            try await AudioWriter.writeM4A([samples, samples], sampleRate: 48000, to: destination)
+          } catch let error as AudioError {
+            throw .failed(error.errorDescription ?? "The stereo copy couldn't be made.")
+          } catch {
+            throw .failed(error.localizedDescription)
+          }
+          try await self?.store(media.id, in: package) { analysis in
+            analysis.channels = 1
+            analysis.stereoSound = file
+          }
+          await self?.useStereoSound(destination, for: media.id)
+        }
     }
   }
 
@@ -458,6 +510,9 @@ extension Workspace: ProjectHost {
     }
     player.flows = analysis.analyses.compactMapValues { record in
       record.flow.map { url.appending(path: "cache/flow/\($0)") }
+    }
+    player.stereoSound = analysis.analyses.compactMapValues { record in
+      record.stereoSound.map { url.appending(path: "cache/sound/\($0)") }
     }
     editor.load(project)
     editor.selection = Set(session.selection)
@@ -656,6 +711,7 @@ extension Workspace: ProjectHost {
       let normalization = try await Self.normalization(
         of: polished,
         cleanSound: player.cleanSound,
+        stereoSound: player.stereoSound,
         target: target.lufs,
       )
       guard editor.project == base else {
@@ -950,6 +1006,7 @@ extension Workspace: ProjectHost {
       let normalization = try await Self.normalization(
         of: project,
         cleanSound: player.cleanSound,
+        stereoSound: player.stereoSound,
         target: target,
       )
     else {
@@ -1017,6 +1074,7 @@ extension Workspace: ProjectHost {
     let mattes = player.mattes
     let flows = player.flows
     let cleanSound = player.cleanSound
+    let stereoSound = player.stereoSound
     let transcripts = analysis.transcripts
     let outputs = request.outputs(for: project.timeline)
     for output in outputs {
@@ -1030,6 +1088,7 @@ extension Workspace: ProjectHost {
             mattes: mattes,
             flows: flows,
             cleanSound: cleanSound,
+            stereoSound: stereoSound,
             transcripts: transcripts,
             progress: progress,
           )
@@ -1129,12 +1188,13 @@ extension Workspace: ProjectHost {
   private static func normalization(
     of project: Project,
     cleanSound: [Media.ID: URL],
+    stereoSound: [Media.ID: URL],
     target: Double,
   ) async throws(ToolError) -> Normalization? {
     var unmastered = project
     unmastered.timeline.gain = 1
     unmastered.timeline.limiter = []
-    let reader = MixReader(project: unmastered, cleanSound: cleanSound)
+    let reader = MixReader(project: unmastered, cleanSound: cleanSound, stereoSound: stereoSound)
     let profile: LoudnessProfile
     do {
       profile = try await LoudnessMeter
@@ -1194,11 +1254,20 @@ extension Workspace: ProjectHost {
       let destination = package.appending(path: "cache/sound/\(file)")
       jobs.enqueue("Cleaning the sound of \(item.name)") { [weak self] progress throws(JobError) in
         do {
-          let samples = try await AudioDecoder.mono(from: item.url, sampleRate: 48000)
+          // why: cleaned sound stays stereo (mono as two equal channels), so its track can pan it.
+          let (left, right) = try await AudioDecoder.stereo(from: item.url, sampleRate: 48000)
           progress(0.3)
-          let cleaned = await NoiseReducer.reduce(samples, sampleRate: 48000, strength: strength)
+          let cleanLeft = await NoiseReducer.reduce(left, sampleRate: 48000, strength: strength)
+          progress(0.6)
+          let cleanRight = left == right
+            ? cleanLeft
+            : await NoiseReducer.reduce(right, sampleRate: 48000, strength: strength)
           progress(0.9)
-          try await AudioWriter.writeM4A([cleaned], sampleRate: 48000, to: destination)
+          try await AudioWriter.writeM4A(
+            [cleanLeft, cleanRight],
+            sampleRate: 48000,
+            to: destination,
+          )
         } catch let error as AudioError {
           throw .failed(error.errorDescription ?? "The sound couldn't be cleaned.")
         } catch {
@@ -1255,6 +1324,11 @@ extension Workspace: ProjectHost {
   }
 
   /// Starts using a finished noise-reduced sound in playback.
+  private func useStereoSound(_ url: URL, for mediaID: Media.ID) async {
+    player.stereoSound[mediaID] = url
+    try? await player.load(editor.project) // why: the editor shows playback errors.
+  }
+
   private func useCleanSound(_ url: URL, for mediaID: Media.ID) async {
     player.cleanSound[mediaID] = url
     try? await player.load(editor.project) // why: the editor shows playback errors.

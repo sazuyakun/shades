@@ -92,8 +92,8 @@ final class TrackTap: Sendable {
   }
 
   /// Limits and pans `frames` samples of every channel in `buffers`, which start `start`
-  /// seconds into the timeline, and reports their loudest points. Pan needs two channels; mono
-  /// stays centred.
+  /// seconds into the timeline, and reports their loudest points. Pan needs two channels, so mono
+  /// sound pans only from its stereo copy (`Composition`'s `stereoSound`).
   private func process(
     _ buffers: UnsafeMutableAudioBufferListPointer,
     frames: Int,

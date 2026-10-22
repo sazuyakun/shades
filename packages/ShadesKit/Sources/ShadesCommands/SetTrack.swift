@@ -39,7 +39,8 @@ public struct SetTrack: ToolCommand {
         "Play this track alone: while any track is soloed, only soloed tracks are heard"
       ),
       "pan": JSONSchema.number(
-        "Where its stereo sound sits: -1 all left, 0 as recorded, 1 all right (mono stays centred)",
+        "Where its sound sits: -1 all left, 0 as recorded, 1 all right (mono sound pans once "
+          + "its stereo copy is made in the background)",
         minimum: -1,
         maximum: 1,
       ),

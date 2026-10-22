@@ -112,7 +112,8 @@ enum Guide {
     Sound
     - set_clip fade_in / fade_out and volume; set_keyframes property volume for rides; \
     set_track volume, pan, muted and soloed for the mix (video tracks carry their clips' own \
-    sound; pan moves stereo sound, mono stays centred). duck_music dips music under speech; \
+    sound; panned mono sound gets a stereo copy in the background first, see get_jobs). \
+    duck_music dips music under speech; \
     reduce_noise cleans background noise. normalize_loudness sets the final level for a \
     platform (youtube, instagram and tiktok -14 LUFS, podcast -16, broadcast -23), with a \
     limiter keeping true peaks under -1 dBTP; do it last and again after changing the sound.

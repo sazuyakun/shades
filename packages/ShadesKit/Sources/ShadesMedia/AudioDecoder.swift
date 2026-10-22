@@ -8,6 +8,23 @@ public enum AudioDecoder {
 
   // MARK: Public
 
+  /// How many channels the file's sound has (1 mono, 2 stereo), or 0 when it has none.
+  public static func channelCount(of url: URL) async throws(MediaError) -> Int {
+    do {
+      guard let track = try await AVURLAsset(url: url).loadTracks(withMediaType: .audio).first
+      else {
+        return 0
+      }
+      let formats = try await track.load(.formatDescriptions)
+      return formats.compactMap { format in
+        CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee.mChannelsPerFrame
+      }.map(Int.init).max() ?? 0
+    } catch {
+      logger.error("samples.failed reason=channels path=\(url.path, privacy: .private)")
+      throw .unreadable(url)
+    }
+  }
+
   /// The file's sound as mono samples from -1 to 1, `sampleRate` per second.
   @concurrent
   public static func mono(from url: URL, sampleRate: Double) async throws(MediaError) -> [Float] {

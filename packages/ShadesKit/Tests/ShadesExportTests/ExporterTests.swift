@@ -29,6 +29,7 @@ struct ExporterTests {
       mattes: [:],
       flows: [:],
       cleanSound: [:],
+      stereoSound: [:],
       transcripts: [:],
     ) { _ in }
     #expect(FileManager.default.fileExists(atPath: folder.appending(path: "talk.srt").path))

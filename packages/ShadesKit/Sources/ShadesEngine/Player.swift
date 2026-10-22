@@ -50,6 +50,8 @@ public final class Player {
   public var flows = [Media.ID: URL]()
   /// Noise-reduced sound by media, for clips set to clean sound. Set them, then `load`.
   public var cleanSound = [Media.ID: URL]()
+  /// Stereo copies of mono sound by media, so panned tracks can pan it. Set them, then `load`.
+  public var stereoSound = [Media.ID: URL]()
   /// Whether what's playing now uses any proxy, for the viewer's "Proxy" badge.
   public private(set) var isUsingProxies = false
 
@@ -83,6 +85,7 @@ public final class Player {
       structure == self.structure, proxies == loadedProxies, mattes == loadedMattes,
       flows == loadedFlows,
       cleanSound == loadedCleanSound,
+      stereoSound == loadedStereoSound,
       let composition,
       let item = avPlayer.currentItem
     {
@@ -111,6 +114,7 @@ public final class Player {
       mattes: mattes,
       flows: flows,
       cleanSound: cleanSound,
+      stereoSound: stereoSound,
     )
     // why: a newer edit started its own load while this one was building; it wins.
     guard !Task.isCancelled else {
@@ -128,6 +132,7 @@ public final class Player {
     loadedMattes = mattes
     loadedFlows = flows
     loadedCleanSound = cleanSound
+    loadedStereoSound = stereoSound
     isUsingProxies = timeline.allClips.contains { $0.mediaID.flatMap { proxies[$0] } != nil }
     // why: read after building, so a seek made while it built lands, not the time before it.
     let playhead = CMTime(seconds: min(cuedTime ?? 0, duration), preferredTimescale: 600)
@@ -205,6 +210,7 @@ public final class Player {
   @ObservationIgnored private var loadedMattes = [Media.ID: URL]()
   @ObservationIgnored private var loadedFlows = [Media.ID: URL]()
   @ObservationIgnored private var loadedCleanSound = [Media.ID: URL]()
+  @ObservationIgnored private var loadedStereoSound = [Media.ID: URL]()
   @ObservationIgnored private var sharedContext: RenderContext?
   /// Seconds between frames on the loaded timeline.
   @ObservationIgnored private var frameDuration = 1.0 / 24

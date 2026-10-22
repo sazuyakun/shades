@@ -9,8 +9,9 @@ public enum MovieExporter {
   // MARK: Public
 
   /// Writes `range` of the project (default: all of it) to `url` (`.mp4` or `.mov`) on `canvas`,
-  /// with cut-outs from `mattes`, optical flow from `flows` (footage blur) and noise-reduced sound
-  /// from `cleanSound`. A file already at `url` goes to the Trash.
+  /// with cut-outs from `mattes`, optical flow from `flows` (footage blur), noise-reduced sound
+  /// from `cleanSound` and stereo copies of mono sound from `stereoSound`. A file already at
+  /// `url` goes to the Trash.
   @MainActor
   public static func export(
     _ project: Project,
@@ -21,6 +22,7 @@ public enum MovieExporter {
     mattes: [Media.ID: URL] = [:],
     flows: [Media.ID: URL] = [:],
     cleanSound: [Media.ID: URL] = [:],
+    stereoSound: [Media.ID: URL] = [:],
     progress: @escaping @Sendable (Double) -> Void,
   ) async throws(ExportError) {
     let timeline = project.timeline
@@ -35,6 +37,7 @@ public enum MovieExporter {
         mattes: mattes,
         flows: flows,
         cleanSound: cleanSound,
+        stereoSound: stereoSound,
         canvas: canvas == .picture ? nil : canvas.size(for: timeline.format),
       )
     } catch {

@@ -23,10 +23,16 @@ struct MixerTests {
   }
 
   @Test
-  func `a mono track stays centred whatever its pan`() async throws {
+  func `a mono track pans through its stereo copy, and stays centred without one`() async throws {
     let url = try AudioFixture.makeTone(seconds: 2, amplitude: 0.5)
-    let panned = try await peaks(of: project(url, pan: -1))
-    #expect(abs(panned.left - panned.right) < 0.01)
+    let project = project(url, pan: -1)
+    let centred = try await peaks(of: project)
+    #expect(abs(centred.left - centred.right) < 0.01)
+    let mediaID = try #require(project.media.first?.id)
+    let copy = try AudioFixture.makeTone(seconds: 2, amplitude: 0.5, channels: 2)
+    let panned = try await peaks(of: project, stereoSound: [mediaID: copy])
+    #expect(abs(panned.left - 0.5) < 0.02)
+    #expect(panned.right < 0.01)
   }
 
   @Test
@@ -101,8 +107,11 @@ struct MixerTests {
   }
 
   /// The loudest sample of each channel of the project's mix.
-  private func peaks(of project: Project) async throws -> (left: Float, right: Float) {
-    let reader = MixReader(project: project)
+  private func peaks(
+    of project: Project,
+    stereoSound: [Media.ID: URL] = [:],
+  ) async throws -> (left: Float, right: Float) {
+    let reader = MixReader(project: project, stereoSound: stereoSound)
     var left: Float = 0
     var right: Float = 0
     while let chunk = try await reader.nextChunk() {
