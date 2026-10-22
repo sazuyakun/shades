@@ -722,7 +722,9 @@ final class MetalRenderer: Sendable {
       footage: layer.footageBlur,
     )
     if case .frame(let frame) = layer.source {
-      look.transfer = SourceTransfer(of: frame).rawValue
+      let color = SourceColor(of: frame)
+      look.transfer = color.transfer.rawValue
+      look.primaries = color.primaries.rawValue
     }
     let neutral = defaults.withLock { ($0.lut, $0.curves, $0.blank) }
     encoder.setFragmentTexture(lut ?? neutral.0, index: 3)

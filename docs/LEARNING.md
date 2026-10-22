@@ -522,12 +522,12 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 ## HDR transfer functions and tone mapping
 **What it is:** The transfer tag (see "Video colour tags") says how a number becomes light. SDR uses Rec.709's curve; HDR uses HLG (iPhones) or PQ, which hold light far brighter than an SDR screen can show. *Tone mapping* squeezes that light into SDR: here, everything up to 70% of "reference white" (203 nits) stays as it is, and brighter light rolls off smoothly towards white.
 **JS/TS analogy:** Like fitting a value with a huge range into 0…1 with a soft `1 - exp(-x)` curve instead of `Math.min(x, 1)`, so bright values keep their differences instead of all clipping to 1.
-**In Shades:** `MediaLoader` reads each file's tags into `VideoColor` (for the HDR badge and Claude); `toSDR` in Layers.metal tone-maps HLG and PQ.
+**In Shades:** `MediaLoader` reads each file's tags into `VideoColor` (for the HDR badge and Claude); `toWorkingSpace` in Layers.metal converts the gamut and tone-maps HLG and PQ.
 
 ## `CVBuffer` attachments
 **What it is:** Key–value notes carried on a pixel buffer, like its colour tags. `CVBufferCopyAttachment` reads one and `CVBufferSetAttachment` writes one; whoever displays or encodes the buffer reads them.
 **JS/TS analogy:** Like the metadata on a `Blob` (its MIME type): the bytes are the same, the label tells the next step how to read them.
-**In Shades:** `SourceTransfer(of:)` reads each frame's transfer tag to know whether to tone-map it, and `MetalCompositor` re-tags its output as SDR.
+**In Shades:** `SourceColor(of:)` reads each frame's transfer and primaries tags to know what to convert, and `MetalCompositor` re-tags its output as SDR.
 
 ## Task-local values (`TaskLocal`)
 **What it is:** A value attached to the current task and everything it awaits, set for a stretch of code with `withValue(_:operation:)` and read anywhere inside with `get()`. Code deep in another module can use it without it being passed through every function.

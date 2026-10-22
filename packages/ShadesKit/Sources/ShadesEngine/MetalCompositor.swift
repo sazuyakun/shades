@@ -11,7 +11,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
   // MARK: Internal
 
   /// HDR and wide-colour frames come in as they are; the layer shader tone-maps HDR itself
-  /// (see `SourceTransfer`), as AVFoundation's own conversion leaves HLG footage dim.
+  /// (see `SourceColor`), as AVFoundation's own conversion leaves HLG footage dim.
   let supportsHDRSourceFrames = true
   let supportsWideColorSourceFrames = true
   let sourcePixelBufferAttributes: [String: any Sendable]? = pixelBufferAttributes
@@ -197,7 +197,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     }
     // why: AVFoundation copies an HDR source's transfer tag onto the frame, but frames leave
     // here tone-mapped to SDR; left as is, the viewer would show them as HDR.
-    if SourceTransfer(of: output) != .sdr {
+    if SourceColor(of: output).transfer != .sdr {
       CVBufferSetAttachment(
         output,
         kCVImageBufferTransferFunctionKey,
