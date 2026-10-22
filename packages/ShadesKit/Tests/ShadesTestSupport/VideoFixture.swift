@@ -1,5 +1,7 @@
 import AVFoundation
 
+// MARK: - VideoFixture
+
 /// Writes small test videos, so tests never depend on real footage.
 public enum VideoFixture {
 
@@ -123,7 +125,7 @@ public enum VideoFixture {
         ))
       }
       let ramp = CGGradient(
-        colorsSpace: CGColorSpaceCreateDeviceRGB(),
+        colorsSpace: space,
         colors: [CGColor(gray: 0, alpha: 1), CGColor(gray: 1, alpha: 1)] as CFArray,
         locations: [0, 1],
       )
@@ -179,6 +181,10 @@ public enum VideoFixture {
   }
 
   // MARK: Private
+
+  /// sRGB, so fixtures draw the same pixels on every Mac: device RGB follows the screen's
+  /// profile, which differs between the dev machine and CI's headless runner.
+  private static let space = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
 
   /// Writes `seconds` at 30 fps, asking `frame` for each frame's picture by its index.
   private static func write(
@@ -255,7 +261,7 @@ public enum VideoFixture {
         height: height,
         bitsPerComponent: 8,
         bytesPerRow: CVPixelBufferGetBytesPerRow(buffer),
-        space: CGColorSpaceCreateDeviceRGB(),
+        space: space,
         bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little
           .rawValue,
       )
