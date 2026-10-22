@@ -24,6 +24,7 @@ enum ScenarioWorkspace {
     let workspace = Workspace(
       defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
       port: port,
+      pauseCheck: { _ in nil },
     )
     workspace.pluginFolders.remove(atOffsets: IndexSet(workspace.pluginFolders.urls.indices))
     if let plugins {

@@ -13,6 +13,7 @@ struct WorkspaceFlowTests {
     let workspace = Workspace(
       defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
       port: 0,
+      pauseCheck: { _ in nil },
     )
     let media = try await Media(
       url: VideoFixture.make(red: 10, green: 20, blue: 30, seconds: 1),

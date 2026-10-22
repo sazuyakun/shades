@@ -25,12 +25,18 @@ public final class Workspace {
 
   // MARK: Lifecycle
 
-  /// `port` is where Claude connects; tests pass 0 for any free port.
-  public init(defaults: UserDefaults = .standard, port: UInt16 = MCPServer.defaultPort) {
+  /// `port` is where Claude connects; tests pass 0 for any free port. `pauseCheck` says when
+  /// background jobs wait (heat, Low Power Mode, battery); tests pass one that never pauses, so
+  /// they run the same on a laptop that's unplugged.
+  public init(
+    defaults: UserDefaults = .standard,
+    port: UInt16 = MCPServer.defaultPort,
+    pauseCheck: @escaping @Sendable (_ pausesOnBattery: Bool) -> String? = JobQueue.systemPause,
+  ) {
     self.defaults = defaults
     let editor = Editor()
     let player = Player()
-    let jobs = JobQueue()
+    let jobs = JobQueue(pauseCheck: pauseCheck)
     self.editor = editor
     self.player = player
     self.jobs = jobs

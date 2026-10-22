@@ -12,6 +12,7 @@ struct WorkspacePolishTests {
     let workspace = Workspace(
       defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
       port: 0,
+      pauseCheck: { _ in nil },
     )
     let media = Media(
       url: URL(filePath: "/tmp/a.mov"),

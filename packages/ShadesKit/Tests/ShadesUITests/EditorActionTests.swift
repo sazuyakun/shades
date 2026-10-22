@@ -221,6 +221,7 @@ struct EditorActionTests {
     let workspace = Workspace(
       defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
       port: 0,
+      pauseCheck: { _ in nil },
     )
     let editor = workspace.editor
     editor.load(Project(media: [media]))

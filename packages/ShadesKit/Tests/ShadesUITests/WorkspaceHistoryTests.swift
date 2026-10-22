@@ -24,6 +24,7 @@ struct WorkspaceHistoryTests {
     let workspace = Workspace(
       defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
       port: 0,
+      pauseCheck: { _ in nil },
     )
     try await workspace.openProject(at: package)
     let activity = workspace.server.activity

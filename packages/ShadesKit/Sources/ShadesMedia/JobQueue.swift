@@ -13,9 +13,10 @@ public final class JobQueue {
   // MARK: Lifecycle
 
   /// `pauseCheck` says why jobs should wait right now, given whether the job pauses on battery
-  /// (`nil` to run), asked again every `checkInterval` while paused; tests pass their own.
+  /// (`nil` to run), asked again every `checkInterval` while paused. By default jobs never wait,
+  /// so tests don't depend on the Mac's power; the app passes `systemPause`.
   public init(
-    pauseCheck: @escaping @Sendable (_ pausesOnBattery: Bool) -> String? = JobQueue.systemPause,
+    pauseCheck: @escaping @Sendable (_ pausesOnBattery: Bool) -> String? = { _ in nil },
     checkInterval: Duration = .seconds(5),
   ) {
     self.pauseCheck = pauseCheck
