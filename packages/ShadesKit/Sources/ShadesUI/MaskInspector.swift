@@ -116,6 +116,13 @@ private struct MaskRow: View {
           perform(SetMask(clipID: clip.id, index: index, at: playhead))
         }
         .help("Keep the mask where it is now at the playhead; move it elsewhere to animate it")
+        let fps = editor.project.timeline.format.framesPerSecond
+        let here = clip.sourceTime(at: playhead.roundedToFrame(at: fps))
+        if let keyHere = mask.keyframes.first(where: { $0.time == here }) {
+          EasingMenu(easing: keyHere.easing) { easing in
+            perform(SetMask(clipID: clip.id, index: index, at: playhead, easing: easing))
+          }
+        }
         if !mask.keyframes.isEmpty {
           Button("Clear Keyframes") {
             perform(SetMask(clipID: clip.id, index: index, clearKeyframes: true))

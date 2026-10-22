@@ -91,6 +91,8 @@ private struct MarkerFlag: View {
           .font(.system(size: 10))
           .foregroundStyle(Theme.marker)
           .lineLimit(1)
+          .padding(.horizontal, 2)
+          .background(Theme.background)
           .padding(.bottom, 1)
       }
     }

@@ -5,8 +5,6 @@ import SwiftUI
 /// playhead and, on a keyframe, a menu for how it moves on to the next one.
 struct KeyframeSlider: View {
 
-  // MARK: Internal
-
   let property: AnimatedProperty
   let value: Double
   /// The keyframe at the playhead, if there is one.
@@ -30,22 +28,7 @@ struct KeyframeSlider: View {
         onEnd: onEnd,
       )
       if let keyHere {
-        Menu {
-          Picker(
-            "Easing",
-            selection: Binding(get: { keyHere.easing }, set: { onEase(keyHere, $0) }),
-          ) {
-            ForEach(Easing.allCases, id: \.self) { Text(Self.label(of: $0)).tag($0) }
-          }
-          .pickerStyle(.inline)
-        } label: {
-          Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
-        }
-        .menuStyle(.button)
-        .menuIndicator(.hidden)
-        .buttonStyle(.plain)
-        .fixedSize()
-        .help("How it moves on to the next keyframe: \(Self.label(of: keyHere.easing))")
+        EasingMenu(easing: keyHere.easing) { onEase(keyHere, $0) }
       }
       Button(action: onToggleKey) {
         Image(systemName: keyHere == nil ? "diamond" : "diamond.fill")
@@ -56,20 +39,6 @@ struct KeyframeSlider: View {
       .help(keyHere == nil
         ? "Add a keyframe at the playhead"
         : "Remove the keyframe at the playhead")
-    }
-  }
-
-  // MARK: Private
-
-  private static func label(of easing: Easing) -> String {
-    switch easing {
-    case .linear: "Linear"
-    case .easeIn: "Ease In"
-    case .easeOut: "Ease Out"
-    case .easeInOut: "Ease In and Out"
-    case .hold: "Hold"
-    case .spring: "Spring"
-    case .bouncy: "Bouncy"
     }
   }
 

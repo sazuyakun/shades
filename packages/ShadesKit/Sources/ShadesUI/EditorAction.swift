@@ -739,7 +739,13 @@ enum EditorAction: CaseIterable, Identifiable {
       ))
 
     case .addSticker:
-      try context.add(AddSticker(mediaID: context.requireMedia(), at: time))
+      let media = try context.requireMedia()
+      let length = context.editor.project.media(withID: media)?.duration ?? .zero
+      try context.add(AddSticker(
+        mediaID: media,
+        at: time,
+        duration: min(MediaTime(seconds: 3), length),
+      ))
 
     case .addAdjustment:
       let start = selected.map(\.timelineStart).min() ?? time

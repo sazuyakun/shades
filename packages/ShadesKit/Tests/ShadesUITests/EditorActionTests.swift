@@ -2,6 +2,7 @@ import Foundation
 import ShadesCommands
 import ShadesCore
 import ShadesEngine
+import ShadesMCP
 import ShadesTestSupport
 @testable import ShadesUI
 import SwiftUI
@@ -172,6 +173,33 @@ struct EditorActionTests {
     try EditorAction.trackTool.perform(in: context)
     #expect(context.settings.wrappedValue.isTracking)
     #expect(!context.settings.wrappedValue.isDrawing)
+  }
+
+  @Test
+  func `the chosen picture goes on top as a selected sticker`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 1)
+    try EditorAction.addSticker.perform(in: context)
+    let sticker = try #require(editor.project.timeline.allClips.first { $0.sticker != nil })
+    #expect(sticker.timelineStart == MediaTime(seconds: 1))
+    #expect(editor.selection == [sticker.id])
+  }
+
+  @Test
+  func `a sound file is imported and placed at the time given, once`() async throws {
+    let (editor, context) = try await editing(seconds: 2, playhead: 0)
+    let tone = try AudioFixture.makeTone(seconds: 0.5)
+    _ = try await context.workspace.addSound(
+      named: tone.path,
+      at: MediaTime(seconds: 1),
+      volume: 0.5,
+    )
+    _ = try await context.workspace.addSound(named: tone.path, at: .zero, volume: nil)
+    #expect(editor.project.media.count { $0.url == tone } == 1)
+    let placed = editor.project.timeline.tracks.filter { $0.kind == .audio }.flatMap(\.clips)
+    #expect(placed.map(\.timelineStart).sorted() == [.zero, MediaTime(seconds: 1)])
+    await #expect(throws: ToolError.self) {
+      try await context.workspace.addSound(named: "no/such sound", at: .zero, volume: nil)
+    }
   }
 
   // MARK: Private

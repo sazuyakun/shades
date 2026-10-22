@@ -64,15 +64,7 @@ struct ClipColorInspector: View {
         },
         onEnd: editor.endCoalescing,
       )
-      GradeWindowControls(
-        window: grade.window,
-        onChange: { window in
-          var changed = grade
-          changed.window = window
-          set(grade: changed)
-        },
-        onEnd: editor.endCoalescing,
-      )
+      GradeWindowControls(clip: clip, onError: onError)
       Hairline()
       ForEach(EffectControl.allCases, id: \.self) { control in
         InspectorSlider(
