@@ -37,8 +37,9 @@ struct LimiterTests {
       GainPoint(time: MediaTime(seconds: 4), gain: 0.5),
     ]
     let limited = try await measure(project)
+    // why: integrated loudness reads the whole tone; a peak can catch a one-off resampling
+    // overshoot at its start, so it isn't compared here (the test above checks peaks).
     #expect(abs(open.integrated - limited.integrated - 6.02) < 0.3)
-    #expect(abs(open.peak - limited.peak - 6.02) < 0.3)
   }
 
   // MARK: Private

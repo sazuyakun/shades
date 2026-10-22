@@ -64,6 +64,7 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 
 | # | Issue | Fix in |
 |---|---|---|
+| 42 | `PluginLibraryTests` "edits reload by themselves" fails every time on the M1 dev Mac (the FSEvents watcher doesn't report the rewritten `plugin.json` in the temp folder within 5 s) while CI passes with the same code | After M9 |
 | 41 | On the CI runner, exports of HDR and wide-colour clips skip Shades' conversion: given the Rec.709 tags an export needs, the runner's `AVAssetExportSession` tone-maps HLG itself (reference white about 60% instead of Shades' 95%) and relabels P3 as Rec.709 unconverted. Playback, frames and exports on the M1 convert correctly. Not reproducible locally: find what the runner lacks, or tag exported files another way | After M9 |
 | 40 | Two performance targets have no CI gate: launch to the library window (<1 s) needs an app-level UI test, which SwiftPM can't run; and transcription can't pause inside WhisperKit's decoding (it pauses only after the model download and between jobs) | After M9 |
 | 39 | HDR clips are tone-mapped from 8-bit frames, so smooth 10-bit gradients (skies) can band slightly; media imported before 2026-10-21 has no colour tags, so it's converted but shows no HDR badge until imported again | After M9 |
@@ -72,7 +73,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 36 | Choices from lists aren't in the ⌘K palette: `EditorAction` is a fixed list, so plugin templates, overlays, sounds, looks and styles, the motion presets and keyframe easing are picked only from their menus. Normalize Loudness (⌥L) shows no result in the app, only the new master level; its measurement reaches Claude alone | After M9 |
 | 35 | Footage blur can streak sideways at the corners of flat, evenly coloured moving shapes, where Vision's optical flow points the wrong way (a median steadies most of it). Needs a confidence check, e.g. comparing flow forwards and backwards | After M9 |
 | 34 | The viewer's mask handles, and the Track tool's box (`Clip.pictureBox`), place the picture by the clip's position, scale and rotation only: they ignore the timeline camera and 3D tilt, and mask handles don't show on text clips (whose masks are set in the inspector or over MCP) | After M9 |
-| 32 | Sped-up sound can lose its last ~70 ms at the very end of the mix: AVFoundation's pitch-keeping stretcher (`.spectral`) doesn't always flush its tail there (seen under heavy load in `MixReaderTests`) | After M9 |
 | 21 | Per-word type isn't per-word layers: words animate inside one text clip and can't get their own position, keyframes or depth; `add_text` takes no word timings | After M9 |
 | 20 | Type & motion gaps: no endless-zoom portals, "3D type" is flat text tilted in space (no extrusion or 3D bend), and text on paths follows only a circular arc (not any path) | After M9 |
 | 16 | Cut-outs have no edge refinement (no feather or choke): the Vision mask is only resized and blended with the previous frame | After M9 |

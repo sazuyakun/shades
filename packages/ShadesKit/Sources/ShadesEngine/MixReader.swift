@@ -36,7 +36,7 @@ public actor MixReader {
     if output == nil {
       try await start()
     }
-    guard let output, let sample = output.copyNextSampleBuffer() else {
+    guard framesLeft > 0, let output, let sample = output.copyNextSampleBuffer() else {
       return nil
     }
     guard let block = CMSampleBufferGetDataBuffer(sample) else {
@@ -57,7 +57,9 @@ public actor MixReader {
       logger.error("mix.readFailed status=\(status, privacy: .public)")
       throw .renderFailed
     }
-    return samples
+    let frames = min(samples.count / 2, framesLeft)
+    framesLeft -= frames
+    return Array(samples.prefix(frames * 2))
   }
 
   // MARK: Private
@@ -68,12 +70,15 @@ public actor MixReader {
   private let stereoSound: [Media.ID: URL]
   private var reader: AVAssetReader?
   private var output: AVAssetReaderAudioMixOutput?
+  /// How many more frames belong to the timeline; the run-on past its end isn't the mix.
+  private var framesLeft = 0
 
   /// Lays every clip's sound out in a composition and starts reading it through the mix.
   private func start() async throws(EngineError) {
     let timeline = project.timeline
     let composition = AVMutableComposition()
     var trackIDs = [Track.ID: CMPersistentTrackID]()
+    var lastSounds = [AVMutableCompositionTrack: AVAssetTrack]()
     for track in timeline.tracks where track.kind != .text {
       var target: AVMutableCompositionTrack?
       for clip in track.clips {
@@ -98,6 +103,7 @@ public actor MixReader {
           for piece in MediaPiece.pieces(of: clip, frame: timeline.format.frameDuration) {
             try piece.insert(from: audio, into: destination)
           }
+          lastSounds[destination] = audio
           withExtendedLifetime(asset) { }
         } catch {
           let code = (error as NSError).code
@@ -111,6 +117,8 @@ public actor MixReader {
     guard !tracks.isEmpty else {
       return
     }
+    Composition.runOn(lastSounds, past: timeline.duration)
+    framesLeft = Int((timeline.duration.seconds * Self.sampleRate).rounded())
     do {
       let reader = try AVAssetReader(asset: composition)
       let output = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: [

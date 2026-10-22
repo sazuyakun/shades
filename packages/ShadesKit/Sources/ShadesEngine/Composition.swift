@@ -83,6 +83,9 @@ extension Composition {
     let tracks: [TrackStructure]
   }
 
+  /// How long sound tracks run on past the end, silenced, so the stretcher finishes in time.
+  static let runOn = MediaTime(value: 1, timescale: 4)
+
   /// Builds the playable form of the project's timeline, reading each media file from
   /// `sources` (its proxy) when given there. Clips whose media has a cut-out in `mattes` get it
   /// as a matching track, for depth slots, likewise their optical flow in `flows` (footage blur),
@@ -113,6 +116,7 @@ extension Composition {
     let asset = AVMutableComposition()
     var videoLayers = [VideoLayer]()
     var audioTrackIDs = [Track.ID: CMPersistentTrackID]()
+    var lastSounds = [AVMutableCompositionTrack: AVAssetTrack]()
     for track in timeline.tracks where !track.clips.isEmpty && track.kind != .text {
       var videoTrack: AVMutableCompositionTrack?
       var audioTrack: AVMutableCompositionTrack?
@@ -196,6 +200,7 @@ extension Composition {
             for piece in pieces {
               try piece.insert(from: audio, into: target)
             }
+            lastSounds[target] = audio
           }
         } catch {
           let code = (error as NSError).code
@@ -224,6 +229,7 @@ extension Composition {
         ))
       }
     }
+    runOn(lastSounds, past: timeline.duration)
     // why: AVFoundation only asks the compositor for frames while some video track plays, so a
     // timeline of only stills and text gets an empty one to carry it.
     if asset.tracks(withMediaType: .video).isEmpty {
@@ -248,6 +254,10 @@ extension Composition {
       for: videoLayers,
       text: textLayers,
       duration: timeline.duration,
+      until: max(
+        timeline.duration,
+        MediaTime(value: asset.duration.value, timescale: asset.duration.timescale),
+      ),
       pictureSize: pictureSize,
       isCanvas: canvas != nil,
       renderState: renderState,
@@ -297,6 +307,7 @@ extension Composition {
           )
         }
       }
+      parameters.setVolume(0, at: timeline.duration.cmTime)
       return parameters
     }
     return mix
@@ -313,6 +324,21 @@ extension Composition {
       return nil
     }
     return clip.cleanSound ? cleanSound[mediaID] ?? stereoSound[mediaID] : stereoSound[mediaID]
+  }
+
+  /// Lets each sound track run on for `runOn` past `end` with more of the sound it last played
+  /// (silenced by the mix), so the pitch-keeping stretcher finishes a sped-up clip's last
+  /// moments: under load it drops them when its track simply stops, and an empty stretch
+  /// doesn't keep it going.
+  static func runOn(_ lastSounds: [AVMutableCompositionTrack: AVAssetTrack], past end: MediaTime) {
+    for (track, sound) in lastSounds {
+      // why: a sound shorter than the run-on can't fill it; that track just stops, as before.
+      try? track.insertTimeRange(
+        CMTimeRange(start: .zero, duration: runOn.cmTime),
+        of: sound,
+        at: end.cmTime,
+      )
+    }
   }
 
   static func addTrack(
@@ -516,6 +542,7 @@ extension Composition {
     for layers: [VideoLayer],
     text: [[Clip]],
     duration: MediaTime,
+    until end: MediaTime,
     pictureSize: CGSize,
     isCanvas: Bool,
     renderState: RenderState,
@@ -523,7 +550,7 @@ extension Composition {
     frameCounter: FrameCounter,
     quality: RenderQuality,
   ) -> [CompositionInstruction] {
-    var edges: Set = [MediaTime.zero, duration]
+    var edges: Set = [MediaTime.zero, duration, end]
     for clip in layers.flatMap({ $0.clips.map(\.clip) }) + text.flatMap(\.self) {
       edges.insert(clip.timelineStart)
       edges.insert(clip.timelineEnd)

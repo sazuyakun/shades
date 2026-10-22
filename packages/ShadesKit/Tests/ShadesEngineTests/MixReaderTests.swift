@@ -35,12 +35,13 @@ struct MixReaderTests {
     let url = try AudioFixture.makeTone(seconds: 3, amplitude: 0.5)
     let normal = try await samples(of: url, speed: 1)
     let fast = try await samples(of: url, speed: 2)
-    // why: under load the pitch-keeping stretcher can drop its last ~70 ms at the very end of
-    // the mix, so the length is checked loosely; where the sound starts (sync) must match.
     let audible = { (samples: [Float]) in Double(samples.count { abs($0) > 0.05 }) }
     let start = { (samples: [Float]) in samples.firstIndex { abs($0) > 0.05 } }
     #expect(start(fast) == start(normal))
-    #expect(abs(audible(fast) / audible(normal) - 0.5) < 0.05)
+    #expect(abs(audible(fast) / audible(normal) - 0.5) < 0.01)
+    // why: the mix is exactly the timeline, with the sped-up sound playing to its very end.
+    #expect(fast.count == 2 * 48000)
+    #expect(fast.suffix(2 * 480).contains { abs($0) > 0.05 })
     #expect(abs(peak(fast) - peak(normal)) < 0.05, "the pitch-kept stretch keeps the level")
     #expect(peak(try await samples(of: url, speed: 0)) < 0.001)
   }

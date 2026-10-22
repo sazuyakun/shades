@@ -125,6 +125,8 @@ public final class Player {
     item.videoComposition = sized(built)
     item.audioMix = built.audioMix(for: timeline, meters: meters)
     item.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
+    // why: the sound runs on silently past the end (see `Composition.runOn`); playback stops there.
+    item.forwardPlaybackEndTime = timeline.duration.cmTime
     avPlayer.replaceCurrentItem(with: item)
     composition = built
     self.structure = structure
