@@ -528,3 +528,18 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Key–value notes carried on a pixel buffer, like its colour tags. `CVBufferCopyAttachment` reads one and `CVBufferSetAttachment` writes one; whoever displays or encodes the buffer reads them.
 **JS/TS analogy:** Like the metadata on a `Blob` (its MIME type): the bytes are the same, the label tells the next step how to read them.
 **In Shades:** `SourceTransfer(of:)` reads each frame's transfer tag to know whether to tone-map it, and `MetalCompositor` re-tags its output as SDR.
+
+## Task-local values (`TaskLocal`)
+**What it is:** A value attached to the current task and everything it awaits, set for a stretch of code with `withValue(_:operation:)` and read anywhere inside with `get()`. Code deep in another module can use it without it being passed through every function.
+**JS/TS analogy:** Like Node's `AsyncLocalStorage`: `storage.run(value, fn)`, and any async code `fn` calls can read `storage.getStore()`.
+**In Shades:** `JobQueue` runs each job with a pause gate as a task-local, so `JobQueue.pausePoint()` in a cut-out or stem loop knows which job it's in and waits while that job should pause.
+
+## IOKit power sources (`IOPSCopyPowerSourcesInfo`)
+**What it is:** A C API from IOKit that reports the Mac's power: `IOPSGetProvidingPowerSourceType` says whether it's on AC power or its battery. C functions hand back `Unmanaged` objects, and `takeRetainedValue()` / `takeUnretainedValue()` say who frees them ("Copy" functions give you one to free, "Get" functions don't).
+**JS/TS analogy:** Like the browser's Battery Status API (`navigator.getBattery()` and `charging`), but synchronous and from C.
+**In Shades:** `JobQueue.systemPause(pausesOnBattery:)` holds analysis jobs while a MacBook is unplugged.
+
+## Process CPU time (`getrusage`)
+**What it is:** A Unix call that fills in how much processor time this process has used so far, in user code and in the system. Two readings a few seconds apart, divided by the wall-clock time between them, give how busy the app is (100% is one full core).
+**JS/TS analogy:** Node's `process.cpuUsage()`, compared between two calls.
+**In Shades:** `CPUMeter` (ShadesEngine) for the HUD's CPU figure and the idle-CPU performance gate.

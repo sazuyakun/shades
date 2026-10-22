@@ -41,7 +41,26 @@ public enum AudioFixture {
     }
   }
 
+  /// Writes a WAV of a tone sounding for the first `on` seconds of every `period`, like speech
+  /// with pauses, for `periods` periods. Quick at any length: one period is made and repeated.
+  public static func makePulses(
+    periods: Int,
+    period: Double = 4,
+    on: Double = 2.5,
+  ) throws(FixtureError) -> URL {
+    let one = samples(seconds: period, channels: 1) { time in
+      time < on ? sin(2 * .pi * 220 * time) * 0.5 : 0
+    }
+    var all = Data(capacity: one.count * periods)
+    for _ in 0 ..< periods {
+      all.append(one)
+    }
+    return try write(all, channels: 1)
+  }
+
   // MARK: Private
+
+  private static let sampleRate = 44_100
 
   /// Writes `seconds` of 16-bit 44.1 kHz WAV, each sample from `signal(time)` in every one of
   /// its `channels` (mono by default).
@@ -50,7 +69,15 @@ public enum AudioFixture {
     channels: Int = 1,
     signal: (Double) -> Double,
   ) throws(FixtureError) -> URL {
-    let sampleRate = 44_100
+    try write(samples(seconds: seconds, channels: channels, signal: signal), channels: channels)
+  }
+
+  /// `seconds` of 16-bit samples, each from `signal(time)` in every one of its `channels`.
+  private static func samples(
+    seconds: Double,
+    channels: Int,
+    signal: (Double) -> Double,
+  ) -> Data {
     let count = Int(seconds * Double(sampleRate))
     var samples = Data(capacity: count * 2 * channels)
     for index in 0 ..< count {
@@ -61,6 +88,11 @@ public enum AudioFixture {
         }
       }
     }
+    return samples
+  }
+
+  /// Writes 16-bit 44.1 kHz `samples` (interleaved `channels`) as a WAV file.
+  private static func write(_ samples: Data, channels: Int) throws(FixtureError) -> URL {
     var file = Data("RIFF".utf8)
     append(UInt32(36 + samples.count), to: &file)
     file.append(contentsOf: Data("WAVEfmt ".utf8))

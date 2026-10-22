@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import ShadesCore
 import ShadesEngine
@@ -78,7 +79,134 @@ struct PerformanceTests {
     #expect((growth.min() ?? 0) < 40_000_000)
   }
 
+  @MainActor
+  @Test
+  func `the target timeline plays in real time without dropping frames`() async throws {
+    let target = try await targetTimeline()
+    let player = try await load(target)
+    player.previewQuality = .half
+    player.play()
+    try await Task.sleep(for: .seconds(4))
+    player.pause()
+    // why: PLAN §4 allows proxies and a half-size preview for this timeline. The M1 dev machine
+    // plays it with no drops and keeps the clock (3.8 s of 4).
+    #expect(player.frameCounter.droppedFrames == 0)
+    #expect(player.currentTime > 3.5, "playback kept up with the clock")
+  }
+
+  @MainActor
+  @Test
+  func `scrubbing shows each new frame within 50 ms`() async throws {
+    let target = try await targetTimeline()
+    let player = try await load(target)
+    let output = try #require(player.avPlayer.currentItem?.outputs
+      .first as? AVPlayerItemVideoOutput)
+    let clock = ContinuousClock()
+    var waits = [Duration]()
+    for target in [2.1, 0.4, 3.3, 1.2, 4.6, 0.9, 2.8, 3.9] {
+      let started = clock.now
+      await player.seek(toSeconds: target)
+      try await waitForFrame(from: output, of: player)
+      waits.append(clock.now - started)
+    }
+    let median = waits.sorted()[waits.count / 2]
+    // why: PLAN §4's target, at full size; measured 20 ms on the M1 dev machine.
+    #expect(median < .milliseconds(50), "scrubs took \(waits)")
+    // why: PLAN §4's ceiling for editing a 4K project; this one plays three layers of it.
+    #expect(Benchmark.memoryFootprint() < 1_500_000_000)
+  }
+
   // MARK: Private
+
+  /// PLAN §4's playback target: a 2880×2160 @ 24 timeline of three graded layers of 4K footage
+  /// (played from 1080p proxies, as Shades does) and text behind the subject, with the proxies
+  /// and the base layer's cut-out to load it with.
+  private func targetTimeline() async throws -> (Project, [Media.ID: URL], [Media.ID: URL]) {
+    var media = [Media]()
+    var proxies = [Media.ID: URL]()
+    for (red, green, blue) in [(200, 120, 80), (60, 140, 200), (90, 200, 110)] {
+      let color = FixtureColor(red: UInt8(red), green: UInt8(green), blue: UInt8(blue))
+      let proxy = try await VideoFixture.make(
+        left: color,
+        right: color,
+        seconds: 5,
+        width: 1920,
+        height: 1080,
+        codec: .hevc,
+      )
+      let original = Media(
+        url: proxy,
+        duration: MediaTime(seconds: 5),
+        width: 3840,
+        height: 2160,
+        hasAudio: false,
+      )
+      media.append(original)
+      proxies[original.id] = proxy
+    }
+    let matte = try await VideoFixture.make(
+      red: 255,
+      green: 255,
+      blue: 255,
+      seconds: 5,
+      width: 640,
+      height: 360,
+    )
+    let tracks = media.enumerated().map { index, media in
+      Track(kind: .video, clips: [Clip(
+        mediaID: media.id,
+        sourceStart: .zero,
+        duration: media.duration,
+        timelineStart: .zero,
+        transform: index == 0 ? .identity : ClipTransform(scale: 0.5),
+        grade: Grade(exposure: 0.2, contrast: 1.1, saturation: 1.2),
+      )])
+    }
+    var title = Clip(
+      source: .text(TextContent(text: "BEHIND THE SUBJECT")),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 5),
+      timelineStart: .zero,
+    )
+    title.depth = .behindSubject
+    let project = Project(media: media, timeline: Timeline(
+      format: .standard,
+      tracks: tracks + [Track(kind: .text, clips: [title])],
+    ))
+    return (project, proxies, [media[0].id: matte])
+  }
+
+  /// A player with `target` loaded, paused at the start, its frames going to a video output as
+  /// they would to the viewer.
+  @MainActor
+  private func load(_ target: (Project, [Media.ID: URL], [Media.ID: URL])) async throws
+    -> Player
+  {
+    let player = Player()
+    player.proxies = target.1
+    player.mattes = target.2
+    try await player.load(target.0)
+    let item = try #require(player.avPlayer.currentItem)
+    item.add(AVPlayerItemVideoOutput(pixelBufferAttributes: nil))
+    return player
+  }
+
+  /// Waits until `output` has the frame at the player's time, for at most a second.
+  @MainActor
+  private func waitForFrame(from output: AVPlayerItemVideoOutput, of player: Player) async throws {
+    let deadline = ContinuousClock.now + .seconds(1)
+    while ContinuousClock.now < deadline {
+      let time = player.avPlayer.currentTime()
+      if
+        output.hasNewPixelBuffer(forItemTime: time),
+        output.copyPixelBuffer(forItemTime: time, itemTimeForDisplay: nil) != nil
+      {
+        return
+      }
+      try await Task.sleep(for: .milliseconds(1))
+    }
+    Issue.record("no frame came within a second")
+  }
 
   private func oneClipProject(width: Int, height: Int) async throws -> Project {
     let url = try await VideoFixture.make(
