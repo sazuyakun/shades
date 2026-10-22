@@ -119,7 +119,9 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
           return LayerPose(transform: .identity, camera: .identity)
         }
         var transform = clip.transform(at: moment)
-        transform.x += Double(offset.x) + (layer.transition?.style(at: moment).offsetX ?? 0)
+        let transition = layer.transition?.style(at: moment)
+        transform.x += Double(offset.x) + (transition?.offsetX ?? 0)
+        transform.scale *= transition?.scale ?? 1
         transform.y += Double(offset.y)
         return LayerPose(
           transform: transform,
@@ -157,11 +159,7 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
             placed.window = grade.window?.placed(at: source)
             return placed
           },
-          effects: transition.map { style in
-            var effects = clip.effects ?? Effects()
-            effects.blur = max(effects.blur, style.blur)
-            return effects
-          } ?? clip.effects,
+          effects: effects(of: clip, at: time, in: transition),
           crop: clip.crop,
           masks: clip.masks.map { $0.placed(at: source) },
           blend: clip.blend,
@@ -209,6 +207,22 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     }
     instruction.frameCounter.recordFrame(at: time.seconds, took: .now - started)
     request.finish(withComposedVideoFrame: output)
+  }
+
+  /// The clip's effects at `time`: its endless zoom travelled as far as its keyframes say, and
+  /// blurred by a transition that smears it.
+  private func effects(
+    of clip: Clip,
+    at time: MediaTime,
+    in transition: TransitionStyle?,
+  ) -> Effects? {
+    guard transition != nil || clip.effects?.portal != nil else {
+      return clip.effects
+    }
+    var effects = clip.effects ?? Effects()
+    effects.blur = max(effects.blur, transition?.blur ?? 0)
+    effects.portal?.travel = clip.value(of: .portal, at: time)
+    return effects
   }
 
 }

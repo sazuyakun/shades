@@ -39,6 +39,22 @@ struct TextStyleTests {
   }
 
   @Test
+  func `a portal keeps its defaults and its travel is a keyframeable value`() throws {
+    let json = Data(#"{"grain": 0.2, "portal": {"travel": 1.5}}"#.utf8)
+    let effects = try JSONDecoder().decode(Effects.self, from: json)
+    #expect(effects.portal == Portal(nesting: 3, travel: 1.5))
+    #expect(try JSONDecoder().decode(Effects.self, from: Data("{}".utf8)).portal == nil)
+    let clip = Clip(
+      source: .adjustment,
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 1),
+      timelineStart: .zero,
+      effects: effects,
+    )
+    #expect(clip.value(of: .portal, at: .zero) == 1.5)
+  }
+
+  @Test
   func `an extrusion keeps its defaults for what it leaves out`() throws {
     let json = Data(#"{"extrusion": {"depth": 0.8}}"#.utf8)
     let style = try JSONDecoder().decode(TextStyle.self, from: json)

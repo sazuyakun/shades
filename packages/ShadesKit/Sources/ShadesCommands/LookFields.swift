@@ -54,6 +54,16 @@ enum LookFields {
         + "source, sampler s), returning the new straight (not premultiplied) colour"
     ),
     "shader_amount": JSONSchema.number("The effect's strength, 0 to 1 (default 1)"),
+    "portal": JSONSchema.object([
+      "nesting": JSONSchema.number(
+        "An endless zoom: the picture holds a copy of itself this many times smaller in its "
+          + "middle, forever (1.5 to 10, default 3)"
+      ),
+      "travel": JSONSchema.number(
+        "How far the view has zoomed in, in copies (1 brings the next one in to fill the "
+          + "picture); keyframe portal to zoom on forever"
+      ),
+    ]),
     "key": JSONSchema.object([
       "color": JSONSchema.string("The background colour to remove (default green #00FF00)"),
       "tolerance": JSONSchema.number("How far from it counts as background, 0 to 1"),

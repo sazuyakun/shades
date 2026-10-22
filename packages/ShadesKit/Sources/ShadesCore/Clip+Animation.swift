@@ -105,6 +105,7 @@ extension Clip {
     case .volume: volume
     case .speed: speed
     case .pathOffset: text?.path?.offset ?? 0
+    case .portal: effects?.portal?.travel ?? 0
     }
   }
 

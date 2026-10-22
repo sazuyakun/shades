@@ -109,7 +109,11 @@ enum Guide {
     Use it with set_look effects.shader (a path, or a plugin's shaders/ file); compile errors \
     come back to you to fix.
     - set_transition joins touching clips with a dissolve, dip, flash, whip, push, slices, \
-    tiles or iris.
+    tiles, iris or portal (zooming through a small frame of the next shot until it fills the \
+    picture).
+    - set_look effects portal {nesting, travel} makes an endless zoom: the picture nested inside \
+    itself forever (Droste); keyframe portal (travel 0 to 4 over a clip zooms through four \
+    frames) to fly in through them.
 
     Sound
     - set_clip fade_in / fade_out and volume; set_keyframes property volume for rides; \

@@ -22,6 +22,23 @@ struct LookTests {
   }
 
   @Test
+  func `an endless zoom nests within range and its travel can be keyframed`() throws {
+    var (project, id) = try oneClip()
+    let travel = SetKeyframes(clipID: id, keyframes: [
+      SetKeyframes.Key(property: .portal, at: .zero, value: 0, easing: nil),
+      SetKeyframes.Key(property: .portal, at: seconds(1), value: 3, easing: nil),
+    ])
+    #expect(throws: CommandError.self) { try travel.apply(to: &project) }
+    #expect(throws: CommandError.self) {
+      try SetLook(clipIDs: [id], effects: Effects(portal: Portal(nesting: 50))).apply(to: &project)
+    }
+    try SetLook(clipIDs: [id], effects: Effects(portal: Portal())).apply(to: &project)
+    try travel.apply(to: &project)
+    let clip = try #require(project.timeline.clip(withID: id))
+    #expect(clip.value(of: .portal, at: seconds(0.5)) == 1.5)
+  }
+
+  @Test
   func `grades outside their range and text grades are refused`() throws {
     var (project, id) = try oneClip()
     #expect(throws: CommandError.self) {

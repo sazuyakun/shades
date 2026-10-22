@@ -63,7 +63,8 @@ struct TransitionControls: View {
     case .push: "Push"
     case .slices: "Slices"
     case .tiles: "Tiles"
-    case .iris: "Iris (Portal)"
+    case .iris: "Iris"
+    case .portal: "Portal (Zoom Through)"
     }
   }
 

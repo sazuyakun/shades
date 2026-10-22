@@ -124,6 +124,8 @@ struct LayerLook {
   float flowScale;     // a flow value's distance from 0.5 times this is pictures a second
   int transfer;              // 0 SDR, 1 HLG, 2 PQ: HDR is tone-mapped to SDR Rec.709
   int primaries;             // 0 Rec.709, 1 P3, 2 Rec.2020: wide gamuts are brought inside Rec.709
+  float portalNesting;       // an endless zoom: each nested copy this many times smaller; 0 none
+  float portalTravel;        // how far it has zoomed in, in copies
 };
 
 // Must match `LayerMaskShape` in LayerMaskShape.swift: one layer mask, placed for this frame.
@@ -374,7 +376,22 @@ static float maskCoverage(float2 p, float aspect, constant LayerLook &look, cons
 
 // The layer's picture keyed, graded and given its effects: straight colour and alpha, before
 // it's masked, wiped or mixed with what's under it.
+// Where an endless zoom samples the picture: it holds a copy of itself `portalNesting` times
+// smaller in its middle, and so on forever, and the view has zoomed `portalTravel` copies in.
+// Each point is scaled by whole copies until it lands in the ring between the picture's edge
+// and its first copy's.
+static float2 portalUV(float2 uv, constant LayerLook &look) {
+  if (look.portalNesting <= 1) {
+    return uv;
+  }
+  float2 offset = (uv - 0.5) * pow(look.portalNesting, -fract(look.portalTravel));
+  float size = max(max(abs(offset.x), abs(offset.y)) * 2.0, 1e-6);
+  float copies = floor(-log(size) / log(look.portalNesting));
+  return offset * pow(look.portalNesting, copies) + 0.5;
+}
+
 static float4 shade(VertexOut in, texture2d<half> picture, texture2d<float> travel, float2 uv, texture3d<float> lut, texture2d<float> curves, constant LayerLook &look, constant LayerMaskShape *masks, constant float2 *points, sampler s) {
+  uv = portalUV(uv, look);
   float4 color = sampleSoft(picture, travel, s, uv, look);
   if (look.transfer != 0 || look.primaries != 0) {
     color.rgb = toWorkingSpace(color.rgb, look);

@@ -14,6 +14,9 @@ public enum TransitionKind: String, Codable, CaseIterable, Sendable {
   case slices
   /// The next shot appears tile by tile.
   case tiles
-  /// The next shot opens from a growing circle in the middle (a portal).
+  /// The next shot opens from a growing circle in the middle.
   case iris
+  /// The view zooms in through a small frame of the next shot in the middle until it fills the
+  /// picture.
+  case portal
 }

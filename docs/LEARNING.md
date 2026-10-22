@@ -568,3 +568,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** Runs the same closure `n` times in parallel on GCD's worker threads and returns when all are done: a blocking parallel `for` loop.
 **JS/TS analogy:** Like `await Promise.all(batches.map(runInWorker))`, except it blocks the calling thread instead of being awaited.
 **In Shades:** `DistanceField` splits its column and row passes over every core, so a 3D title's field is ready within a preview frame.
+
+## Self-similar zooms with logarithms (the Droste effect)
+**What it is:** A picture that holds a smaller copy of itself in its middle, forever. For any point, `log` of its distance from the centre (in units of the copy's size) says how many copies deep it is; scaling it back up by that many whole copies lands it in the outer ring, which is just the picture. Zooming in by exactly one copy shows the same picture again, so the zoom can run forever.
+**JS/TS analogy:** none built in; it's the maths behind CSS-free "infinite zoom" canvas demos: `Math.floor(-Math.log(size) / Math.log(nesting))`.
+**In Shades:** `portalUV` in Layers.metal maps each point of a clip with a `portal` effect into that ring; keyframing `portal` (the travel) flies in through the copies.

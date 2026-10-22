@@ -16,6 +16,8 @@ public enum AnimatedProperty: String, Codable, CaseIterable, Sendable {
   case speed
   /// How far text on a path has moved along it (`TextPath.offset`).
   case pathOffset
+  /// How far an endless zoom has travelled in (`Portal.travel`).
+  case portal
 
   // MARK: Public
 

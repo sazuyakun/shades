@@ -80,6 +80,30 @@ struct ClipColorInspector: View {
           onEnd: editor.endCoalescing,
         )
       }
+      Toggle("Endless Zoom", isOn: Binding(
+        get: { effects.portal != nil },
+        set: { isOn in
+          var changed = effects
+          changed.portal = isOn ? Portal() : nil
+          set(effects: changed)
+        },
+      ))
+      .help("The picture nested inside itself forever; keyframe Zoom Through to fly in")
+      if let portal = effects.portal {
+        InspectorSlider(
+          label: "Nesting",
+          value: portal.nesting,
+          range: 1.5 ... 10,
+          format: { "\($0.formatted(.number.precision(.fractionLength(1))))×" },
+          onChange: { value in
+            var changed = effects
+            changed.portal?.nesting = value
+            set(effects: changed)
+          },
+          onEnd: editor.endCoalescing,
+        )
+        AnimatedSlider(clip: clip, property: .portal, onError: onError)
+      }
       ChromaKeyControls(
         key: effects.key,
         onChange: { key in

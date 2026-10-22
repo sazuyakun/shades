@@ -89,6 +89,8 @@ struct LayerLook {
     footageLength = Float(abs(footage?.length ?? 0))
     footageTaps = Int32(footage?.taps ?? 0)
     flowScale = Float(2 * FlowVideo.range)
+    portalNesting = Float(effects.portal?.nesting ?? 0)
+    portalTravel = Float(effects.portal?.travel ?? 0)
   }
 
   // MARK: Internal
@@ -150,5 +152,9 @@ struct LayerLook {
   var transfer = SourceColor.Transfer.sdr.rawValue
   /// Which colours the source's values mean (`SourceColor.Primaries`): wide gamuts are converted.
   var primaries = SourceColor.Primaries.rec709.rawValue
+  /// How many times smaller each nested copy of an endless zoom is; 0 is no zoom.
+  let portalNesting: Float
+  /// How far the endless zoom has travelled in, in copies.
+  let portalTravel: Float
 
 }

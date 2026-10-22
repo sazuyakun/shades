@@ -1,3 +1,4 @@
+import Foundation
 import ShadesCore
 
 /// How a clip looks partway through a transition: faded, moved, blurred, dipped to a colour or
@@ -33,6 +34,13 @@ struct TransitionStyle: Equatable {
       let travel = Easing.easeInOut.progress(progress)
       offsetX = isIncoming ? 1 - travel : -travel
 
+    case .portal:
+      // why: the outgoing shot grows exactly as fast as the frame of the next one, so the view
+      // seems to fly in through it; growing by powers keeps the speed steady.
+      let travel = Easing.easeInOut.progress(progress)
+      scale = pow(Self.portalZoom, isIncoming ? travel - 1 : travel)
+      opacity = isIncoming ? min(progress / 0.15, 1) : 1
+
     case .slices,
          .tiles,
          .iris:
@@ -46,6 +54,8 @@ struct TransitionStyle: Equatable {
   // MARK: Internal
 
   var opacity = 1.0
+  /// Grows the clip about its centre.
+  var scale = 1.0
   /// Moves the clip sideways, in frame widths.
   var offsetX = 0.0
   var blur = 0.0
@@ -55,5 +65,10 @@ struct TransitionStyle: Equatable {
   /// The pattern the incoming clip is revealed through, if any.
   var wipe: TransitionKind?
   var wipeProgress = 0.0
+
+  // MARK: Private
+
+  /// How much smaller the next shot's frame starts than the picture, in a portal.
+  private static let portalZoom = 6.0
 
 }

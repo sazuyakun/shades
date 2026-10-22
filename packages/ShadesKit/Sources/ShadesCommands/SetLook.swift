@@ -28,8 +28,9 @@ public struct SetLook: ToolCommand {
   public static let name = "set_look"
   public static let summary = "Grade clips (exposure, contrast, saturation, temperature, tint, "
     + "lift, gamma, gain, curves, a LUT), give them film-look effects (grain, vignette, halation, "
-    + "blur) or a green-screen key, or set how they blend (screen, multiply, overlay…). A grade "
-    + "or effects given replace the old ones whole; clear removes both."
+    + "blur, an endless-zoom portal) or a green-screen key, or set how they blend (screen, "
+    + "multiply, overlay…). A grade or effects given replace the old ones whole; clear removes "
+    + "both."
   public static let parameters = JSONSchema.object(
     [
       "clip_ids": Fields.clipIDs,
@@ -116,6 +117,9 @@ extension Effects {
     let amounts = [grain, vignette, halation, blur, key?.tolerance ?? 0, key?.softness ?? 0]
     guard amounts.allSatisfy({ (0 ... 1).contains($0) }) else {
       throw rejected(.invalidValue("effect amounts go from 0 to 1"))
+    }
+    if let portal, !(1.5 ... 10).contains(portal.nesting) {
+      throw rejected(.invalidValue("a portal's nesting goes from 1.5 to 10"))
     }
   }
 }

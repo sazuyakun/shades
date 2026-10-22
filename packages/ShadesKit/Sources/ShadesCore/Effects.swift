@@ -13,6 +13,7 @@ public struct Effects: Hashable, Sendable {
     key: ChromaKey? = nil,
     shader: String? = nil,
     shaderAmount: Double = 1,
+    portal: Portal? = nil,
   ) {
     self.grain = grain
     self.vignette = vignette
@@ -21,6 +22,7 @@ public struct Effects: Hashable, Sendable {
     self.key = key
     self.shader = shader
     self.shaderAmount = shaderAmount
+    self.portal = portal
   }
 
   // MARK: Public
@@ -39,6 +41,8 @@ public struct Effects: Hashable, Sendable {
   public var shader: String?
   /// How strongly the shader effect applies, 0 to 1 (it reads this as `amount`).
   public var shaderAmount: Double
+  /// An endless zoom through the picture nested inside itself.
+  public var portal: Portal?
 
 }
 
@@ -59,6 +63,7 @@ extension Effects: Codable {
       key: container.decodeIfPresent(ChromaKey.self, forKey: .key),
       shader: container.decodeIfPresent(String.self, forKey: .shader),
       shaderAmount: container.decodeIfPresent(Double.self, forKey: .shaderAmount) ?? 1,
+      portal: container.decodeIfPresent(Portal.self, forKey: .portal),
     )
   }
 
@@ -72,6 +77,7 @@ extension Effects: Codable {
     case key
     case shader
     case shaderAmount
+    case portal
   }
 
 }

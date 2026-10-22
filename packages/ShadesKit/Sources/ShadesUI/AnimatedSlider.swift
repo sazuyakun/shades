@@ -45,7 +45,7 @@ struct AnimatedSlider: View {
   private func change(to value: Double, at playhead: MediaTime, isInside: Bool) {
     let coalescing = "\(clip.id).\(property.rawValue)"
     if keys.isEmpty || !isInside {
-      perform(property.fixedEdit(value, on: clip.id), coalescing: coalescing)
+      perform(property.fixedEdit(value, on: clip), coalescing: coalescing)
     } else {
       perform(setKey(value, at: playhead), coalescing: coalescing)
     }

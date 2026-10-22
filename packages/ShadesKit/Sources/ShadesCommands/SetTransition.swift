@@ -17,8 +17,9 @@ public struct SetTransition: ToolCommand {
   public static let title = "Set Transition"
   public static let name = "set_transition"
   public static let summary = "Set the transition into a clip from the clip right before it on "
-    + "its track (they must touch): dissolve, dipToBlack, flash, whip, push, slices, tiles or "
-    + "iris (a portal opening from the middle), centred on the cut. Leave out kind for a plain "
+    + "its track (they must touch): dissolve, dipToBlack, flash, whip, push, slices, tiles, "
+    + "iris (a circle opening from the middle) or portal (zooming in through a small frame of "
+    + "the next shot until it fills the picture), centred on the cut. Leave out kind for a plain "
     + "cut. Footage past the clips' ends is used when it exists; otherwise the edge frame holds."
   public static let parameters = JSONSchema.object(
     [
