@@ -64,6 +64,8 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 
 | # | Issue | Fix in |
 |---|---|---|
+| 45 | Editing a big solid 3D title redraws it in about 45 ms at full size on the M1 (Core Text ~19 ms, its distance field ~26 ms across all cores), over a frame at Full preview quality; Auto and Half preview draw a quarter of the pixels. Drawing the field on the GPU would bring it inside a frame | After M9 |
+| 44 | Motion blur follows only where a layer is: text travelling along its path (`pathOffset`), an endless zoom's travel (`portal`) and a changing bend aren't smeared across the shutter, and solid 3D letters skip the whip transition's blur | After M9 |
 | 43 | The edit-latency gate ("an edit reaches the timeline and the preview within a frame") is bimodal on the M1 and CI: a look change measures ~3 ms or ~65 ms (seen at cd84e47 too). `Player.load`'s live update takes ~2 ms each time; the rest is the main actor being busy elsewhere for ~65 ms after the video composition is swapped (likely the paused 4K frame redrawing), so the edit waits for it | After M9 |
 | 42 | `PluginLibraryTests` "edits reload by themselves" fails every time on the M1 dev Mac (the FSEvents watcher doesn't report the rewritten `plugin.json` in the temp folder within 5 s) while CI passes with the same code | After M9 |
 | 41 | On the CI runner, exports of HDR and wide-colour clips skip Shades' conversion: given the Rec.709 tags an export needs, the runner's `AVAssetExportSession` tone-maps HLG itself (reference white about 60% instead of Shades' 95%) and relabels P3 as Rec.709 unconverted. Playback, frames and exports on the M1 convert correctly. Not reproducible locally: find what the runner lacks, or tag exported files another way | After M9 |
@@ -74,8 +76,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 36 | Choices from lists aren't in the ⌘K palette: `EditorAction` is a fixed list, so plugin templates, overlays, sounds, looks and styles, the motion presets and keyframe easing are picked only from their menus. Normalize Loudness (⌥L) shows no result in the app, only the new master level; its measurement reaches Claude alone | After M9 |
 | 35 | Footage blur can streak sideways at the corners of flat, evenly coloured moving shapes, where Vision's optical flow points the wrong way (a median steadies most of it). Needs a confidence check, e.g. comparing flow forwards and backwards | After M9 |
 | 34 | The viewer's mask handles, and the Track tool's box (`Clip.pictureBox`), place the picture by the clip's position, scale and rotation only: they ignore the timeline camera and 3D tilt, and mask handles don't show on text clips (whose masks are set in the inspector or over MCP) | After M9 |
-| 21 | Per-word type isn't per-word layers: words animate inside one text clip and can't get their own position, keyframes or depth; `add_text` takes no word timings | After M9 |
-| 20 | Type & motion gaps: no endless-zoom portals, "3D type" is flat text tilted in space (no extrusion or 3D bend), and text on paths follows only a circular arc (not any path) | After M9 |
 | 16 | Cut-outs have no edge refinement (no feather or choke): the Vision mask is only resized and blended with the previous frame | After M9 |
 | 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
 
