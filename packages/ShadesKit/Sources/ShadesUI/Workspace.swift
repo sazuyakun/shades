@@ -370,11 +370,12 @@ public final class Workspace {
     }
     let blurred = Set(editor.project.timeline.allClips.filter(\.footageBlur).compactMap(\.mediaID))
     for media in editor.project.media
-      where blurred.contains(media.id) && analysis.analyses[media.id]?.flow == nil
+      where blurred.contains(media.id)
+      && analysis.analyses[media.id]?.flow != FlowMaker.fileName(for: media.id)
       && !queuedFlows.contains(media.id)
     {
       queuedFlows.insert(media.id)
-      let file = "\(media.id.uuidString).mov"
+      let file = FlowMaker.fileName(for: media.id)
       let url = package.appending(path: "cache/flow/\(file)")
       jobs
         .enqueue("Measuring the motion in \(media.name)") { [weak self] progress throws(JobError) in
@@ -508,9 +509,10 @@ extension Workspace: ProjectHost {
     player.cleanSound = analysis.analyses.compactMapValues { record in
       record.cleanSound.map { url.appending(path: "cache/sound/\($0)") }
     }
-    player.flows = analysis.analyses.compactMapValues { record in
-      record.flow.map { url.appending(path: "cache/flow/\($0)") }
-    }
+    player.flows = Dictionary(uniqueKeysWithValues: analysis.analyses.compactMap { id, record in
+      let file = FlowMaker.fileName(for: id)
+      return record.flow == file ? (id, url.appending(path: "cache/flow/\(file)")) : nil
+    })
     player.stereoSound = analysis.analyses.compactMapValues { record in
       record.stereoSound.map { url.appending(path: "cache/sound/\($0)") }
     }

@@ -153,6 +153,7 @@ public enum VideoFixture {
     width: Int = 640,
     height: Int = 360,
     diagonal: Bool = false,
+    isFlat: Bool = false,
   ) async throws(FixtureError) -> URL {
     let side = Double(height) * 0.3
     let frames = seconds * 30
@@ -169,7 +170,7 @@ public enum VideoFixture {
         let origin = CGPoint(x: centerX - side / 2, y: centerY - side / 2)
         for row in 0 ..< 4 {
           for column in 0 ..< 4 {
-            let isLight = (row + column).isMultiple(of: 2)
+            let isLight = isFlat || (row + column).isMultiple(of: 2)
             context.setFillColor(CGColor(gray: isLight ? 0.95 : 0.35, alpha: 1))
             context.fill(CGRect(
               x: origin.x + Double(column) * side / 4,

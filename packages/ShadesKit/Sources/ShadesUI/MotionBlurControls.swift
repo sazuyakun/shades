@@ -1,5 +1,6 @@
 import ShadesCommands
 import ShadesCore
+import ShadesMatting
 import SwiftUI
 
 /// A clip's motion blur, as a share of the timeline's shutter, whether its footage blurs along its
@@ -29,7 +30,10 @@ struct MotionBlurControls: View {
           set: { perform(SetClip(clipID: clip.id, footageBlur: $0), key: nil) },
         ))
         .help("Smear what moves inside the video (a pan, a running subject) along its motion")
-        if clip.footageBlur, workspace.analysis.analyses[footage.id]?.flow == nil {
+        if
+          clip.footageBlur,
+          workspace.analysis.analyses[footage.id]?.flow != FlowMaker.fileName(for: footage.id)
+        {
           Text("Measuring the motion first; the blur shows when it's done.")
             .foregroundStyle(Theme.faintText)
         }

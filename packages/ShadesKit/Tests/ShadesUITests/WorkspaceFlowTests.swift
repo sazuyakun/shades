@@ -2,6 +2,7 @@ import Foundation
 import ShadesCommands
 import ShadesCore
 import ShadesDocument
+import ShadesMatting
 import ShadesTestSupport
 @testable import ShadesUI
 import Testing
@@ -35,6 +36,36 @@ struct WorkspaceFlowTests {
     workspace.projectDidChange()
     workspace.projectDidChange()
     #expect(workspace.jobs.jobs.count { $0.title == title } == 1)
+    await workspace.close()
+  }
+
+  @Test
+  func `a flow measured before the forward-backward check is measured again`() async throws {
+    let workspace = Workspace(
+      defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
+      port: 0,
+      pauseCheck: { _ in nil },
+    )
+    let media = try await Media(
+      url: VideoFixture.make(red: 10, green: 20, blue: 30, seconds: 1),
+      duration: MediaTime(seconds: 1),
+      width: 320,
+      height: 180,
+      hasAudio: false,
+    )
+    let package = FileManager.default.temporaryDirectory
+      .appending(path: "\(UUID().uuidString).shades")
+    try await ProjectFile.write(Project(media: [media]), session: Session(), to: package)
+    try await workspace.openProject(at: package)
+    try await workspace.analysis.update(media.id, in: package) {
+      $0.flow = "\(media.id.uuidString).mov"
+    }
+    try workspace.editor.perform(AppendClip(mediaID: media.id))
+    let clip = try #require(workspace.editor.project.timeline.allClips.first?.id)
+    try workspace.editor.perform(SetClip(clipID: clip, footageBlur: true))
+    workspace.projectDidChange()
+    #expect(workspace.jobs.jobs.count { $0.title == "Measuring the motion in \(media.name)" } == 1)
+    #expect(FlowMaker.fileName(for: media.id) != "\(media.id.uuidString).mov")
     await workspace.close()
   }
 }

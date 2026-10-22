@@ -12,6 +12,12 @@ public enum FlowMaker {
   /// How wide flow videos are, in pixels; motion is smooth, so this is plenty.
   public static let width = 320
 
+  /// The flow video's file name for `mediaID`. It names how flows are measured, so flows made
+  /// before a change (like the forward–backward check) are made again.
+  public static func fileName(for mediaID: Media.ID) -> String {
+    "\(mediaID.uuidString)-checked.mov"
+  }
+
   /// Writes the optical flow of the video at `url` to `destination`.
   @concurrent
   public static func make(

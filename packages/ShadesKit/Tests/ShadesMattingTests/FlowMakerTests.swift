@@ -35,6 +35,26 @@ struct FlowMakerTests {
   }
 
   @Test
+  func `a flat square sliding sideways has no streaks up or down at its corners`() async throws {
+    let source = try await VideoFixture.makeMovingSquare(seconds: 1, isFlat: true)
+    let flow = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).mov")
+    try await FlowMaker.make(from: source, to: flow) { _ in }
+    let generator = AVAssetImageGenerator(asset: AVURLAsset(url: flow))
+    generator.requestedTimeToleranceBefore = .zero
+    generator.requestedTimeToleranceAfter = .zero
+    let image = try await generator.image(at: CMTime(value: 15, timescale: 30)).image
+    var steepest = 0.0
+    for row in stride(from: 0.02, to: 1, by: 0.04) {
+      for column in stride(from: 0.02, to: 1, by: 0.02) {
+        steepest = try max(steepest, abs(speeds(in: image, x: column, y: row).down))
+      }
+    }
+    // why: before the forward–backward check, Vision's guesses at the corners stored up to
+    // ±3 pictures a second up or down; footage blur ignores motion under eight stored steps.
+    #expect(steepest < 8 * 2 * FlowVideo.range / 255)
+  }
+
+  @Test
   func `stored speeds read back as the speeds written, clamped to the range`() {
     #expect(FlowVideo.value(of: 0) == 0.5)
     #expect(abs(FlowVideo.speed(of: FlowVideo.value(of: 1.5)) - 1.5) < 0.000_001)
