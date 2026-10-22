@@ -10,6 +10,9 @@ enum PolishColors {
     case .retake: Color(red: 0.35, green: 0.55, blue: 0.95)
     case .beatSnap: Theme.positive
     case .punchIn: Theme.text
+    case .duck,
+         .noise,
+         .loudness: Theme.audioClip
     }
   }
 }

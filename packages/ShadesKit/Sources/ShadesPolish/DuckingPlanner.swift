@@ -6,6 +6,32 @@ public enum DuckingPlanner {
 
   // MARK: Public
 
+  /// The music track to duck: the one labeled `label`, else the audio track with beats, else
+  /// the longest audio track with no speech. Short sound effects and dialogue are left alone.
+  public static func musicTrack(
+    in timeline: Timeline,
+    analyses: [Media.ID: MediaAnalysis],
+    labeled label: String? = nil,
+  ) -> Int? {
+    if let label {
+      return timeline.tracks.firstIndex { timeline.label(of: $0) == label.uppercased() }
+    }
+    let has = { (index: Int, test: (MediaAnalysis) -> Bool) in
+      timeline.tracks[index].clips.contains { clip in
+        clip.mediaID.flatMap { analyses[$0] }.map(test) ?? false
+      }
+    }
+    let length = { (index: Int) in
+      timeline.tracks[index].clips.reduce(0) { $0 + $1.duration.seconds }
+    }
+    let candidates = timeline.tracks.indices.filter { index in
+      timeline.tracks[index].kind == .audio && !timeline.tracks[index].clips.isEmpty
+        && !has(index) { $0.speech?.isEmpty == false }
+    }
+    return candidates.first { has($0) { $0.beats?.beats.isEmpty == false } }
+      ?? candidates.max { length($0) < length($1) }
+  }
+
   /// When someone is heard speaking on the timeline: speech in the clips of every track but
   /// `music`, merged.
   public static func speech(

@@ -19,13 +19,21 @@ public enum AudioFixture {
   }
 
   /// Writes a WAV that's silent except for a tone during each of `bursts` (start, end seconds),
-  /// like speech with pauses.
+  /// like speech with pauses, over steady hiss of `noise` amplitude (none by default).
   public static func makeBursts(
     seconds: Double,
     bursts: [(Double, Double)],
+    noise: Double = 0,
   ) throws(FixtureError) -> URL {
-    try write(seconds: seconds) { time in
-      bursts.contains { $0.0 <= time && time < $0.1 } ? sin(2 * .pi * 220 * time) * 0.5 : 0
+    var state: UInt64 = 1
+    return try write(seconds: seconds) { time in
+      // why: a fixed pseudo-random sequence keeps the hiss the same on every run.
+      state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+      let hiss = (Double(state >> 11) / Double(1 << 53) * 2 - 1) * noise
+      let tone = bursts.contains { $0.0 <= time && time < $0.1 }
+        ? sin(2 * .pi * 220 * time) * 0.5
+        : 0
+      return tone + hiss
     }
   }
 

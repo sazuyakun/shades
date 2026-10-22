@@ -66,7 +66,7 @@ Heavy understanding of footage, cached forever per media file in the project:
 ## 6. Smart tools: propose, review, apply
 Rule-based tools (no AI) that write ordinary, editable timeline items, starting with **Polish** for talking-head footage:
 - **Scope:** Polish runs on the range you select, never the whole timeline unless you select it all.
-- **Automations:** cut silences and fillers (um, uh, matlab…), remove retakes (repeated lines in the transcript), snap cuts to beats, punch-in zooms on jump cuts, and audio polish (ducking, loudness, noise reduction).
+- **Automations:** cut silences and fillers (um, uh, matlab, मतलब, हम्म…), remove retakes (repeated lines in the transcript), snap cuts to beats, punch-in zooms on jump cuts, and audio polish: noise reduction for sound whose background (its quietest tenth, from sound analysis) is louder than −50 dBFS, ducking the music under speech where the speech lands after the cuts, and loudness for a platform (YouTube, Instagram & Reels, TikTok −14 LUFS, podcast −16, broadcast −23) measured on the polished mix, with a limiter holding true peaks under −1 dBTP.
 - **Propose, then apply:** Polish first returns a **plan**. It shows as ghost overlays on the timeline (e.g. red stripes for silences) plus a checklist grouped by type with counts. Toggle groups or single items, preview, then apply. Applying is one undo step.
 - Over MCP, Claude gets the same plan and applies all or some of it.
 

@@ -303,9 +303,10 @@ public final class ToolHandler {
     Tool(
       name: "polish_propose",
       summary: "Propose Polish for talking-head footage on a stretch of a track: cut silences and "
-        + "fillers (um, uh, matlab…), remove retakes, snap cuts to music beats, punch in on jump "
-        + "cuts. Nothing changes yet: the plan shows on the timeline for review. Transcribe "
-        + "first for the best results (analyze_audio for beats).",
+        + "fillers (um, uh, matlab, मतलब…), remove retakes, snap cuts to music beats, punch in "
+        + "on jump cuts, clean noisy sound, duck the music under speech and set the loudness for "
+        + "a platform. Nothing changes yet: the plan shows on the timeline for review. "
+        + "Transcribe first for the best results (analyze_audio for beats, speech and noise).",
       parameters: JSONSchema.object(
         [
           "start": Fields.time("From"),
@@ -316,6 +317,18 @@ public final class ToolHandler {
           "retakes": JSONSchema.boolean("Remove restarted lines (default true)"),
           "beat_snap": JSONSchema.boolean("Move cuts onto music beats (default true)"),
           "punch_in": JSONSchema.boolean("Zoom every second stretch between cuts (default true)"),
+          "noise": JSONSchema.boolean("Clean noisy backgrounds out of the speech (default true)"),
+          "duck": JSONSchema.boolean("Lower the music under speech (default true)"),
+          "duck_level": JSONSchema.number(
+            "The music's level under speech, 0 to 1 (default 0.25, about 12 dB down)",
+            minimum: 0,
+            maximum: 1,
+          ),
+          "loudness": JSONSchema.string(
+            "Normalise for a platform: youtube, instagram, tiktok (-14 LUFS), podcast (-16), "
+              + "broadcast (-23), or none to leave the level. Default youtube",
+            values: LoudnessTarget.allCases.map(\.rawValue) + ["none"],
+          ),
           "min_silence": JSONSchema.number(
             "Shortest pause to cut, in seconds (default 0.6)",
             minimum: 0.1,
@@ -328,7 +341,8 @@ public final class ToolHandler {
     Tool(
       name: "polish_apply",
       summary: "Apply the Polish plan as one undo step: every switched-on item, or only the given "
-        + "item IDs or kinds (silence, filler, retake, beatSnap, punchIn).",
+        + "item IDs or kinds (silence, filler, retake, beatSnap, punchIn, noise, duck, "
+        + "loudness). Loudness is measured on the polished mix, so it lands after the cuts.",
       parameters: JSONSchema.object([
         "item_ids": JSONSchema.array("Plan items to apply", items: JSONSchema.string("An item ID")),
         "kinds": JSONSchema.array(
@@ -761,9 +775,10 @@ public final class ToolHandler {
       let request = try decode(PolishApplyArguments.self, from: arguments, tool: name)
       let projectHost = try host()
       let kinds = request.kinds.map { Set($0.compactMap(PolishKind.init(rawValue:))) }
-      return .text(try perform { () throws(CommandError) -> String in
-        try projectHost.applyPolish(ids: request.itemIDs.map(Set.init), kinds: kinds)
-      })
+      return try await .text(projectHost.applyPolish(
+        ids: request.itemIDs.map(Set.init),
+        kinds: kinds,
+      ))
 
     case "polish_discard":
       try host().discardPolish()
@@ -1543,6 +1558,10 @@ private struct PolishArguments: Decodable {
   let retakes: Bool?
   let beatSnap: Bool?
   let punchIn: Bool?
+  let noise: Bool?
+  let duck: Bool?
+  let duckLevel: Double?
+  let loudness: String?
   let minSilence: Double?
 
   var range: TimeRange {
@@ -1556,6 +1575,12 @@ private struct PolishArguments: Decodable {
       retakes: retakes ?? true,
       beatSnap: beatSnap ?? true,
       punchIn: punchIn ?? true,
+      duck: duck ?? true,
+      noise: noise ?? true,
+      loudness: loudness == "none"
+        ? nil
+        : loudness.flatMap(LoudnessTarget.init(rawValue:)) ?? .youtube,
+      duckLevel: duckLevel ?? 0.25,
       minimumSilence: minSilence ?? 0.6,
     )
   }

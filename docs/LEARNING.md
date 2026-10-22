@@ -548,3 +548,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** `for case let (track?, pieces) in groups` loops only over the elements that match the pattern, unwrapping as it goes: here, pairs whose first part isn't `nil`, with `track` already unwrapped.
 **JS/TS analogy:** Like `for (const [track, pieces] of entries) { if (track == null) continue; … }`, with the skip and the unwrap folded into the loop's header.
 **In Shades:** `JoinClips` joins the pieces of a clip's linked sound, grouped by the track they're on.
+
+## Characters and Unicode scalars
+**What it is:** A Swift `Character` is what a reader sees as one letter, which can be several Unicode scalars (code points) joined: "कि" is the consonant क plus the vowel sign ि. `string.unicodeScalars` walks the code points one by one, and each scalar's `properties.generalCategory` says whether it's a letter, a combining mark, a number or punctuation.
+**JS/TS analogy:** Like iterating `[...str]` (code points) instead of `str.split("")`, and testing each with `/\p{L}|\p{M}|\p{N}/u`.
+**In Shades:** `PolishPlanner.normalized` keeps letters, marks and numbers scalar by scalar, so Hindi vowel signs and viramas survive while punctuation like the danda (।) goes, and "मतलब।" matches the filler "मतलब".

@@ -514,18 +514,21 @@ extension Workspace: ProjectHost {
     }
   }
 
-  /// Queues speech-activity and beat detection for `mediaIDs` (default: sound on the timeline
-  /// not yet analysed) and returns what was queued.
+  /// Queues speech-activity, noise-floor and beat detection for `mediaIDs` (default: sound on
+  /// the timeline not yet analysed) and returns what was queued.
   public func analyzeAudio(_ mediaIDs: [Media.ID]?) -> [String] {
     guard let package = documentURL else {
       return []
     }
     let wanted = soundMedia(mediaIDs)
-      .filter { mediaIDs != nil || analysis.analyses[$0.id]?.speech == nil }
+      .filter { media in
+        mediaIDs != nil || analysis.analyses[media.id]?.speech == nil
+          || analysis.analyses[media.id]?.noiseFloor == nil
+      }
     return wanted.map { media in
       let title = "Analysing the sound of \(media.name)"
       jobs.enqueue(title) { [weak self] progress throws(JobError) in
-        let speech: [TimeRange]
+        let speech: Speech
         let beats: BeatGrid
         do throws(AudioError) {
           speech = try await SpeechActivity.detect(in: media.url)
@@ -536,7 +539,8 @@ extension Workspace: ProjectHost {
           throw .failed(error.errorDescription ?? "The sound couldn't be analysed.")
         }
         try await self?.store(media.id, in: package) { analysis in
-          analysis.speech = speech
+          analysis.speech = speech.ranges
+          analysis.noiseFloor = speech.noiseFloor
           analysis.beats = beats
         }
       }
@@ -606,11 +610,27 @@ extension Workspace: ProjectHost {
     polishPlan = plan
   }
 
-  /// Applies the plan's switched-on items as one undo step (only `ids` or `kinds` when given),
-  /// then clears it. Returns what was done.
-  public func applyPolish(ids: Set<UUID>?, kinds: Set<PolishKind>?) throws(CommandError) -> String {
+  /// Sets the platform the plan's loudness item normalises for.
+  public func setPolishLoudness(_ target: LoudnessTarget) {
     guard var plan = polishPlan else {
-      throw .invalidArguments("there's no Polish plan; propose one first")
+      return
+    }
+    plan.loudness = target
+    for index in plan.items.indices where plan.items[index].kind == .loudness {
+      plan.items[index].detail = PolishPlanner.detail(of: target)
+    }
+    polishPlan = plan
+  }
+
+  /// Applies the plan's switched-on items as one undo step (only `ids` or `kinds` when given),
+  /// then clears it and queues cleaning the noisy sound. With loudness on, the polished mix is
+  /// measured first so its level and limiter join the same step. Returns what was done.
+  public func applyPolish(
+    ids: Set<UUID>?,
+    kinds: Set<PolishKind>?,
+  ) async throws(ToolError) -> String {
+    guard var plan = polishPlan else {
+      throw .commandFailed(.invalidArguments("there's no Polish plan; propose one first"))
     }
     for index in plan.items.indices {
       let item = plan.items[index]
@@ -624,8 +644,36 @@ extension Workspace: ProjectHost {
       let count = plan.enabledCount(of: kind)
       return count > 0 ? "\(kind.title.lowercased()): \(count)" : nil
     }
+    let base = editor.project
+    var loudness: NormalizeLoudness?
+    if let target = plan.loudness, plan.enabledCount(of: .loudness) > 0 {
+      var polished = base
+      do {
+        try ApplyPolish(plan: plan).apply(to: &polished)
+      } catch {
+        throw .commandFailed(error)
+      }
+      let normalization = try await Self.normalization(
+        of: polished,
+        cleanSound: player.cleanSound,
+        target: target.lufs,
+      )
+      guard editor.project == base else {
+        throw .commandFailed(.invalidArguments(
+          "the timeline changed while the polished mix was being measured; apply again"
+        ))
+      }
+      // why: a mix with no sound has no loudness to set; the rest of the plan still applies.
+      loudness = normalization.map { NormalizeLoudness(gain: $0.gain, limiter: $0.limiter) }
+    }
     polishPlan = nil
-    try editor.perform(ApplyPolish(plan: plan))
+    do {
+      try editor.perform(ApplyPolish(plan: plan, loudness: loudness))
+    } catch {
+      throw .commandFailed(error)
+    }
+    let noisy = Set(plan.items.filter { $0.isEnabled && $0.kind == .noise }.compactMap(\.media))
+    clean(noisy.compactMap(editor.project.media(withID:)), strength: PolishOptions.noiseStrength)
     return summary.isEmpty
       ? "Nothing was switched on, so nothing changed."
       : "Polished — " + summary.joined(separator: ", ") + "."
@@ -878,24 +926,7 @@ extension Workspace: ProjectHost {
   /// to `level` of its own volume. Returns what was done.
   public func duckMusic(track label: String?, level: Double) throws(CommandError) -> String {
     let timeline = editor.project.timeline
-    let audio = timeline.tracks.indices.filter { timeline.tracks[$0].kind == .audio }
-    let analyses = analysis.analyses
-    let has = { (index: Int, test: (MediaAnalysis) -> Bool) in
-      timeline.tracks[index].clips.contains { clip in
-        clip.mediaID.flatMap { analyses[$0] }.map(test) ?? false
-      }
-    }
-    let length = { (index: Int) in
-      timeline.tracks[index].clips.reduce(0) { $0 + $1.duration.seconds }
-    }
-    // why: music is the track with beats, or failing that the longest track with no speech;
-    // short sound effects and dialogue are left alone.
-    let candidates = audio
-      .filter { !timeline.tracks[$0].clips.isEmpty && !has($0) { $0.speech?.isEmpty == false } }
-    let music = label.flatMap { label in
-      timeline.tracks.firstIndex { timeline.label(of: $0) == label.uppercased() }
-    } ?? candidates.first { has($0) { $0.beats?.beats.isEmpty == false } }
-      ?? candidates.max { length($0) < length($1) }
+    let music = DuckingPlanner.musicTrack(in: timeline, analyses: analysis.analyses, labeled: label)
     guard let music, timeline.tracks[music].kind == .audio else {
       throw .invalidArguments("put the music on an audio track (A1, A2…) first")
     }
@@ -915,11 +946,15 @@ extension Workspace: ProjectHost {
   /// LUFS with true peaks under -1 dBTP. Returns what was measured and done.
   public func normalizeLoudness(target: Double) async throws(ToolError) -> String {
     let project = editor.project
-    let normalization = try await Self.normalization(
-      of: project,
-      cleanSound: player.cleanSound,
-      target: target,
-    )
+    guard
+      let normalization = try await Self.normalization(
+        of: project,
+        cleanSound: player.cleanSound,
+        target: target,
+      )
+    else {
+      throw .commandFailed(.invalidArguments("the timeline has no sound to measure"))
+    }
     guard editor.project == project else {
       throw .commandFailed(.invalidArguments(
         "the timeline changed while it was being measured; normalise again"
@@ -949,7 +984,7 @@ extension Workspace: ProjectHost {
   /// Sets clips to play noise-reduced sound, queuing the cleaning of media that hasn't been
   /// cleaned at `strength` yet. Returns what was done.
   public func reduceNoise(_ clipIDs: [Clip.ID], strength: Double) throws(CommandError) -> String {
-    guard let package = documentURL else {
+    guard documentURL != nil else {
       throw .invalidArguments("open a project first")
     }
     let clips = clipIDs.compactMap(editor.project.timeline.clip(withID:))
@@ -965,31 +1000,10 @@ extension Workspace: ProjectHost {
     guard strength > 0 else {
       return "Those clips play their original sound again."
     }
-    let percent = Int((strength * 100).rounded())
-    let queued = media
-      .filter { analysis.analyses[$0.id]?.cleanSound != "\($0.id.uuidString)-\(percent).m4a" }
-    for item in queued {
-      let file = "\(item.id.uuidString)-\(percent).m4a"
-      let destination = package.appending(path: "cache/sound/\(file)")
-      jobs.enqueue("Cleaning the sound of \(item.name)") { [weak self] progress throws(JobError) in
-        do {
-          let samples = try await AudioDecoder.mono(from: item.url, sampleRate: 48000)
-          progress(0.3)
-          let cleaned = await NoiseReducer.reduce(samples, sampleRate: 48000, strength: strength)
-          progress(0.9)
-          try await AudioWriter.writeM4A([cleaned], sampleRate: 48000, to: destination)
-        } catch let error as AudioError {
-          throw .failed(error.errorDescription ?? "The sound couldn't be cleaned.")
-        } catch {
-          throw .failed(error.localizedDescription)
-        }
-        try await self?.store(item.id, in: package) { $0.cleanSound = file }
-        await self?.useCleanSound(destination, for: item.id)
-      }
-    }
-    return queued.isEmpty
+    let queued = clean(media, strength: strength)
+    return queued == 0
       ? "Those clips now play their cleaned sound."
-      : "Cleaning \(queued.count) file\(queued.count == 1 ? "" : "s") in the background; the "
+      : "Cleaning \(queued) file\(queued == 1 ? "" : "s") in the background; the "
         + "clips switch over when done."
   }
 
@@ -1111,12 +1125,12 @@ extension Workspace: ProjectHost {
   // MARK: Private
 
   /// The master level and limiter that bring `project`'s mix to `target` LUFS, measured with
-  /// the master at 1 and no limiter.
+  /// the master at 1 and no limiter, or `nil` when the mix is silent.
   private static func normalization(
     of project: Project,
     cleanSound: [Media.ID: URL],
     target: Double,
-  ) async throws(ToolError) -> Normalization {
+  ) async throws(ToolError) -> Normalization? {
     var unmastered = project
     unmastered.timeline.gain = 1
     unmastered.timeline.limiter = []
@@ -1128,10 +1142,7 @@ extension Workspace: ProjectHost {
     } catch {
       throw .engineFailed(error)
     }
-    guard let normalization = profile.normalized(to: target) else {
-      throw .commandFailed(.invalidArguments("the timeline has no sound to measure"))
-    }
-    return normalization
+    return profile.normalized(to: target)
   }
 
   /// The separated sound of `media`: the files saved before, or freshly separated ones.
@@ -1166,6 +1177,38 @@ extension Workspace: ProjectHost {
       )
     }
     return files
+  }
+
+  /// Queues cleaning the sound of each of `media` not yet cleaned at `strength`; clips set to
+  /// clean sound switch over as each is done. Returns how many were queued.
+  @discardableResult
+  private func clean(_ media: [Media], strength: Double) -> Int {
+    guard let package = documentURL else {
+      return 0
+    }
+    let percent = Int((strength * 100).rounded())
+    let queued = media
+      .filter { analysis.analyses[$0.id]?.cleanSound != "\($0.id.uuidString)-\(percent).m4a" }
+    for item in queued {
+      let file = "\(item.id.uuidString)-\(percent).m4a"
+      let destination = package.appending(path: "cache/sound/\(file)")
+      jobs.enqueue("Cleaning the sound of \(item.name)") { [weak self] progress throws(JobError) in
+        do {
+          let samples = try await AudioDecoder.mono(from: item.url, sampleRate: 48000)
+          progress(0.3)
+          let cleaned = await NoiseReducer.reduce(samples, sampleRate: 48000, strength: strength)
+          progress(0.9)
+          try await AudioWriter.writeM4A([cleaned], sampleRate: 48000, to: destination)
+        } catch let error as AudioError {
+          throw .failed(error.errorDescription ?? "The sound couldn't be cleaned.")
+        } catch {
+          throw .failed(error.localizedDescription)
+        }
+        try await self?.store(item.id, in: package) { $0.cleanSound = file }
+        await self?.useCleanSound(destination, for: item.id)
+      }
+    }
+    return queued.count
   }
 
   /// The project's media for the file at `url`, or the file loaded with the command that

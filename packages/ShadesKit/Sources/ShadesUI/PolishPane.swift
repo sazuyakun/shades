@@ -1,5 +1,6 @@
 import ShadesCore
 import ShadesEngine
+import ShadesMCP
 import ShadesPolish
 import SwiftUI
 
@@ -21,6 +22,16 @@ struct PolishPane: View {
               let items = plan.items.filter { $0.kind == kind }
               if !items.isEmpty {
                 PolishGroup(kind: kind, items: items, onSeek: seek)
+                if kind == .loudness, let target = plan.loudness {
+                  Picker("For", selection: Binding(
+                    get: { target },
+                    set: { workspace.setPolishLoudness($0) },
+                  )) {
+                    ForEach(LoudnessTarget.allCases, id: \.self) { Text($0.title).tag($0) }
+                  }
+                  .controlSize(.small)
+                  .padding(.leading, 14)
+                }
               }
             }
           }
@@ -30,8 +41,9 @@ struct PolishPane: View {
         HStack {
           Button("Discard") { workspace.discardPolish() }
           Spacer()
-          Button("Apply") { apply() }
+          Button(isApplying ? "Applying…" : "Apply") { apply() }
             .keyboardShortcut(.defaultAction)
+            .disabled(isApplying)
         }
         .buttonStyle(CapsuleButtonStyle())
         .padding(14)
@@ -50,16 +62,21 @@ struct PolishPane: View {
 
   @Environment(Workspace.self) private var workspace
   @Environment(Player.self) private var player
+  @State private var isApplying = false
 
   private func seek(_ time: MediaTime) {
     Task { await player.seek(toSeconds: time.seconds) }
   }
 
   private func apply() {
-    do {
-      _ = try workspace.applyPolish(ids: nil, kinds: nil)
-    } catch {
-      onError(error.errorDescription ?? "Polish couldn't be applied.")
+    isApplying = true
+    Task {
+      do throws(ToolError) {
+        _ = try await workspace.applyPolish(ids: nil, kinds: nil)
+      } catch {
+        onError(error.errorDescription ?? "Polish couldn't be applied.")
+      }
+      isApplying = false
     }
   }
 

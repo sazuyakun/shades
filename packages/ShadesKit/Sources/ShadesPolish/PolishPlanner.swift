@@ -2,8 +2,8 @@ import Foundation
 import ShadesCore
 
 /// Proposes Polish for talking-head footage on a stretch of one track, from its words (or speech
-/// activity when there's no transcript) and any music beats. Pure: nothing changes until the
-/// plan is applied.
+/// activity when there's no transcript), any music beats and the sound's noise floor. Pure:
+/// nothing changes until the plan is applied.
 public enum PolishPlanner {
 
   // MARK: Public
@@ -21,8 +21,17 @@ public enum PolishPlanner {
       : timeline.label(of: $0) == label?.uppercased()
     }
     let trackLabel = track.map(timeline.label(of:)) ?? "V1"
+    var plan = PolishPlan(
+      id: UUID(),
+      range: range,
+      track: trackLabel,
+      items: [],
+      duckLevel: options.duckLevel,
+      speech: analyses.compactMapValues(\.speech),
+      loudness: options.loudness,
+    )
     guard let track else {
-      return PolishPlan(id: UUID(), range: range, track: trackLabel, items: [])
+      return plan
     }
     let words = timeline.spokenWords(transcripts: analyses.compactMapValues(\.transcript))
       .filter { word in
@@ -57,7 +66,39 @@ public enum PolishPlanner {
     if options.punchIn {
       items += punchIns(after: cuts, in: range)
     }
-    return PolishPlan(id: UUID(), range: range, track: trackLabel, items: items)
+    if options.noise {
+      items += noise(under: track, in: timeline, range: range, analyses: analyses)
+    }
+    if
+      options.duck,
+      let music = DuckingPlanner.musicTrack(in: timeline, analyses: analyses),
+      !DuckingPlanner.speech(in: timeline, except: music, analyses: analyses).isEmpty
+    {
+      let label = timeline.label(of: timeline.tracks[music])
+      plan.music = label
+      let percent = Int((options.duckLevel * 100).rounded())
+      items.append(PolishItem(
+        id: UUID(),
+        kind: .duck,
+        range: range,
+        detail: "\(label) to \(percent)% under speech",
+      ))
+    }
+    if let target = options.loudness {
+      items.append(PolishItem(
+        id: UUID(),
+        kind: .loudness,
+        range: range,
+        detail: detail(of: target),
+      ))
+    }
+    plan.items = items
+    return plan
+  }
+
+  /// What a loudness item says it does for `target`.
+  public static func detail(of target: LoudnessTarget) -> String {
+    "\(target.title): \(Int(target.lufs)) LUFS, true peaks under −1 dBTP"
   }
 
   // MARK: Internal
@@ -65,9 +106,27 @@ public enum PolishPlanner {
   /// How much a punch-in zooms.
   static let punchInScale = 1.15
 
-  /// Lowercased with punctuation stripped, for comparing words.
+  /// Lowercased with punctuation stripped, for comparing words. Works scalar by scalar, keeping
+  /// letters, numbers and combining marks, so Devanagari vowel signs and viramas stay.
   static func normalized(_ word: String) -> String {
-    word.lowercased().filter { $0.isLetter || $0.isNumber }
+    var kept = String.UnicodeScalarView()
+    kept.append(contentsOf: word.lowercased().unicodeScalars.filter { scalar in
+      switch scalar.properties.generalCategory {
+      case .uppercaseLetter,
+           .lowercaseLetter,
+           .titlecaseLetter,
+           .modifierLetter,
+           .otherLetter,
+           .nonspacingMark,
+           .spacingMark,
+           .enclosingMark,
+           .decimalNumber,
+           .letterNumber,
+           .otherNumber: true
+      default: false
+      }
+    })
+    return String(kept)
   }
 
   /// Speech stretches of the track's clips, moved to timeline time.
@@ -96,6 +155,40 @@ public enum PolishPlanner {
 
   /// How far a cut may move to land on a beat, in seconds.
   private static let beatReach = 0.25
+
+  /// One item per noisy media file whose sound plays under `track` in `range` (on the track
+  /// itself, or as its linked detached sound), unless its clips already play cleaned sound.
+  private static func noise(
+    under track: Track,
+    in timeline: Timeline,
+    range: TimeRange,
+    analyses: [Media.ID: MediaAnalysis],
+  ) -> [PolishItem] {
+    let inRange = track.clips
+      .filter { $0.timelineStart < range.end && range.start < $0.timelineEnd }
+    let sounding = inRange.filter { track.kind == .audio || $0.isAudioEnabled }
+      + inRange.flatMap { timeline.partners(of: $0.id) }
+    var seen = Set<Media.ID>()
+    return sounding.compactMap { clip -> PolishItem? in
+      guard
+        let media = clip.mediaID, seen.insert(media).inserted,
+        let floor = analyses[media]?.noiseFloor, floor > PolishOptions.noisyFloor,
+        sounding.contains(where: { $0.mediaID == media && !$0.cleanSound })
+      else {
+        return nil
+      }
+      return PolishItem(
+        id: UUID(),
+        kind: .noise,
+        range: TimeRange(
+          start: max(clip.timelineStart, range.start),
+          end: min(clip.timelineEnd, range.end),
+        ),
+        detail: String(format: "background noise at %.0f dBFS", floor),
+        media: media,
+      )
+    }
+  }
 
   private static func seconds(_ value: Double) -> MediaTime {
     MediaTime(seconds: value, timescale: 1000)

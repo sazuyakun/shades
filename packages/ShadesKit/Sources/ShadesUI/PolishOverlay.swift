@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A Polish plan drawn over its track: tinted stripes over the time each cut removes, a light
 /// band over stretches that get a punch-in, and a tick where a cut snaps to a beat. Switched-off
-/// items show faintly.
+/// items show faintly. Sound items (noise, ducking, loudness) live in the checklist only.
 struct PolishOverlay: View {
   let items: [PolishItem]
   let scale: TimelineScale
@@ -38,6 +38,11 @@ struct PolishOverlay: View {
             .fill(color.opacity(item.isEnabled ? 1 : 0.3))
             .frame(width: 2)
             .offset(x: x)
+
+        case .duck,
+             .noise,
+             .loudness:
+          EmptyView()
         }
       }
     }

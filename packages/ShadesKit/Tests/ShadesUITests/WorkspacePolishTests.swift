@@ -8,7 +8,8 @@ import Testing
 @MainActor
 struct WorkspacePolishTests {
   @Test
-  func `a plan is discarded when the timeline changes under it, and applying clears it`() throws {
+  func `a plan is discarded when the timeline changes under it, and applying clears it`(
+  ) async throws {
     let workspace = Workspace(
       defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
       port: 0,
@@ -30,7 +31,7 @@ struct WorkspacePolishTests {
     workspace.projectDidChange()
     #expect(workspace.polishPlan == nil)
     workspace.proposePolish(in: range, track: "V1", options: PolishOptions())
-    _ = try workspace.applyPolish(ids: nil, kinds: nil)
+    _ = try await workspace.applyPolish(ids: nil, kinds: nil)
     #expect(workspace.polishPlan == nil)
   }
 }

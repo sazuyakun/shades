@@ -6,6 +6,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   public init(
     transcript: Transcript? = nil,
     speech: [TimeRange]? = nil,
+    noiseFloor: Double? = nil,
     beats: BeatGrid? = nil,
     matte: String? = nil,
     subjectPath: [SubjectPoint]? = nil,
@@ -17,6 +18,7 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   ) {
     self.transcript = transcript
     self.speech = speech
+    self.noiseFloor = noiseFloor
     self.beats = beats
     self.matte = matte
     self.subjectPath = subjectPath
@@ -33,6 +35,9 @@ public struct MediaAnalysis: Codable, Hashable, Sendable {
   public var transcript: Transcript?
   /// When someone is talking.
   public var speech: [TimeRange]?
+  /// How loud the background is, in dBFS: the level of the recording's quietest tenth (its
+  /// pauses), from sound analysis.
+  public var noiseFloor: Double?
   /// The music's beats.
   public var beats: BeatGrid?
   /// The cut-out's file name in the project's `cache/mattes` folder.

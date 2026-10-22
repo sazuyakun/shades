@@ -2,6 +2,8 @@ import Foundation
 import ShadesCore
 import ShadesMedia
 
+// MARK: - SpeechActivity
+
 /// Finds when someone is talking, from loudness alone. Ported from Nebula.
 ///
 /// Each 20 ms frame's level is compared with an adaptive noise floor: the minimum of the lightly
@@ -14,9 +16,9 @@ public enum SpeechActivity {
 
   // MARK: Public
 
-  /// When someone talks in the file at `url`, in its own time.
+  /// When someone talks in the file at `url` (in its own time), and how loud its background is.
   @concurrent
-  public static func detect(in url: URL) async throws(AudioError) -> [TimeRange] {
+  public static func detect(in url: URL) async throws(AudioError) -> Speech {
     let samples: [Float]
     do {
       samples = try await AudioDecoder.mono(from: url, sampleRate: sampleRate)
@@ -29,12 +31,13 @@ public enum SpeechActivity {
       let squares = frame.reduce(Float(0)) { $0 + $1 * $1 }
       return (squares / Float(max(frame.count, 1))).squareRoot()
     }
-    return detect(levels: levels, frameDuration: frameDuration).map { range in
+    let ranges = detect(levels: levels, frameDuration: frameDuration).map { range in
       TimeRange(
         start: MediaTime(seconds: range.start, timescale: 1000),
         end: MediaTime(seconds: range.end, timescale: 1000),
       )
     }
+    return Speech(ranges: ranges, noiseFloor: noiseFloor(levels: levels))
   }
 
   // MARK: Internal
@@ -70,6 +73,16 @@ public enum SpeechActivity {
       raw.append(padded(start, lastActive, frameDuration, total))
     }
     return cleaned(raw)
+  }
+
+  /// The background's level in dBFS: the quietest tenth of the frames' levels (digital silence
+  /// counts, as the cleanest background there is), never below -100.
+  static func noiseFloor(levels: [Float]) -> Double {
+    let decibels = levels.map { 20 * log10(max($0.isFinite ? Double($0) : 0, 1e-5)) }.sorted()
+    guard !decibels.isEmpty else {
+      return Double(minimumFloor)
+    }
+    return decibels[Int(Double(decibels.count - 1) * quietPercentile)]
   }
 
   // MARK: Private
@@ -167,4 +180,14 @@ public enum SpeechActivity {
     return floor
   }
 
+}
+
+// MARK: - Speech
+
+/// What sound analysis heard in a recording.
+public struct Speech: Sendable {
+  /// When someone talks, in the recording's own time.
+  public let ranges: [TimeRange]
+  /// How loud the background is, in dBFS.
+  public let noiseFloor: Double
 }

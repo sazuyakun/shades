@@ -2,14 +2,18 @@ import ShadesCommands
 import ShadesCore
 
 /// Applies the switched-on items of a Polish plan as one edit: the cuts (moved onto beats where
-/// a snap is on) close up the timeline, B-roll and captions included (music keeps playing), then
-/// punch-ins zoom every second stretch.
+/// a snap is on) close up the timeline, B-roll, captions and linked sound included (music keeps
+/// playing), punch-ins zoom every second stretch, noisy sound switches to its cleaned copy, the
+/// music ducks under the speech where it now lands, and last the loudness is set.
 public struct ApplyPolish: Command {
 
   // MARK: Lifecycle
 
-  public init(plan: PolishPlan) {
+  /// Applies `plan`; `loudness` is the level and limiter measured on the polished mix, used when
+  /// the plan's loudness item is on.
+  public init(plan: PolishPlan, loudness: NormalizeLoudness? = nil) {
     self.plan = plan
+    self.loudness = loudness
   }
 
   // MARK: Public
@@ -17,6 +21,7 @@ public struct ApplyPolish: Command {
   public static let title = "Polish"
 
   public let plan: PolishPlan
+  public let loudness: NormalizeLoudness?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let fps = project.timeline.format.framesPerSecond
@@ -37,24 +42,64 @@ public struct ApplyPolish: Command {
         end: closedUp(stretch.range.end, cuts: cuts),
       )
     }
-    guard
+    if
       !zooms.isEmpty,
       let track = project.timeline.tracks
         .firstIndex(where: { project.timeline.label(of: $0) == plan.track })
-    else {
-      return
-    }
-    for index in project.timeline.tracks[track].clips.indices {
-      let clip = project.timeline.tracks[track].clips[index]
-      let middle = clip.timelineStart + MediaTime(seconds: clip.duration.seconds / 2)
-      if zooms.contains(where: { $0.start <= middle && middle < $0.end }) {
-        project.timeline.tracks[track].clips[index].transform.scale = clip.transform
-          .scale * PolishPlanner.punchInScale
+    {
+      for index in project.timeline.tracks[track].clips.indices {
+        let clip = project.timeline.tracks[track].clips[index]
+        let middle = clip.timelineStart + MediaTime(seconds: clip.duration.seconds / 2)
+        if zooms.contains(where: { $0.start <= middle && middle < $0.end }) {
+          project.timeline.tracks[track].clips[index].transform.scale = clip.transform
+            .scale * PolishPlanner.punchInScale
+        }
       }
+    }
+    clean(Set(enabled.filter { $0.kind == .noise }.compactMap(\.media)), in: &project)
+    if enabled.contains(where: { $0.kind == .duck }) {
+      try duck(in: &project)
+    }
+    if enabled.contains(where: { $0.kind == .loudness }), let loudness {
+      try loudness.apply(to: &project)
     }
   }
 
   // MARK: Private
+
+  /// Sets every clip playing the sound of `media` to play its cleaned copy.
+  private func clean(_ media: Set<Media.ID>, in project: inout Project) {
+    for track in project.timeline.tracks.indices {
+      let kind = project.timeline.tracks[track].kind
+      for index in project.timeline.tracks[track].clips.indices {
+        let clip = project.timeline.tracks[track].clips[index]
+        if let id = clip.mediaID, media.contains(id), kind == .audio || clip.isAudioEnabled {
+          project.timeline.tracks[track].clips[index].cleanSound = true
+        }
+      }
+    }
+  }
+
+  /// Ducks the plan's music track under the speech as it falls after the cuts.
+  private func duck(in project: inout Project) throws(CommandError) {
+    let timeline = project.timeline
+    guard
+      let music = plan.music.flatMap({ label in
+        timeline.tracks.firstIndex { timeline.label(of: $0) == label }
+      })
+    else {
+      return
+    }
+    let speech = DuckingPlanner.speech(
+      in: timeline,
+      except: music,
+      analyses: plan.speech.mapValues { MediaAnalysis(speech: $0) },
+    )
+    guard !speech.isEmpty else {
+      return
+    }
+    try DuckMusic(track: music, speech: speech, duckTo: plan.duckLevel).apply(to: &project)
+  }
 
   private func onFrames(_ range: TimeRange, fps: Int) -> TimeRange {
     TimeRange(start: range.start.roundedToFrame(at: fps), end: range.end.roundedToFrame(at: fps))

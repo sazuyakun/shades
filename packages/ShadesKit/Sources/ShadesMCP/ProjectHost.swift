@@ -45,8 +45,9 @@ public protocol ProjectHost: AnyObject {
   /// Proposes Polish for a stretch of a track and keeps the plan for review.
   @discardableResult
   func proposePolish(in range: TimeRange, track: String?, options: PolishOptions) -> PolishPlan
-  /// Applies the plan (only `ids` or `kinds` when given) as one undo step; returns what was done.
-  func applyPolish(ids: Set<UUID>?, kinds: Set<PolishKind>?) throws(CommandError) -> String
+  /// Applies the plan (only `ids` or `kinds` when given) as one undo step, measuring the
+  /// polished mix for its loudness item; returns what was done.
+  func applyPolish(ids: Set<UUID>?, kinds: Set<PolishKind>?) async throws(ToolError) -> String
   /// Throws the plan away.
   func discardPolish()
   /// Queues cut-outs (default: video on the timeline without one); returns what was queued.

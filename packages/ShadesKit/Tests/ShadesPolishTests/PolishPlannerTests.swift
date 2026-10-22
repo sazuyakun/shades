@@ -267,6 +267,9 @@ struct PolishPlannerTests {
       retakes: retakes,
       beatSnap: false,
       punchIn: false,
+      duck: false,
+      noise: false,
+      loudness: nil,
     )
   }
 

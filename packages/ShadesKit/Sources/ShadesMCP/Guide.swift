@@ -45,7 +45,10 @@ enum Guide {
     - split_words turns a text or caption clip into one clip per word, each still where it sat: \
     then move, keyframe, tilt or set the depth slot of each word on its own (per-word layers).
     - transcribe, then get_transcript for word timings; add_captions turns them into text clips. \
-    polish_propose finds silences, fillers, retakes and jump cuts; polish_apply applies them.
+    polish_propose finds silences, fillers (Hindi in Devanagari too), retakes and jump cuts, \
+    noisy sound to clean, music to duck under speech and the loudness for a platform; \
+    polish_apply applies them as one step, ducking where the speech lands after the cuts and \
+    measuring loudness on the polished mix. analyze_audio first gives it speech and noise.
     - make_cutout finds the subject of a clip's media (a background job; watch get_jobs). Then \
     a layer above set to behindSubject shows between the background and the person. \
     auto_reframe crops 16:9 footage to 4:3 and pans with the subject like a calm camera \
