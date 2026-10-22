@@ -200,7 +200,9 @@ extension Composition {
             for piece in pieces {
               try piece.insert(from: audio, into: target)
             }
-            lastSounds[target] = audio
+            if Self.runsOn(clip, in: timeline) {
+              lastSounds[target] = audio
+            }
           }
         } catch {
           let code = (error as NSError).code
@@ -307,7 +309,9 @@ extension Composition {
           )
         }
       }
-      parameters.setVolume(0, at: timeline.duration.cmTime)
+      if track.clips.last.map({ runsOn($0, in: timeline) }) == true {
+        parameters.setVolume(0, at: timeline.duration.cmTime)
+      }
       return parameters
     }
     return mix
@@ -324,6 +328,13 @@ extension Composition {
       return nil
     }
     return clip.cleanSound ? cleanSound[mediaID] ?? stereoSound[mediaID] : stereoSound[mediaID]
+  }
+
+  /// Whether `clip`'s sound is stretched or squeezed and reaches the end of the mix, so its
+  /// track runs on past the end (see `runOn(_:past:)`). Nothing else needs the run-on, so other
+  /// timelines build exactly as before.
+  static func runsOn(_ clip: Clip, in timeline: Timeline) -> Bool {
+    clip.isRetimed && !clip.isFrozen && clip.timelineEnd == timeline.duration
   }
 
   /// Lets each sound track run on for `runOn` past `end` with more of the sound it last played

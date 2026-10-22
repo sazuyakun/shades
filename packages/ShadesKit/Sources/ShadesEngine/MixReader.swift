@@ -113,7 +113,9 @@ public actor MixReader {
           for piece in MediaPiece.pieces(of: clip, frame: timeline.format.frameDuration) {
             try piece.insert(from: audio, into: destination)
           }
-          lastSounds[destination] = audio
+          if Composition.runsOn(clip, in: timeline) {
+            lastSounds[destination] = audio
+          }
           withExtendedLifetime(asset) { }
         } catch {
           let code = (error as NSError).code
