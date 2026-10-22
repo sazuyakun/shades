@@ -83,7 +83,11 @@ let package = Package(
       ],
       swiftSettings: [.defaultIsolation(MainActor.self)],
     ),
-    .target(name: "ShadesTestSupport", path: "Tests/ShadesTestSupport"),
+    .target(
+      name: "ShadesTestSupport",
+      dependencies: ["ShadesCommands"],
+      path: "Tests/ShadesTestSupport",
+    ),
     .testTarget(name: "ShadesCoreTests", dependencies: ["ShadesCore"]),
     .testTarget(name: "ShadesAudioTests", dependencies: ["ShadesAudio", "ShadesTestSupport"]),
     .testTarget(name: "ShadesCaptionsTests", dependencies: ["ShadesCaptions", "ShadesTestSupport"]),
@@ -110,7 +114,11 @@ let package = Package(
     ),
     .testTarget(name: "ShadesPolishTests", dependencies: ["ShadesPolish"]),
     .testTarget(name: "ShadesMattingTests", dependencies: ["ShadesMatting", "ShadesTestSupport"]),
-    .testTarget(name: "ShadesUITests", dependencies: ["ShadesUI", "ShadesTestSupport"]),
+    .testTarget(
+      name: "ShadesUITests",
+      dependencies: ["ShadesUI", "ShadesTestSupport"],
+      exclude: ["Golden"],
+    ),
   ],
 )
 

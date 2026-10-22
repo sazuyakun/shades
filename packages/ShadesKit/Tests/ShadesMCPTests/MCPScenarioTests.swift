@@ -44,13 +44,7 @@ struct MCPScenarioTests {
     #expect(editor.project.timeline.duration == MediaTime(seconds: 3))
 
     let frame = try await client.tool("render_frame", ["seconds": 1.5, "max_side": 160])
-    guard
-      case .array(let content) = frame["content"], let data = content.first?["data"]?.stringValue,
-      let png = Data(base64Encoded: data)
-    else {
-      Issue.record("render_frame returned no image")
-      return
-    }
+    let png = try #require(frame.resultImage, "render_frame returned no image")
     #expect(try GoldenFrame.matches(png, named: "scenario-blue-after-cut", in: golden))
 
     _ = try await client.tool("undo")

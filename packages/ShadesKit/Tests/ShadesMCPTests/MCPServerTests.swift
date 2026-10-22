@@ -2,6 +2,7 @@ import Foundation
 import ShadesCommands
 import ShadesEngine
 import ShadesMCP
+import ShadesTestSupport
 import Testing
 
 @MainActor
