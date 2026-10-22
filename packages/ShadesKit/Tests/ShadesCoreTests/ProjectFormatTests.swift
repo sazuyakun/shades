@@ -5,7 +5,7 @@ import Testing
 /// Saved projects must keep opening as the model grows.
 struct ProjectFormatTests {
   @Test
-  func `a clip saved before text clips, motion blur, crop and masks loads as plain media`(
+  func `a clip saved before text clips, motion blur, crop, masks and links loads as plain media`(
   ) throws {
     let json = """
       {"id":"6A1F2B4C-0000-4000-8000-000000000001","mediaID":"6A1F2B4C-0000-4000-8000-000000000002",
@@ -18,6 +18,7 @@ struct ProjectFormatTests {
     #expect(clip.duration == MediaTime(seconds: 2))
     #expect(clip.motionBlur == 1)
     #expect(clip.footageBlur == false)
+    #expect(clip.link == nil)
     #expect(clip.crop == .none)
     #expect(clip.masks.isEmpty)
   }

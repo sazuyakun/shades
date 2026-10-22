@@ -1,6 +1,8 @@
+import Foundation
 import ShadesCore
 
-/// Splits a video clip's own sound onto an audio track, so it can be edited separately.
+/// Splits a video clip's own sound onto an audio track as a clip linked to the video, so it can
+/// be shaped on its own (volume, noise, stems) while edits keep the two together.
 public struct DetachAudio: ToolCommand {
 
   // MARK: Lifecycle
@@ -14,7 +16,8 @@ public struct DetachAudio: ToolCommand {
   public static let title = "Detach Audio"
   public static let name = "detach_audio"
   public static let summary = "Move a video clip's own sound onto a free audio track as its own "
-    + "clip, so it can be trimmed or moved separately."
+    + "clip, linked to the video so they still move, trim and split together. Unlink them "
+    + "(unlink_clips) to slip the sound on its own."
   public static let parameters = JSONSchema.object(
     ["clip_id": Fields.clipID],
     required: ["clip_id"],
@@ -35,7 +38,9 @@ public struct DetachAudio: ToolCommand {
     else {
       throw rejected(.noAudio(clipID))
     }
+    let link = clip.link ?? UUID()
     project.timeline.tracks[location.track].clips[location.clip].isAudioEnabled = false
+    project.timeline.tracks[location.track].clips[location.clip].link = link
     let audioTracks = project.timeline.tracks.indices.filter {
       project.timeline.tracks[$0].kind == .audio
     }
@@ -50,6 +55,7 @@ public struct DetachAudio: ToolCommand {
       volume: clip.volume,
       keyframes: clip.keyframes.filter { $0.property == .speed },
       speed: clip.speed,
+      link: link,
     ))
   }
 

@@ -18,6 +18,7 @@ public enum CommandError: Error, Equatable {
   case noRoom(String)
   case noAudio(Clip.ID)
   case cannotJoin(String)
+  case cannotLink(String)
   case unknownTool(String)
   case invalidArguments(String)
   case invalidJSON
@@ -73,6 +74,9 @@ extension CommandError: LocalizedError {
 
     case .cannotJoin(let reason):
       "These clips can't be joined: \(reason)."
+
+    case .cannotLink(let reason):
+      "These clips can't be linked: \(reason)."
 
     case .unknownTool(let name):
       "There's no tool named \(name)."

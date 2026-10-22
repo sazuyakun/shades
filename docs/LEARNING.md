@@ -543,3 +543,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** A Unix call that fills in how much processor time this process has used so far, in user code and in the system. Two readings a few seconds apart, divided by the wall-clock time between them, give how busy the app is (100% is one full core).
 **JS/TS analogy:** Node's `process.cpuUsage()`, compared between two calls.
 **In Shades:** `CPUMeter` (ShadesEngine) for the HUD's CPU figure and the idle-CPU performance gate.
+
+## `for case let` (pattern-matching loops)
+**What it is:** `for case let (track?, pieces) in groups` loops only over the elements that match the pattern, unwrapping as it goes: here, pairs whose first part isn't `nil`, with `track` already unwrapped.
+**JS/TS analogy:** Like `for (const [track, pieces] of entries) { if (track == null) continue; … }`, with the skip and the unwrap folded into the loop's header.
+**In Shades:** `JoinClips` joins the pieces of a clip's linked sound, grouped by the track they're on.

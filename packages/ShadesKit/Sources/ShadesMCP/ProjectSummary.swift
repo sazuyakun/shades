@@ -42,8 +42,13 @@ enum ProjectSummary {
           "volume": rounded(track.volume),
           "pan": rounded(track.pan),
           "soloed": .bool(track.isSoloed),
-          "clips": .array(track.clips
-            .map { json(of: $0, media: $0.mediaID.flatMap { mediaByID[$0] }) }),
+          "clips": .array(track.clips.map { clip in
+            json(
+              of: clip,
+              media: clip.mediaID.flatMap { mediaByID[$0] },
+              linkedTo: timeline.partners(of: clip.id),
+            )
+          }),
         ]
       }),
       "markers": .array(timeline.markers.map { marker in
@@ -89,7 +94,7 @@ enum ProjectSummary {
     return .object(fields)
   }
 
-  private static func json(of clip: Clip, media: Media?) -> JSONValue {
+  private static func json(of clip: Clip, media: Media?, linkedTo partners: [Clip]) -> JSONValue {
     var fields: [String: JSONValue] = [
       "id": .string(clip.id.uuidString),
       "start": seconds(clip.timelineStart),
@@ -107,6 +112,7 @@ enum ProjectSummary {
       "depth_slot": .string(clip.depth.rawValue),
       "volume": rounded(clip.volume),
       "audio_enabled": .bool(clip.isAudioEnabled),
+      "linked_to": .array(partners.map { .string($0.id.uuidString) }),
     ]
     switch clip.source {
     case .media(let id):

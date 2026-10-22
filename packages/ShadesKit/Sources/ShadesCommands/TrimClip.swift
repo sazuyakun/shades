@@ -1,7 +1,8 @@
 import ShadesCore
 
-/// Moves a clip's start and/or end edge. With ripple, later clips on the track follow the edit;
-/// without it, the gap stays or the clip needs empty room to grow into.
+/// Moves a clip's start and/or end edge, and its linked clips' edges by as much. With ripple,
+/// later clips on the track follow the edit; without it, the gap stays or the clip needs empty
+/// room to grow into.
 public struct TrimClip: ToolCommand {
 
   // MARK: Lifecycle
@@ -24,7 +25,8 @@ public struct TrimClip: ToolCommand {
   public static let name = "trim_clip"
   public static let summary = "Move a clip's start and/or end edge to a time on the timeline. "
     + "With ripple, trimming the start keeps the clip where it begins and later clips follow; "
-    + "trimming the end moves later clips with the end."
+    + "trimming the end moves later clips with the end. Linked clips (its detached sound) are "
+    + "trimmed by the same amount."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
@@ -41,19 +43,40 @@ public struct TrimClip: ToolCommand {
   public let ripple: Bool?
 
   public func apply(to project: inout Project) throws(CommandError) {
+    let partners = project.timeline.partners(of: clipID).map(\.id)
     // why: the end goes first because trimming it never moves the clip's start.
     if let end {
-      try trimEnd(to: project.onFrame(end), in: &project)
+      let offset = try project.onFrame(end) - edges(of: clipID, in: project).end
+      for id in [clipID] + partners {
+        try trimEnd(id, to: edges(of: id, in: project).end + offset, in: &project)
+      }
     }
     if let start {
-      try trimStart(to: project.onFrame(start), in: &project)
+      let offset = try project.onFrame(start) - edges(of: clipID, in: project).start
+      for id in [clipID] + partners {
+        try trimStart(id, to: edges(of: id, in: project).start + offset, in: &project)
+      }
     }
   }
 
   // MARK: Private
 
-  private func trimEnd(to time: MediaTime, in project: inout Project) throws(CommandError) {
-    let location = try project.requireClip(clipID)
+  /// Where the clip `id` starts and ends on the timeline.
+  private func edges(
+    of id: Clip.ID,
+    in project: Project,
+  ) throws(CommandError) -> (start: MediaTime, end: MediaTime) {
+    let location = try project.requireClip(id)
+    let clip = project.timeline.tracks[location.track].clips[location.clip]
+    return (clip.timelineStart, clip.timelineEnd)
+  }
+
+  private func trimEnd(
+    _ id: Clip.ID,
+    to time: MediaTime,
+    in project: inout Project,
+  ) throws(CommandError) {
+    let location = try project.requireClip(id)
     let clip = project.timeline.tracks[location.track].clips[location.clip]
     let trimmed = clip.trimmingEnd(to: time)
     try check(trimmed, in: project)
@@ -68,8 +91,12 @@ public struct TrimClip: ToolCommand {
     project.timeline.tracks[location.track] = track
   }
 
-  private func trimStart(to time: MediaTime, in project: inout Project) throws(CommandError) {
-    let location = try project.requireClip(clipID)
+  private func trimStart(
+    _ id: Clip.ID,
+    to time: MediaTime,
+    in project: inout Project,
+  ) throws(CommandError) {
+    let location = try project.requireClip(id)
     let clip = project.timeline.tracks[location.track].clips[location.clip]
     var trimmed = clip.trimmingStart(to: time)
     try check(trimmed, in: project)

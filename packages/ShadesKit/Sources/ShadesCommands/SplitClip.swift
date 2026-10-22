@@ -1,6 +1,6 @@
 import ShadesCore
 
-/// Cuts a clip in two at a time.
+/// Cuts a clip in two at a time, and the clips linked to it there too.
 public struct SplitClip: ToolCommand {
 
   // MARK: Lifecycle
@@ -14,8 +14,8 @@ public struct SplitClip: ToolCommand {
 
   public static let title = "Split Clip"
   public static let name = "split_clip"
-  public static let summary = "Cut a clip in two at a time inside it. The second half gets a new "
-    + "clip ID."
+  public static let summary = "Cut a clip in two at a time inside it, and its linked clips there "
+    + "too. The second half gets a new clip ID."
   public static let parameters = JSONSchema.object(
     ["clip_id": Fields.clipID, "at": Fields.time("Where to cut")],
     required: ["clip_id", "at"],
@@ -31,7 +31,12 @@ public struct SplitClip: ToolCommand {
     guard clip.timelineStart < time, time < clip.timelineEnd else {
       throw rejected(.invalidRange("the cut must fall inside the clip"))
     }
+    let partners = project.timeline.partners(of: clipID)
     project.timeline.tracks[location.track].split(at: time)
+    for partner in partners {
+      let track = try project.requireClip(partner.id).track
+      project.timeline.tracks[track].split(at: time)
+    }
   }
 
 }

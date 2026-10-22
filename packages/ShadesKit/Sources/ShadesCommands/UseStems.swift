@@ -1,3 +1,4 @@
+import Foundation
 import ShadesCore
 
 /// Swaps a clip's sound for its separated voice and music: two clips on free audio tracks, lined
@@ -30,8 +31,11 @@ public struct UseStems: Command {
     for stem in stems where project.media(withID: stem.id) == nil {
       project.media.append(stem)
     }
+    // why: the stems stay linked to the video (or to whatever the sound clip was linked to).
+    let link = clip.link ?? UUID()
     if isVideoTrack {
       project.timeline.tracks[location.track].clips[location.clip].isAudioEnabled = false
+      project.timeline.tracks[location.track].clips[location.clip].link = link
     } else {
       project.timeline.tracks[location.track].clips.remove(at: location.clip)
     }
@@ -52,6 +56,7 @@ public struct UseStems: Command {
         fadeIn: clip.fadeIn,
         fadeOut: clip.fadeOut,
         speed: clip.speed,
+        link: link,
       ))
     }
   }

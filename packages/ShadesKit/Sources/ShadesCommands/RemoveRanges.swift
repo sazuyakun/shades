@@ -1,7 +1,8 @@
 import ShadesCore
 
 /// Cuts stretches of time out of a track: silences, fillers, unwanted words. With ripple, later
-/// clips on the track close up.
+/// clips on the track close up. Tracks holding clips linked to the cut ones (a video's detached
+/// sound) are cut the same way, so they stay in step.
 public struct RemoveRanges: ToolCommand {
 
   // MARK: Lifecycle
@@ -24,7 +25,8 @@ public struct RemoveRanges: ToolCommand {
   public static let name = "remove_ranges"
   public static let summary = "Cut stretches of time out of a track (V1 by default), like "
     + "silences or unwanted words from get_transcript. With ripple (default true) the track closes "
-    + "up. Other tracks only follow with all_tracks."
+    + "up. Linked clips (a video's detached sound) are cut with it; other tracks only follow "
+    + "with all_tracks."
   public static let parameters = JSONSchema.object(
     [
       "ranges": JSONSchema.array(
@@ -55,10 +57,10 @@ public struct RemoveRanges: ToolCommand {
   public func apply(to project: inout Project) throws(CommandError) {
     let main = try track.map(project.requireTrack) ?? project.timeline.tracks
       .firstIndex { $0.kind == .video } ?? 0
-    let indices = allTracks == true
+    let indices = project.linkedTracks(allTracks == true
       ? project.timeline.tracks.indices
         .filter { $0 == main || project.timeline.tracks[$0].kind != .audio }
-      : [main]
+      : [main])
     let cuts = merged(ranges.map { TimeRange(
       start: project.onFrame($0.start),
       end: project.onFrame($0.end),

@@ -2,7 +2,8 @@ import ShadesCore
 import SwiftUI
 
 /// How a clip looks: rounded, labeled, with a thumbnail like Final Cut's filmstrip (video), a
-/// sound color (audio) or its words (text), and diamonds where it has keyframes. Outlined in the
+/// sound color (audio) or its words (text), diamonds where it has keyframes, and a chain when
+/// it's linked to clips on other tracks (a video and its sound). Outlined in the
 /// accent color when selected, glowing purple for a moment after Claude changes it.
 struct TimelineClipView: View {
 
@@ -13,6 +14,8 @@ struct TimelineClipView: View {
   let kind: TrackKind
   let isSelected: Bool
   let isRecentlyChanged: Bool
+  /// Whether it moves, trims and splits with clips on other tracks.
+  let isLinked: Bool
   /// Where the clip has keyframes, as fractions of its length.
   let keyframeSpots: [Double]
   /// The waveform of the stretch of sound the clip plays, when it's been drawn.
@@ -38,6 +41,12 @@ struct TimelineClipView: View {
       }
       .overlay(alignment: .topLeading) {
         HStack(spacing: 4) {
+          if isLinked {
+            Image(systemName: "link")
+              .font(.system(size: 8.5, weight: .bold))
+              .foregroundStyle(.white.opacity(0.85))
+              .help("Linked: moves, trims and splits with its video or sound (⇧⌘L unlinks)")
+          }
           Text(text ?? media?.name ?? "Missing media")
             .font(.system(size: 10.5))
             .foregroundStyle(.white)

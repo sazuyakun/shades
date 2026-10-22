@@ -36,6 +36,8 @@ public enum CommandRegistry {
     SetText.self,
     SplitWords.self,
     DetachAudio.self,
+    LinkClips.self,
+    UnlinkClips.self,
     AddTrack.self,
     RemoveTrack.self,
     SetTrack.self,

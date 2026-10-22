@@ -30,6 +30,7 @@ struct TimelineClip: View {
       kind: track.kind,
       isSelected: editor.selection.contains(clip.id),
       isRecentlyChanged: server.activity.recentlyChangedClipIDs.contains(clip.id),
+      isLinked: !editor.project.timeline.partners(of: clip.id).isEmpty,
       keyframeSpots: Set(clip.keyframes.map {
         (clip.timelineTime(atSource: $0.time) - clip.timelineStart).seconds / clip.duration.seconds
       }).sorted(),

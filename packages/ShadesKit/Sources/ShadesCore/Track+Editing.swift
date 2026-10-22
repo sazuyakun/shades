@@ -14,8 +14,10 @@ extension Track {
       return nil
     }
     let left = clips[index].trimmingEnd(to: time)
-    var right = clips[index].trimmingStart(to: time)
-    right = right.withNewID()
+    var right = clips[index].trimmingStart(to: time).withNewID()
+    // why: linked clips cut at the same moment (on every track) get the same new link, so their
+    // right halves stay linked to each other and not to the left halves.
+    right.link = clips[index].link.map { $0.splitting(at: time) }
     clips[index] = left
     clips.insert(right, at: index + 1)
     return right.id
@@ -108,4 +110,21 @@ extension Clip {
     )
   }
 
+}
+
+extension UUID {
+  /// A new link for the right halves of linked clips cut at `time`: the same for every clip
+  /// sharing this link and cut there, different for every other moment.
+  fileprivate func splitting(at time: MediaTime) -> UUID {
+    var bytes = uuid
+    let moment = UInt64(bitPattern: Int64((time.seconds * 1_000_000).rounded()))
+    withUnsafeMutableBytes(of: &bytes) { raw in
+      for index in 0 ..< 8 {
+        raw[8 + index] ^= UInt8(truncatingIfNeeded: moment >> (8 * index))
+      }
+      // why: a moment of 0 would give the old link back; the version byte keeps them apart.
+      raw[6] ^= 0x80
+    }
+    return UUID(uuid: bytes)
+  }
 }

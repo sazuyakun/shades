@@ -120,7 +120,7 @@ enum EditorAction: CaseIterable, Identifiable {
     case .rippleDelete: "Ripple Delete"
     case .closeGaps: "Close All Gaps"
     case .join: "Join Clips"
-    case .detachAudio: "Detach Audio"
+    case .detachAudio: "Link / Unlink Audio and Video"
     case .splitWords: "Split Text into Words"
     case .freezeFrame: "Freeze Frame at Playhead"
     case .normalSpeed: "Normal Speed"
@@ -650,7 +650,16 @@ enum EditorAction: CaseIterable, Identifiable {
       try context.editor.perform(JoinClips(clipIDs: selected.map(\.id)))
 
     case .detachAudio:
-      try context.perform(selected.map { DetachAudio(clipID: $0.id) }, title: DetachAudio.title)
+      // why: one key for the whole link: unlink linked clips, link several, else detach a
+      // video's own sound as a linked clip.
+      let timeline = context.timeline
+      if selected.contains(where: { !timeline.partners(of: $0.id).isEmpty }) {
+        try context.perform([UnlinkClips(clipIDs: selected.map(\.id))], title: UnlinkClips.title)
+      } else if selected.count >= 2 {
+        try context.perform([LinkClips(clipIDs: selected.map(\.id))], title: LinkClips.title)
+      } else {
+        try context.perform(selected.map { DetachAudio(clipID: $0.id) }, title: DetachAudio.title)
+      }
 
     case .splitWords:
       let texts = selected.filter { $0.text != nil && $0.text?.word == nil }

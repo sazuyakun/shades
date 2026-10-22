@@ -24,7 +24,8 @@ public struct InsertClip: ToolCommand {
   public static let title = "Insert Clip"
   public static let name = "insert_clip"
   public static let summary = "Insert media at a time on a track. Later clips on that track move "
-    + "right; a clip under the time is split. Other tracks don't move."
+    + "right; a clip under the time is split. Other tracks don't move, except those holding "
+    + "clips linked to the moved ones (a video's detached sound), which move with them."
   public static let parameters = JSONSchema.object(
     [
       "media_id": Fields.mediaID,
@@ -47,7 +48,9 @@ public struct InsertClip: ToolCommand {
     let range = try project.sourceRange(of: media, from: sourceStart, to: sourceEnd)
     let index = try project.track(for: media, labeled: track)
     let time = project.onFrame(at)
-    project.timeline.tracks[index].shift(from: time, by: range.duration)
+    for shifted in project.linkedTracks([index]) {
+      project.timeline.tracks[shifted].shift(from: time, by: range.duration)
+    }
     project.timeline.tracks[index].add(Clip(
       mediaID: media.id,
       sourceStart: range.start,

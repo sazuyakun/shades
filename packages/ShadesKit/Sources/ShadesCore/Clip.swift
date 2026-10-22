@@ -33,6 +33,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     speed: Double = 1,
     crop: Crop = .none,
     masks: [LayerMask] = [],
+    link: UUID? = nil,
   ) {
     self.init(
       id: id,
@@ -59,6 +60,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
       speed: speed,
       crop: crop,
       masks: masks,
+      link: link,
     )
   }
 
@@ -88,6 +90,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     speed: Double = 1,
     crop: Crop = .none,
     masks: [LayerMask] = [],
+    link: UUID? = nil,
   ) {
     self.id = id
     self.source = source
@@ -113,6 +116,7 @@ public struct Clip: Hashable, Sendable, Identifiable {
     self.speed = speed
     self.crop = crop
     self.masks = masks
+    self.link = link
   }
 
   // MARK: Public
@@ -165,6 +169,9 @@ public struct Clip: Hashable, Sendable, Identifiable {
   public var crop: Crop
   /// Shapes that hide or reveal parts of its picture, joined in order.
   public var masks: [LayerMask]
+  /// Clips sharing a link (a video and its detached sound) move, trim, split and delete
+  /// together. `nil` when the clip is on its own.
+  public var link: UUID?
 
   /// The media file the clip plays, unless it's text.
   public var mediaID: Media.ID? {
@@ -238,6 +245,7 @@ extension Clip: Codable {
       speed: container.decodeIfPresent(Double.self, forKey: .speed) ?? 1,
       crop: container.decodeIfPresent(Crop.self, forKey: .crop) ?? .none,
       masks: container.decodeIfPresent([LayerMask].self, forKey: .masks) ?? [],
+      link: container.decodeIfPresent(UUID.self, forKey: .link),
     )
   }
 
@@ -269,6 +277,7 @@ extension Clip: Codable {
     try container.encode(speed, forKey: .speed)
     try container.encode(crop, forKey: .crop)
     try container.encode(masks, forKey: .masks)
+    try container.encodeIfPresent(link, forKey: .link)
   }
 
   // MARK: Private
@@ -300,6 +309,7 @@ extension Clip: Codable {
     case speed
     case crop
     case masks
+    case link
   }
 
 }

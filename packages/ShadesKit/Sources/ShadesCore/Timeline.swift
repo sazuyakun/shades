@@ -100,6 +100,14 @@ public struct Timeline: Hashable, Sendable {
     return nil
   }
 
+  /// The clips linked to the clip `id` (sharing its link), not counting itself.
+  public func partners(of id: Clip.ID) -> [Clip] {
+    guard let link = clip(withID: id)?.link else {
+      return []
+    }
+    return allClips.filter { $0.link == link && $0.id != id }
+  }
+
   /// Looks up a clip anywhere on the timeline.
   public func clip(withID id: Clip.ID) -> Clip? {
     location(ofClip: id).map { tracks[$0.track].clips[$0.clip] }

@@ -66,6 +66,20 @@ struct ToolHandlerTests {
     #expect(editor.project.timeline.allClips.isEmpty)
   }
 
+  @Test
+  func `linked clips show in get_project and move together`() async throws {
+    let mediaID = try await importFixture()
+    _ = await handler.call("append_clip", arguments: ["media_id": .string(mediaID)])
+    _ = await handler.call("place_on_top", arguments: ["media_id": .string(mediaID), "at": 0])
+    let ids = editor.project.timeline.allClips.map { JSONValue.string($0.id.uuidString) }
+    let linked = await handler.call("link_clips", arguments: ["clip_ids": .array(ids)])
+    #expect(!linked.isError)
+    let summary = await handler.call("get_project", arguments: [:])
+    #expect(summary.text.contains("linked_to"))
+    _ = await handler.call("move_clip", arguments: ["clip_id": ids[0], "to": 2])
+    #expect(editor.project.timeline.allClips.allSatisfy { $0.timelineStart.seconds == 2 })
+  }
+
   // MARK: Private
 
   private let editor = Editor()
