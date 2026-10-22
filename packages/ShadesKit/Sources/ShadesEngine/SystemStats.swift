@@ -14,4 +14,12 @@ public enum SystemStats {
     }
     return result == KERN_SUCCESS ? info.resident_size : 0
   }
+
+  /// Seconds of processor time Shades has used since it started, across all its threads.
+  public static func processorSeconds() -> Double {
+    var usage = rusage()
+    getrusage(RUSAGE_SELF, &usage)
+    let seconds = { (time: timeval) in Double(time.tv_sec) + Double(time.tv_usec) / 1_000_000 }
+    return seconds(usage.ru_utime) + seconds(usage.ru_stime)
+  }
 }
