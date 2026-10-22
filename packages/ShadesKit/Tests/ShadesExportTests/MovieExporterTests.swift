@@ -115,7 +115,8 @@ struct MovieExporterTests {
     #expect(tag(kCMFormatDescriptionExtension_TransferFunction) == "ITU_R_709_2")
     #expect(tag(kCMFormatDescriptionExtension_YCbCrMatrix) == "ITU_R_709_2")
     let frame = try await frame(of: asset, at: 0.5)
-    #expect(try PixelProbe.color(of: frame, x: 0.5, y: 0.5).red > 225)
+    let center = try PixelProbe.color(of: frame, x: 0.5, y: 0.5)
+    #expect(center.red > 225, "got \(center)")
   }
 
   @Test
