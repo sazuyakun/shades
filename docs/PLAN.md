@@ -64,6 +64,7 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 
 | # | Issue | Fix in |
 |---|---|---|
+| 43 | The edit-latency gate ("an edit reaches the timeline and the preview within a frame") is bimodal on the M1 and CI: a look change measures ~3 ms or ~65 ms (seen at cd84e47 too). `Player.load`'s live update takes ~2 ms each time; the rest is the main actor being busy elsewhere for ~65 ms after the video composition is swapped (likely the paused 4K frame redrawing), so the edit waits for it | After M9 |
 | 42 | `PluginLibraryTests` "edits reload by themselves" fails every time on the M1 dev Mac (the FSEvents watcher doesn't report the rewritten `plugin.json` in the temp folder within 5 s) while CI passes with the same code | After M9 |
 | 41 | On the CI runner, exports of HDR and wide-colour clips skip Shades' conversion: given the Rec.709 tags an export needs, the runner's `AVAssetExportSession` tone-maps HLG itself (reference white about 60% instead of Shades' 95%) and relabels P3 as Rec.709 unconverted. Playback, frames and exports on the M1 convert correctly. Not reproducible locally: find what the runner lacks, or tag exported files another way | After M9 |
 | 40 | Two performance targets have no CI gate: launch to the library window (<1 s) needs an app-level UI test, which SwiftPM can't run; and transcription can't pause inside WhisperKit's decoding (it pauses only after the model download and between jobs) | After M9 |

@@ -36,7 +36,17 @@ public actor MixReader {
     if output == nil {
       try await start()
     }
-    guard framesLeft > 0, let output, let sample = output.copyNextSampleBuffer() else {
+    guard framesLeft > 0, let output else {
+      return nil
+    }
+    guard let sample = output.copyNextSampleBuffer() else {
+      // why: a reader that fails stops like one that's done; reading on would pass off a cut
+      // mix as complete.
+      if let error = reader?.error {
+        let code = (error as NSError).code
+        logger.error("mix.readFailed reason=reader code=\(code, privacy: .public)")
+        throw .renderFailed
+      }
       return nil
     }
     guard let block = CMSampleBufferGetDataBuffer(sample) else {
