@@ -195,15 +195,14 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       request.finish(with: error)
       return
     }
-    // why: AVFoundation copies an HDR source's transfer tag onto the frame, but frames leave
-    // here tone-mapped to SDR; left as is, the viewer would show them as HDR.
-    if SourceColor(of: output).transfer != .sdr {
-      CVBufferSetAttachment(
-        output,
-        kCVImageBufferTransferFunctionKey,
-        kCVImageBufferTransferFunction_ITU_R_709_2,
-        .shouldPropagate,
-      )
+    // why: AVFoundation copies a source's tags onto the frame, but every frame leaves here in
+    // the Rec.709 working space; the viewer and the encoder read these tags.
+    for (key, value) in [
+      (kCVImageBufferColorPrimariesKey, kCVImageBufferColorPrimaries_ITU_R_709_2),
+      (kCVImageBufferTransferFunctionKey, kCVImageBufferTransferFunction_ITU_R_709_2),
+      (kCVImageBufferYCbCrMatrixKey, kCVImageBufferYCbCrMatrix_ITU_R_709_2),
+    ] {
+      CVBufferSetAttachment(output, key, value, .shouldPropagate)
     }
     instruction.frameCounter.recordFrame(at: time.seconds, took: .now - started)
     request.finish(withComposedVideoFrame: output)

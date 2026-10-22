@@ -45,7 +45,12 @@ public enum MovieExporter {
       logger.error("export.failed reason=session codec=\(codec.rawValue, privacy: .public)")
       throw .encodingFailed
     }
-    session.videoComposition = composition.videoComposition
+    // why: the file's colour tags come from these properties, not from the frames. With the
+    // transfer left unset, AVFoundation keeps HDR's own and the layer shader tone-maps it.
+    let video = composition.videoComposition.mutableCopy() as? AVMutableVideoComposition
+    video?.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
+    video?.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+    session.videoComposition = video
     session.audioMix = composition.audioMix(for: timeline)
     session.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
     session.timeRange = CMTimeRange(start: range.start.cmTime, end: range.end.cmTime)

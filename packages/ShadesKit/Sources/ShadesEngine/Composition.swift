@@ -229,11 +229,10 @@ extension Composition {
     let textLayers = timeline.tracks.filter { $0.kind == .text }.map(\.clips)
     let videoComposition = AVMutableVideoComposition()
     videoComposition.customVideoCompositorClass = MetalCompositor.self
-    // why: frames are drawn and exported in Rec.709. Leaving the transfer function unset stops
-    // AVFoundation tone-mapping HDR itself (too dim) and keeps exports tagged Rec.709 throughout;
-    // the layer shader converts whatever gamut and transfer each frame is still tagged with.
-    videoComposition.colorPrimaries = AVVideoColorPrimaries_ITU_R_709_2
-    videoComposition.colorYCbCrMatrix = AVVideoYCbCrMatrix_ITU_R_709_2
+    // why: no colour properties, so AVFoundation hands frames over as they are, with their own
+    // tags; asked for Rec.709 it converts or only relabels them depending on the Mac. The layer
+    // shader converts, `MetalCompositor` tags every frame Rec.709, and `MovieExporter` adds the
+    // properties that tag its file.
     let pictureSize = CGSize(width: timeline.format.width, height: timeline.format.height)
     videoComposition.renderSize = canvas ?? pictureSize
     videoComposition.frameDuration = CMTime(
