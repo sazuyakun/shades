@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import ShadesCore
 import ShadesEngine
@@ -42,12 +43,34 @@ struct ColorRenderingTests {
   func `wide-gamut colours are brought into Rec.709, more saturated`() async throws {
     let orange = FixtureColor(red: 200, green: 100, blue: 50)
     let p3 = try await center(of: orange, in: .displayP3)
-    #expect(p3.red > 208 && p3.blue < 44, "got \(p3)")
+    #expect(p3.red > 208 && p3.blue < 44, "got \(p3), tags \(try await frameTags(of: orange))")
     let hlg = try await center(of: orange, in: .hlg)
     #expect(hlg.red > hlg.green + 120, "Rec.2020 orange is redder in Rec.709: got \(hlg)")
   }
 
   // MARK: Private
+
+  /// The colour tags on a composed frame of a P3 clip, which AVFoundation copies from its source.
+  private func frameTags(of color: FixtureColor) async throws -> String {
+    let url = try await VideoFixture.make(left: color, right: color, colorSpace: .displayP3)
+    let media = Media(url: url, duration: MediaTime(seconds: 1), width: 320, height: 180, hasAudio: false)
+    let project = Project(media: [media], timeline: Timeline(
+      format: VideoFormat(width: 320, height: 180, framesPerSecond: 30),
+      tracks: [Track(kind: .video, clips: [Clip(mediaID: media.id, sourceStart: .zero, duration: media.duration, timelineStart: .zero)])],
+    ))
+    let composition = try await Composition.forRendering(project)
+    let reader = try AVAssetReader(asset: composition.asset)
+    let output = AVAssetReaderVideoCompositionOutput(
+      videoTracks: composition.asset.tracks(withMediaType: .video),
+      videoSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA],
+    )
+    output.videoComposition = composition.videoComposition
+    reader.add(output)
+    reader.startReading()
+    let frame = try #require(output.copyNextSampleBuffer().flatMap(CMSampleBufferGetImageBuffer))
+    let tags = CVBufferCopyAttachments(frame, .shouldPropagate) as NSDictionary?
+    return "\(String(describing: tags))"
+  }
 
   /// The middle of a frame of a clip of `color`, stored with `colorSpace`'s tags.
   private func center(
