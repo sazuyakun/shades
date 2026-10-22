@@ -30,6 +30,7 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | Key | Action |
 |---|---|
 | A · B · T · P | Select tool · Blade tool · Trim tool · Draw tool (drag in the viewer to draw lines over the picture) |
+| ⌥T | Track tool: drag a box in the viewer around something; it's followed to the clip's end in the background, and layers can follow it (Video tab › Follow) |
 | S · ⌘B | Split at playhead |
 | Q · W | Ripple trim start / end to playhead |
 | ⇧Q · ⇧W | Trim start / end to playhead (no ripple) |
@@ -40,6 +41,11 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | ⌫ · ⇧⌫ | Delete (leave gap) · Ripple delete |
 | V · ⇧V · Y | Select nearest edit · Select clip at playhead · Select forward |
 | I · O · X · M · G · F | Mark in · Mark out · Mark clip · Marker · Flag · Match frame |
+| ⌃M | Remove the marker at the playhead (or right-click a marker on the ruler) |
+| ⌃T · ⇧C · ⌥A | Add text at the playhead · Add the chosen picture as a sticker · Add an adjustment clip (over the selection, or 5 s) |
+| ⌘T | Add a dissolve into the selected clips (pick another kind and its length in the Video tab) |
+| ⌥U · ⌥⇧U | Cut out the person · any object in the selected clips |
+| ⌥B · ⌥D · ⌥L | Find speech and beats · Duck the music under speech · Normalize loudness to −14 LUFS |
 | Space · J K L | Play / pause · Reverse / stop / forward |
 | ← → · ↑ ↓ | Frame step · Previous / next clip |
 | , . · ⇧, ⇧. | Nudge 1 frame · 5 frames |
@@ -62,6 +68,8 @@ How Shades behaves. The look is in [DESIGN.md](DESIGN.md).
 | Esc | Close a sheet or palette |
 
 All shortcuts are remappable.
+
+**Where the rest lives:** the timeline bar has **Templates**, **Motion** (pop, slide in, float, orbit, scatter, stack on the selected clips) and **Sounds** (plugin sound effects at the playhead). With no clip selected, the inspector's Video tab moves the **camera**. Each keyframe diamond has an **easing** menu beside it once a keyframe sits at the playhead. The Color tab has **curves** (all, red, green, blue), a **qualifier** (only some colours), a **window** (only inside a shape) and the **key**'s colour, tolerance and softness.
 
 ## Working with Claude
 There's no AI inside Shades: Claude Code edits over MCP ([SYSTEM.md](SYSTEM.md)), and the app shows what it did.
