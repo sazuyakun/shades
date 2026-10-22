@@ -231,7 +231,7 @@ extension Composition {
         ))
       }
     }
-    runOn(lastSounds, past: timeline.duration)
+    try await runOn(lastSounds, past: timeline.duration)
     // why: AVFoundation only asks the compositor for frames while some video track plays, so a
     // timeline of only stills and text gets an empty one to carry it.
     if asset.tracks(withMediaType: .video).isEmpty {
@@ -277,11 +277,13 @@ extension Composition {
   /// The mix of `timeline` for the composition tracks carrying each timeline track's sound: clip
   /// volumes, fades and keyframes, track levels and the master level, as volume ramps; the
   /// master limiter and the track's pan in its tap (volume ramps are smoothed, too slow for a
-  /// limiter), which also reports to `meters`.
+  /// limiter), which also reports to `meters`. Without `isShaped` there are no taps: the caller
+  /// shapes the sound itself (see `MixReader`).
   static func audioMix(
     for timeline: Timeline,
     trackIDs: [Track.ID: CMPersistentTrackID],
     meters: MixMeters? = nil,
+    isShaped: Bool = true,
   ) -> AVAudioMix {
     let mix = AVMutableAudioMix()
     mix.inputParameters = timeline.tracks.compactMap { track in
@@ -290,7 +292,7 @@ extension Composition {
       }
       let parameters = AVMutableAudioMixInputParameters()
       parameters.trackID = trackID
-      if !timeline.limiter.isEmpty || track.pan != 0 || meters != nil {
+      if isShaped, !timeline.limiter.isEmpty || track.pan != 0 || meters != nil {
         parameters.audioTapProcessor = TrackTap(
           track: track.id,
           limiter: timeline.limiter,
@@ -341,14 +343,24 @@ extension Composition {
   /// (silenced by the mix), so the pitch-keeping stretcher finishes a sped-up clip's last
   /// moments: under load it drops them when its track simply stops, and an empty stretch
   /// doesn't keep it going.
-  static func runOn(_ lastSounds: [AVMutableCompositionTrack: AVAssetTrack], past end: MediaTime) {
+  /// The sounds' assets must still be alive.
+  static func runOn(
+    _ lastSounds: [AVMutableCompositionTrack: AVAssetTrack],
+    past end: MediaTime,
+  ) async throws(EngineError) {
     for (track, sound) in lastSounds {
-      // why: a sound shorter than the run-on can't fill it; that track just stops, as before.
-      try? track.insertTimeRange(
-        CMTimeRange(start: .zero, duration: runOn.cmTime),
-        of: sound,
-        at: end.cmTime,
-      )
+      do {
+        let available = try await sound.load(.timeRange).duration
+        try track.insertTimeRange(
+          CMTimeRange(start: .zero, duration: min(runOn.cmTime, available)),
+          of: sound,
+          at: end.cmTime,
+        )
+      } catch {
+        let code = (error as NSError).code
+        logger.error("composition.failed reason=runOn code=\(code, privacy: .public)")
+        throw .compositionFailed
+      }
     }
   }
 

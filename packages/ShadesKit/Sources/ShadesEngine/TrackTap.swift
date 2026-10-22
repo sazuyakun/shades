@@ -5,10 +5,12 @@ import Synchronization
 
 // MARK: - TrackTap
 
-/// What happens to one track's sound as it plays or exports, sample by sample: the master
-/// limiter's gain and the track's pan, then a reading for the mixer's meters. It runs inside
-/// AVFoundation's mix as an audio tap, before the track's volume. The tap's thread is
-/// AVFoundation's, so everything it reads is fixed when it's made.
+/// What happens to one track's sound as it plays or exports, sample by sample: its
+/// `SoundShaping` (the master limiter's gain and the track's pan), then a reading for the
+/// mixer's meters. It runs inside AVFoundation's mix as an audio tap, before the track's volume.
+/// The tap's thread is AVFoundation's, so everything it reads is fixed when it's made. Reading a
+/// mix back with `AVAssetReaderAudioMixOutput` skips ahead when a tap call runs long (as on a busy
+/// Mac), so `MixReader` shapes its samples itself instead.
 final class TrackTap: Sendable {
 
   // MARK: Lifecycle
@@ -16,10 +18,7 @@ final class TrackTap: Sendable {
   /// A tap for `track` that limits by `limiter`, pans by `pan` and reports to `meters`.
   init(track: Track.ID, limiter: [GainPoint], pan: Double, meters: MixMeters?) {
     self.track = track
-    times = limiter.map(\.time.seconds)
-    gains = limiter.map(\.gain)
-    // why: a balance control: the far side fades out and the near side stays as recorded.
-    channelGains = [min(1, 1 - pan), min(1, 1 + pan)]
+    shaping = SoundShaping(limiter: limiter, pan: pan)
     self.meters = meters
   }
 
@@ -79,11 +78,7 @@ final class TrackTap: Sendable {
   // MARK: Private
 
   private let track: Track.ID
-  /// The limiter's points, in seconds and linear gain.
-  private let times: [Double]
-  private let gains: [Double]
-  /// The left and right channels' gains from the pan.
-  private let channelGains: [Double]
+  private let shaping: SoundShaping
   private let meters: MixMeters?
   private let sampleRate = Mutex(48000.0)
 
@@ -100,9 +95,9 @@ final class TrackTap: Sendable {
     from start: Double,
   ) {
     let rate = sampleRate.withLock(\.self)
-    let limiting = times.isEmpty
-      ? nil
-      : (0 ..< frames).map { limiterGain(at: start + Double($0) / rate) }
+    let limiting = shaping.isLimiting
+      ? (0 ..< frames).map { shaping.limiterGain(at: start + Double($0) / rate) }
+      : nil
     let channelCount = buffers.reduce(0) { $0 + Int(max($1.mNumberChannels, 1)) }
     var loudest = [Float](repeating: 0, count: channelCount)
     var first = 0
@@ -114,10 +109,10 @@ final class TrackTap: Sendable {
       }
       for channel in 0 ..< channels {
         let index = first + channel
-        let pan = channelCount == 2 ? Float(channelGains[index]) : 1
+        let pan = channelCount == 2 ? (index == 0 ? shaping.left : shaping.right) : 1
         for frame in 0 ..< min(frames, Int(buffer.mDataByteSize) / 4 / channels) {
           let sample = frame * channels + channel
-          data[sample] *= pan * Float(limiting?[frame] ?? 1)
+          data[sample] *= pan * (limiting?[frame] ?? 1)
           loudest[index] = max(loudest[index], abs(data[sample]))
         }
       }
@@ -128,28 +123,6 @@ final class TrackTap: Sendable {
       from: start,
       to: start + Double(frames) / rate,
     )
-  }
-
-  /// The limiter's gain at `time`: straight lines between its points, holding the end ones.
-  private func limiterGain(at time: Double) -> Double {
-    guard let first = times.first, let last = times.last, time > first else {
-      return gains.first ?? 1
-    }
-    guard time < last else {
-      return gains[gains.count - 1]
-    }
-    var low = 0
-    var high = times.count - 1
-    while high - low > 1 {
-      let middle = (low + high) / 2
-      if times[middle] <= time {
-        low = middle
-      } else {
-        high = middle
-      }
-    }
-    let share = (time - times[low]) / (times[high] - times[low])
-    return gains[low] + (gains[high] - gains[low]) * share
   }
 
 }

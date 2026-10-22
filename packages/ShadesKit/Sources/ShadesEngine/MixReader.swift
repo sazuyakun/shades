@@ -33,12 +33,88 @@ public actor MixReader {
 
   /// The next stretch of the mix as interleaved left/right samples, or `nil` at its end.
   public func nextChunk() async throws(EngineError) -> [Float]? {
-    if output == nil {
+    if reader == nil {
       try await start()
     }
-    guard framesLeft > 0, let output else {
-      return nil
+    while framesLeft > 0 {
+      for index in lanes.indices where lanes[index].pending.isEmpty && !lanes[index].isDone {
+        if let samples = try read(lanes[index].output) {
+          lanes[index].pending += samples
+        } else {
+          lanes[index].isDone = true
+        }
+      }
+      let reading = lanes.filter { !$0.isDone }
+      let frames = min(
+        framesLeft,
+        reading.isEmpty
+          ? lanes.lazy.map { $0.pending.count / 2 }.max() ?? 0
+          : reading.lazy.map { $0.pending.count / 2 }.min() ?? 0,
+      )
+      guard frames > 0 || !reading.isEmpty else {
+        return nil
+      }
+      if frames > 0 {
+        return mix(frames)
+      }
     }
+    return nil
+  }
+
+  // MARK: Private
+
+  /// One track's sound as it's read: its own output, how to pan it, and samples read but not
+  /// mixed yet.
+  private struct Lane {
+    let output: AVAssetReaderAudioMixOutput
+    let shaping: SoundShaping
+    /// Where its clips play stereo sound, in timeline seconds: the only sound pan moves.
+    let stereo: [ClosedRange<Double>]
+    var pending = [Float]()
+    var isDone = false
+  }
+
+  private nonisolated let queue = DispatchSerialQueue(label: "com.sazuyakun.shades.mix")
+  private let project: Project
+  private let cleanSound: [Media.ID: URL]
+  private let stereoSound: [Media.ID: URL]
+  private var reader: AVAssetReader?
+  private var lanes = [Lane]()
+  /// The master limiter, applied to the summed mix.
+  private var limiter = SoundShaping(limiter: [], pan: 0)
+  /// How many frames have been handed out, and how many more belong to the timeline (the
+  /// run-on past its end isn't the mix).
+  private var framesRead = 0
+  private var framesLeft = 0
+
+  /// `frames` frames of every lane, each panned, summed and limited.
+  private func mix(_ frames: Int) -> [Float] {
+    var samples = [Float](repeating: 0, count: frames * 2)
+    for index in lanes.indices {
+      let lane = lanes[index]
+      let count = min(frames, lane.pending.count / 2)
+      for frame in 0 ..< count {
+        let time = Double(framesRead + frame) / Self.sampleRate
+        let isStereo = lane.stereo.contains { $0.contains(time) }
+        samples[frame * 2] += lane.pending[frame * 2] * (isStereo ? lane.shaping.left : 1)
+        samples[frame * 2 + 1] += lane.pending[frame * 2 + 1] * (isStereo ? lane.shaping.right : 1)
+      }
+      lanes[index].pending.removeFirst(count * 2)
+    }
+    if limiter.isLimiting {
+      for frame in 0 ..< frames {
+        let gain = limiter.limiterGain(at: Double(framesRead + frame) / Self.sampleRate)
+        samples[frame * 2] *= gain
+        samples[frame * 2 + 1] *= gain
+      }
+    }
+    framesRead += frames
+    framesLeft -= frames
+    return samples
+  }
+
+  /// The next buffer of `output` as interleaved samples, or `nil` at its end.
+  private func read(_ output: AVAssetReaderAudioMixOutput) throws(EngineError) -> [Float]? {
     guard let sample = output.copyNextSampleBuffer() else {
       // why: a reader that fails stops like one that's done; reading on would pass off a cut
       // mix as complete.
@@ -67,28 +143,21 @@ public actor MixReader {
       logger.error("mix.readFailed status=\(status, privacy: .public)")
       throw .renderFailed
     }
-    let frames = min(samples.count / 2, framesLeft)
-    framesLeft -= frames
-    return Array(samples.prefix(frames * 2))
+    return samples
   }
 
-  // MARK: Private
-
-  private nonisolated let queue = DispatchSerialQueue(label: "com.sazuyakun.shades.mix")
-  private let project: Project
-  private let cleanSound: [Media.ID: URL]
-  private let stereoSound: [Media.ID: URL]
-  private var reader: AVAssetReader?
-  private var output: AVAssetReaderAudioMixOutput?
-  /// How many more frames belong to the timeline; the run-on past its end isn't the mix.
-  private var framesLeft = 0
-
-  /// Lays every clip's sound out in a composition and starts reading it through the mix.
+  /// Lays every track's sound out in a composition and starts reading each track on its own
+  /// through the mix's volumes; `mix(_:)` pans, sums and limits them. The pan and limiter aren't
+  /// left to the mix's audio taps: reading a mix back skips ahead when a tap call runs long.
   private func start() async throws(EngineError) {
     let timeline = project.timeline
     let composition = AVMutableComposition()
     var trackIDs = [Track.ID: CMPersistentTrackID]()
+    var stereo = [Track.ID: [ClosedRange<Double>]]()
     var lastSounds = [AVMutableCompositionTrack: AVAssetTrack]()
+    // why: a track doesn't keep its asset alive, and can't be inserted once the asset is gone;
+    // the run-on inserts the last sounds again after the loop.
+    var assets = [AVURLAsset]()
     for track in timeline.tracks where track.kind != .text {
       var target: AVMutableCompositionTrack?
       for clip in track.clips {
@@ -98,11 +167,11 @@ public actor MixReader {
         else {
           continue
         }
-        // why: a track doesn't keep its asset alive, and can't be inserted once the asset is gone.
         let asset = AVURLAsset(
           url: Composition.sound(of: clip, cleanSound: cleanSound, stereoSound: stereoSound)
             ?? media.url
         )
+        assets.append(asset)
         do {
           guard let audio = try await asset.loadTracks(withMediaType: .audio).first else {
             continue
@@ -113,10 +182,20 @@ public actor MixReader {
           for piece in MediaPiece.pieces(of: clip, frame: timeline.format.frameDuration) {
             try piece.insert(from: audio, into: destination)
           }
+          let formats = try await audio.load(.formatDescriptions)
+          if
+            formats.contains(where: { format in
+              (CMAudioFormatDescriptionGetStreamBasicDescription(format)?.pointee.mChannelsPerFrame
+                ?? 0) >= 2
+            })
+          {
+            stereo[track.id, default: []].append(
+              clip.timelineStart.seconds ... clip.timelineEnd.seconds
+            )
+          }
           if Composition.runsOn(clip, in: timeline) {
             lastSounds[destination] = audio
           }
-          withExtendedLifetime(asset) { }
         } catch {
           let code = (error as NSError).code
           let path = media.url.path
@@ -125,31 +204,45 @@ public actor MixReader {
         }
       }
     }
-    let tracks = composition.tracks(withMediaType: .audio)
-    guard !tracks.isEmpty else {
+    guard !trackIDs.isEmpty else {
       return
     }
-    Composition.runOn(lastSounds, past: timeline.duration)
+    try await Composition.runOn(lastSounds, past: timeline.duration)
+    withExtendedLifetime(assets) { }
     framesLeft = Int((timeline.duration.seconds * Self.sampleRate).rounded())
+    limiter = SoundShaping(limiter: timeline.limiter, pan: 0)
+    let mix = Composition.audioMix(for: timeline, trackIDs: trackIDs, isShaped: false)
     do {
       let reader = try AVAssetReader(asset: composition)
-      let output = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: [
-        AVFormatIDKey: kAudioFormatLinearPCM,
-        AVSampleRateKey: Self.sampleRate,
-        AVNumberOfChannelsKey: 2,
-        AVLinearPCMBitDepthKey: 32,
-        AVLinearPCMIsFloatKey: true,
-        AVLinearPCMIsNonInterleaved: false,
-        AVLinearPCMIsBigEndianKey: false,
-      ])
-      output.audioMix = Composition.audioMix(for: timeline, trackIDs: trackIDs)
-      output.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
-      reader.add(output)
+      for track in timeline.tracks {
+        guard
+          let trackID = trackIDs[track.id],
+          let audio = composition.track(withTrackID: trackID)
+        else {
+          continue
+        }
+        let output = AVAssetReaderAudioMixOutput(audioTracks: [audio], audioSettings: [
+          AVFormatIDKey: kAudioFormatLinearPCM,
+          AVSampleRateKey: Self.sampleRate,
+          AVNumberOfChannelsKey: 2,
+          AVLinearPCMBitDepthKey: 32,
+          AVLinearPCMIsFloatKey: true,
+          AVLinearPCMIsNonInterleaved: false,
+          AVLinearPCMIsBigEndianKey: false,
+        ])
+        output.audioMix = mix
+        output.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
+        reader.add(output)
+        lanes.append(Lane(
+          output: output,
+          shaping: SoundShaping(limiter: [], pan: track.pan),
+          stereo: stereo[track.id] ?? [],
+        ))
+      }
       guard reader.startReading() else {
         throw EngineError.renderFailed
       }
       self.reader = reader
-      self.output = output
     } catch {
       logger.error("mix.readFailed reason=reader")
       throw .renderFailed

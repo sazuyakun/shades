@@ -61,21 +61,15 @@ struct MixerTests {
       quality: .full,
     )
     let meters = MixMeters()
-    let reader = try AVAssetReader(asset: composition.asset)
-    let output = AVAssetReaderAudioMixOutput(
-      audioTracks: composition.asset.tracks(withMediaType: .audio),
-      audioSettings: [
-        AVFormatIDKey: kAudioFormatLinearPCM,
-        AVLinearPCMBitDepthKey: 32,
-        AVLinearPCMIsFloatKey: true,
-        AVLinearPCMIsNonInterleaved: false,
-        AVLinearPCMIsBigEndianKey: false,
-      ],
-    )
-    output.audioMix = composition.audioMix(for: project.timeline, meters: meters)
-    reader.add(output)
-    #expect(reader.startReading())
-    while output.copyNextSampleBuffer() != nil { }
+    // why: an export session runs the taps on every buffer; reading the mix back with
+    // AVAssetReaderAudioMixOutput skips ahead when a tap call runs long on a busy machine.
+    let session = try #require(AVAssetExportSession(
+      asset: composition.asset,
+      presetName: AVAssetExportPresetAppleM4A,
+    ))
+    session.audioMix = composition.audioMix(for: project.timeline, meters: meters)
+    let file = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).m4a")
+    try await session.export(to: file, as: .m4a)
     let level = try #require(meters.level(of: project.timeline.tracks[1].id, at: 1))
     #expect(abs(level.left - 0.5) < 0.02)
     #expect(level.right < 0.01)
