@@ -38,7 +38,7 @@ Style is enforced by tools, never by memory:
 - **Configs:** `.swiftformat` (Airbnb's config, Swift 6 mode, 100 columns) and `.swiftlint.yml` (Airbnb's rules plus our bans as `error`s). Change these only with the user's approval, and record why here.
 - **Edit atomically:** the hook formats after every edit, and SwiftFormat renames unused parameters to `_`. When you add a parameter, change the signature and its uses in the same edit.
 - **Fresh clone setup:** `brew install swiftformat swiftlint` and `git config core.hooksPath .githooks`.
-- Tool versions in use: SwiftFormat 0.63.1, SwiftLint 0.65.1. Airbnb's `preferStructSwiftTestingSuites` rule is commented out in `.swiftformat` until SwiftFormat ships it.
+- Tool versions in use: SwiftFormat 0.63.1, SwiftLint 0.65.1. CI downloads exactly these releases (`ci.yml`, Install tools) rather than taking the runner image's, so a newer tool never fails the format check on untouched files; bump them there and here together. Airbnb's `preferStructSwiftTestingSuites` rule is commented out in `.swiftformat` until SwiftFormat ships it.
 
 Tool config files and folders (`.claude/`, `.githooks/`, `.github/`, `.swiftformat`, `.swiftlint.yml`, `.gitignore`) are the only exception to the apps/packages/docs top-level rule.
 
