@@ -134,6 +134,7 @@ struct PerformanceTests {
     let clock = ContinuousClock()
     var edit = 0
     var parts = (text: Duration.zero, frame: Duration.zero)
+    var last: RenderLayer?
     let time = try await Benchmark.median {
       edit += 1
       let content = TextContent(text: "SHADES IN 3D \(edit)", style: style)
@@ -152,14 +153,32 @@ struct PerformanceTests {
         solid: drawn.solid,
       )
       parts.frame = try clock.measure { try context.renderer.draw([title], into: output) }
+      last = title
     }
     let empty = try clock.measure { try context.renderer.draw([], into: output) }
+    let title = try #require(last)
+    let variant = { (solid: SolidText?) in
+      RenderLayer(
+        source: title.source,
+        rotation: .identity,
+        transform: title.transform,
+        camera: .identity,
+        opacity: 1,
+        depth: .inFront,
+        matte: nil,
+        isNaturalSize: true,
+        solid: solid,
+      )
+    }
+    let flat = try clock.measure { try context.renderer.draw([variant(nil)], into: output) }
+    let shallow = try clock.measure {
+      try context.renderer.draw([variant(SolidText(depth: 1, bevel: 0))], into: output)
+    }
     // why: PLAN §4: an edit reaches the preview within a frame at 24 fps, at Full quality.
     // Measured 12 ms on the M1 dev machine.
-    #expect(
-      time < .seconds(1.0 / 24),
-      "took \(time): text \(parts.text), frame \(parts.frame) (an empty frame \(empty))",
-    )
+    let report = "took \(time): text \(parts.text), frame \(parts.frame) (empty \(empty), "
+      + "flat \(flat), two slices \(shallow))"
+    #expect(time < .seconds(1.0 / 24), Comment(rawValue: report))
   }
 
   // MARK: Private
