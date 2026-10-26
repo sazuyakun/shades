@@ -161,7 +161,7 @@ public final class Workspace {
   /// Call after every project change: saves it shortly after the last change, makes proxies for
   /// newly imported heavy footage, and measures motion for clips given footage blur.
   public func projectDidChange() {
-    makeMissingProxies()
+    makeMissingProxies(reloads: true)
     makeMissingWaveforms()
     makeMissingFlows()
     makeMissingStereo()
@@ -262,25 +262,30 @@ public final class Workspace {
   /// Claude's History as last saved, so an unchanged one isn't written again.
   @ObservationIgnored private var savedHistory = [ClaudeRequest]()
 
-  /// Queues a proxy for every heavy file that has none yet; playback switches to each as it's
-  /// ready.
-  private func makeMissingProxies() {
+  /// Plays the proxies already made and queues one for every heavy file that has none yet;
+  /// playback switches to each as it's ready. Proxies found while a project opens are taken
+  /// before its first load, so `reloads` is false then.
+  private func makeMissingProxies(reloads: Bool) {
     guard let documentURL else {
       return
     }
     let cache = documentURL.appending(path: "cache")
+    var found = false
     for media in editor.project.media
       where ProxyMaker.needsProxy(media) && player.proxies[media.id] == nil
     {
       guard !queuedProxies.contains(media.id) else {
         continue
       }
-      queuedProxies.insert(media.id)
       let url = ProxyMaker.proxyURL(for: media, in: cache)
+      // why: proxies already made are all taken at once, so playback rebuilds once, not once
+      // each.
       guard !FileManager.default.fileExists(atPath: url.path) else {
-        Task { await useProxy(url, for: media.id, in: documentURL) }
+        player.proxies[media.id] = url
+        found = true
         continue
       }
+      queuedProxies.insert(media.id)
       jobs.enqueue("Making an editing copy of \(media.name)") { [weak self] _ throws(JobError) in
         do throws(MediaError) {
           try await ProxyMaker.makeProxy(of: media, at: url)
@@ -289,6 +294,9 @@ public final class Workspace {
         }
         await self?.useProxy(url, for: media.id, in: documentURL)
       }
+    }
+    if found, reloads {
+      Task { try? await player.load(editor.project) } // why: the editor shows playback errors.
     }
   }
 
@@ -527,7 +535,7 @@ extension Workspace: ProjectHost {
     defaults.set(url.path, forKey: Keys.lastProject)
     defaults.set(true, forKey: Keys.isOpen)
     startSnapshotTimer()
-    makeMissingProxies()
+    makeMissingProxies(reloads: false)
     makeMissingWaveforms()
     makeMissingFlows()
   }

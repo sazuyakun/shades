@@ -589,19 +589,25 @@ extension Composition {
         if let crossing = layer.crossing(at: start) {
           return crossing
         }
-        guard let placed = layer.clips.first(where: { $0.clip.contains(start) }) else {
+        guard
+          let placed = layer.clips.last(startingBy: start, at: \.clip.timelineStart),
+          placed.clip.contains(start)
+        else {
           return []
         }
         return layer.layer(for: placed, fromHandles: false, transition: nil).map { [$0] } ?? []
       }
       let words = text.compactMap { clips in
-        clips.first { $0.contains(start) }.map { CompositionLayer(
-          clipID: $0.id,
-          source: .text,
-          matteTrackID: nil,
-          flowTrackID: nil,
-          transition: nil,
-        ) }
+        clips.last(startingBy: start, at: \.timelineStart).flatMap { $0.contains(start) ? $0 : nil }
+          .map {
+            CompositionLayer(
+              clipID: $0.id,
+              source: .text,
+              matteTrackID: nil,
+              flowTrackID: nil,
+              transition: nil,
+            )
+          }
       }
       let showing = video + words
       return CompositionInstruction(
@@ -771,5 +777,28 @@ extension Project {
       throw .mediaMissing(id)
     }
     return media
+  }
+}
+
+// MARK: - Array + Timing
+
+extension Array {
+  /// The last element starting at or before `time`, found by halving, in elements in time order
+  /// by `start`: on a track, where clips never overlap, the only one that can be showing then.
+  fileprivate func last(
+    startingBy time: MediaTime,
+    at start: (Element) -> MediaTime,
+  ) -> Element? {
+    var low = 0
+    var high = count
+    while low < high {
+      let middle = (low + high) / 2
+      if start(self[middle]) <= time {
+        low = middle + 1
+      } else {
+        high = middle
+      }
+    }
+    return low > 0 ? self[low - 1] : nil
   }
 }
