@@ -64,7 +64,6 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 
 | # | Issue | Fix in |
 |---|---|---|
-| 45 | Editing a big solid 3D title redraws it in about 45 ms at full size on the M1 (Core Text ~19 ms, its distance field ~26 ms across all cores), over a frame at Full preview quality; Auto and Half preview draw a quarter of the pixels. Drawing the field on the GPU would bring it inside a frame | After M9 |
 | 44 | Motion blur follows only where a layer is: text travelling along its path (`pathOffset`), an endless zoom's travel (`portal`) and a changing bend aren't smeared across the shutter, and solid 3D letters skip the whip transition's blur | After M9 |
 | 41 | On the CI runner, exports of HDR and wide-colour clips skip Shades' conversion: given the Rec.709 tags an export needs, the runner's `AVAssetExportSession` tone-maps HLG itself (reference white about 60% instead of Shades' 95%) and relabels P3 as Rec.709 unconverted. Playback, frames and exports on the M1 convert correctly. Not reproducible locally: find what the runner lacks, or tag exported files another way | After M9 |
 | 40 | Two performance targets have no CI gate: launch to the library window (<1 s) needs an app-level UI test, which SwiftPM can't run; and transcription can't pause inside WhisperKit's decoding (it pauses only after the model download and between jobs) | After M9 |

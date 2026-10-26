@@ -158,8 +158,12 @@ public final class RenderContext: Sendable {
     let drawn = DrawnText(
       surface: surface,
       offset: offset,
-      solid: content.style.extrusion.flatMap { extrusion in
-        solid(extrusion, of: buffer, size: Double(height) * content.style.size)
+      solid: content.style.extrusion.map { extrusion in
+        let fontSize = Double(height) * content.style.size
+        return SolidText(
+          depth: extrusion.depth * fontSize,
+          bevel: min(extrusion.bevel, extrusion.depth) * fontSize,
+        )
       },
     )
     texts.withLock { cache in
@@ -265,26 +269,6 @@ public final class RenderContext: Sendable {
 
   // why: no colour management: frames are already Rec.709 and must come out exactly as drawn.
   private let canvasImages = CIContext(options: [.workingColorSpace: NSNull()])
-
-  /// What makes drawn text `fontSize` pixels high solid letters: its distance field, depth and
-  /// bevel in pixels, or `nil` (logged) if the field can't be made.
-  private func solid(
-    _ extrusion: TextExtrusion,
-    of picture: CVPixelBuffer,
-    size fontSize: Double,
-  ) -> SolidText? {
-    let bevel = min(extrusion.bevel, extrusion.depth) * fontSize
-    // why: the field's 127 steps each way must reach past the bevel to light it.
-    let unit = max(1, (bevel + 4) / 120)
-    guard
-      let field = DistanceField.make(from: picture, unit: unit),
-      let surface = CVPixelBufferGetIOSurface(field)?.takeUnretainedValue()
-    else {
-      logger.error("text.solidFailed size=\(fontSize, privacy: .public)")
-      return nil
-    }
-    return SolidText(distance: surface, unit: unit, depth: extrusion.depth * fontSize, bevel: bevel)
-  }
 
 }
 

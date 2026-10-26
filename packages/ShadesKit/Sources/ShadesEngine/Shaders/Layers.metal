@@ -572,7 +572,6 @@ struct Solid {
   float4x4 turn;   // the layer's own turn and the camera's: which way its faces point
   float depth;     // how deep the letters go, in pixels
   float bevel;     // how far the slope round their front edges reaches in, in pixels
-  float unit;      // pixels per step of the distance field
   int slices;      // copies of the letters stacked through the depth
   int backFirst;   // 1 when the front faces the viewer: slices go from the back forward
 };
@@ -609,7 +608,7 @@ vertex SolidOut solidVertex(
 
 // How far `uv` is inside the letters' edge, in pixels (negative outside).
 static float inside(texture2d<half> distance, sampler s, float2 uv, constant Solid &solid) {
-  return (float(distance.sample(s, uv).r) * 255.0 - 128.0) * solid.unit;
+  return float(distance.sample(s, uv).r);
 }
 
 // One slice of solid letters: where they reach at its depth (pulled in by the bevel near the
@@ -663,4 +662,80 @@ fragment float4 solidFragment(
 fragment float4 addFragment(VertexOut in [[stage_in]], texture2d<half> moment [[texture(0)]]) {
   constexpr sampler s(filter::linear, address::clamp_to_edge);
   return float4(moment.sample(s, in.uv)) * in.opacity;
+}
+
+// The distance field of solid letters, by jump flooding. Seeds are the pixels on the ink's edge
+// (with a neighbour on the other side); each pass, every pixel takes the nearest seed known to
+// any pixel `step` away, `step` halving down to 1.
+
+static bool isInk(texture2d<half, access::read> picture, int2 p) {
+  int2 size = int2(picture.get_width(), picture.get_height());
+  return picture.read(uint2(clamp(p, int2(0), size - 1))).a >= 0.5h;
+}
+
+// Marks each pixel on the ink's edge as its own nearest seed, and every other as having none.
+kernel void edgeSeeds(
+  texture2d<half, access::read> picture [[texture(0)]],
+  texture2d<ushort, access::write> seeds [[texture(1)]],
+  uint2 id [[thread_position_in_grid]]
+) {
+  if (id.x >= seeds.get_width() || id.y >= seeds.get_height()) {
+    return;
+  }
+  int2 p = int2(id);
+  bool ink = isInk(picture, p);
+  bool edge = ink != isInk(picture, p + int2(1, 0)) || ink != isInk(picture, p - int2(1, 0))
+    || ink != isInk(picture, p + int2(0, 1)) || ink != isInk(picture, p - int2(0, 1));
+  seeds.write(edge ? ushort4(ushort(id.x), ushort(id.y), 0, 0) : ushort4(0xFFFF), id);
+}
+
+// One jump: the nearest seed among this pixel's and those of the eight pixels `step` away.
+kernel void jumpFlood(
+  texture2d<ushort, access::read> from [[texture(0)]],
+  texture2d<ushort, access::write> to [[texture(1)]],
+  constant int &step [[buffer(0)]],
+  uint2 id [[thread_position_in_grid]]
+) {
+  int2 size = int2(to.get_width(), to.get_height());
+  if (int(id.x) >= size.x || int(id.y) >= size.y) {
+    return;
+  }
+  ushort2 best = ushort2(0xFFFF);
+  float nearest = INFINITY;
+  for (int dy = -1; dy <= 1; dy++) {
+    for (int dx = -1; dx <= 1; dx++) {
+      int2 q = int2(id) + int2(dx, dy) * step;
+      if (any(q < 0) || any(q >= size)) {
+        continue;
+      }
+      ushort2 seed = from.read(uint2(q)).xy;
+      if (seed.x == 0xFFFF) {
+        continue;
+      }
+      float2 offset = float2(seed) - float2(id);
+      float distance = dot(offset, offset);
+      if (distance < nearest) {
+        nearest = distance;
+        best = seed;
+      }
+    }
+  }
+  to.write(ushort4(best, 0, 0), id);
+}
+
+// The signed distance in pixels to the ink's edge, out to `reach`: positive inside. Half a pixel
+// is added because the edge lies between an edge pixel and its neighbour across it.
+kernel void signedDistance(
+  texture2d<half, access::read> picture [[texture(0)]],
+  texture2d<ushort, access::read> seeds [[texture(1)]],
+  texture2d<half, access::write> field [[texture(2)]],
+  constant float &reach [[buffer(0)]],
+  uint2 id [[thread_position_in_grid]]
+) {
+  if (id.x >= field.get_width() || id.y >= field.get_height()) {
+    return;
+  }
+  ushort2 seed = seeds.read(id).xy;
+  float distance = seed.x == 0xFFFF ? reach : min(length(float2(seed) - float2(id)) + 0.5, reach);
+  field.write(half4(isInk(picture, int2(id)) ? distance : -distance), id);
 }

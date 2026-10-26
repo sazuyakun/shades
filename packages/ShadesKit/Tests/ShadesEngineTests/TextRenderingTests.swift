@@ -1,4 +1,3 @@
-import CoreVideo
 import Foundation
 import ShadesCore
 @testable import ShadesEngine
@@ -172,34 +171,6 @@ struct TextRenderingTests {
     }
     let left = try #require(lettered.first)
     #expect(abs(left - 0.5) < 0.05, "halfway along at the halfway moment")
-  }
-
-  @Test
-  func `a distance field measures how far each pixel is inside or outside the ink`() throws {
-    var made: CVPixelBuffer?
-    CVPixelBufferCreate(nil, 40, 40, kCVPixelFormatType_32BGRA, nil, &made)
-    let square = try #require(made)
-    CVPixelBufferLockBaseAddress(square, [])
-    let bytes = try #require(CVPixelBufferGetBaseAddress(square)?
-      .assumingMemoryBound(to: UInt8.self))
-    let row = CVPixelBufferGetBytesPerRow(square)
-    for y in 0 ..< 40 {
-      for x in 0 ..< 40 {
-        let isInk = (10 ..< 30).contains(x) && (10 ..< 30).contains(y)
-        bytes[y * row + x * 4 + 3] = isInk ? 255 : 0
-      }
-    }
-    CVPixelBufferUnlockBaseAddress(square, [])
-    let field = try #require(DistanceField.make(from: square, unit: 1))
-    CVPixelBufferLockBaseAddress(field, .readOnly)
-    defer { CVPixelBufferUnlockBaseAddress(field, .readOnly) }
-    let values = try #require(CVPixelBufferGetBaseAddress(field)?
-      .assumingMemoryBound(to: UInt8.self))
-    let fieldRow = CVPixelBufferGetBytesPerRow(field)
-    let value = { (x: Int, y: Int) in Int(values[y * fieldRow + x]) - 128 }
-    #expect(value(20, 20) == 10, "the middle is ten pixels in (less the half-pixel edge)")
-    #expect(value(10, 20) > 0 && value(8, 20) < 0, "either side of the edge")
-    #expect(value(0, 0) == -14, "the corner is ten pixels out on each axis")
   }
 
   @Test

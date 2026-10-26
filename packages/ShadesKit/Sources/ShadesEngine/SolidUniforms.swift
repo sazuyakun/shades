@@ -15,7 +15,6 @@ struct SolidUniforms {
     turn = FrameUniforms.view(camera, size: size) * FrameUniforms.model(transform, size: size)
     depth = Float(solid.depth)
     bevel = Float(min(solid.bevel, solid.depth))
-    unit = Float(solid.unit)
     slices = Int32(min(max(Int(solid.depth / Self.sliceSpacing) + 2, 2), Self.maxSlices))
     let center = turn * SIMD4(0, 0, 0, 1)
     let front = turn * SIMD4(0, 0, 1, 0)
@@ -30,7 +29,6 @@ struct SolidUniforms {
   let turn: simd_float4x4
   let depth: Float
   let bevel: Float
-  let unit: Float
   /// Copies of the letters stacked through the depth.
   let slices: Int32
   /// 1 when the front faces the viewer, so slices are drawn from the back forward.

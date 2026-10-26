@@ -83,6 +83,9 @@ final class MetalRenderer: Sendable {
       mixing: .add,
       format: Self.trailFormat,
     )
+    seedPipeline = try Self.makeKernel(device: device, library: library, named: "edgeSeeds")
+    floodPipeline = try Self.makeKernel(device: device, library: library, named: "jumpFlood")
+    fieldPipeline = try Self.makeKernel(device: device, library: library, named: "signedDistance")
     // why: in a 2×2×2 grid, red changes fastest, then green, then blue: each corner maps to itself.
     let identity: [Float] = (0 ..< 8).flatMap { (corner: Int) -> [Float] in
       let red = Float(corner & 1)
@@ -315,6 +318,10 @@ final class MetalRenderer: Sendable {
   private let solidPipeline: any MTLRenderPipelineState
   /// Adds one moment of a moving solid layer into its trail.
   private let addPipeline: any MTLRenderPipelineState
+  /// Find solid letters' distance field: marks their edge, spreads it, measures to it.
+  private let seedPipeline: any MTLComputePipelineState
+  private let floodPipeline: any MTLComputePipelineState
+  private let fieldPipeline: any MTLComputePipelineState
   /// The buffer moving layers' moments are summed in, kept between frames: at full size it's
   /// tens of megabytes. Frames are drawn in order on one queue, so sharing it is safe.
   private let kept = Mutex<[KeptTexture: any MTLTexture]>([:])
@@ -352,6 +359,24 @@ final class MetalRenderer: Sendable {
       return try device.makeLibrary(source: source, options: nil)
     } catch {
       logger.fault("metal.setupFailed reason=shaderCompile")
+      throw .metalUnavailable
+    }
+  }
+
+  /// A compute pipeline running the kernel `name`.
+  private static func makeKernel(
+    device: any MTLDevice,
+    library: any MTLLibrary,
+    named name: String,
+  ) throws(EngineError) -> any MTLComputePipelineState {
+    guard let function = library.makeFunction(name: name) else {
+      logger.fault("metal.setupFailed reason=kernelMissing kernel=\(name, privacy: .public)")
+      throw .metalUnavailable
+    }
+    do {
+      return try device.makeComputePipelineState(function: function)
+    } catch {
+      logger.fault("metal.setupFailed reason=kernel kernel=\(name, privacy: .public)")
       throw .metalUnavailable
     }
   }
@@ -632,12 +657,21 @@ final class MetalRenderer: Sendable {
     into target: any MTLTexture,
     commands: any MTLCommandBuffer,
   ) throws(EngineError) {
+    guard case .surface(let surface) = layer.source else {
+      logger.fault("frame.invariantBroken reason=solidWithoutText")
+      assertionFailure("only text is drawn solid")
+      return
+    }
     let size = CGSize(width: target.width, height: target.height)
+    let picture = try texture(for: surface)
+    let field = try distanceField(of: picture, reach: solid.bevel + 4, commands: commands)
     guard layer.shutter.count > 1 else {
       let encoder = try startPass(on: target, clearing: true, toClear: true, commands: commands)
       try encodeSolid(
         layer,
         solid,
+        picture: picture,
+        field: field,
         at: LayerPose(transform: layer.transform, camera: layer.camera),
         size: size,
         encoder: encoder,
@@ -655,7 +689,15 @@ final class MetalRenderer: Sendable {
     )
     for pose in layer.shutter {
       let slices = try startPass(on: moment, clearing: true, toClear: true, commands: commands)
-      try encodeSolid(layer, solid, at: pose, size: size, encoder: slices)
+      try encodeSolid(
+        layer,
+        solid,
+        picture: picture,
+        field: field,
+        at: pose,
+        size: size,
+        encoder: slices,
+      )
       slices.endEncoding()
       let adding = try startPass(on: target, clearing: false, commands: commands)
       adding.setRenderPipelineState(addPipeline)
@@ -666,20 +708,74 @@ final class MetalRenderer: Sendable {
     }
   }
 
-  /// Stacks the slices of `layer`'s solid letters, placed at `pose`, from the back forward.
+  /// The signed distance, in pixels, from each pixel of `picture` to the edge of its ink (positive
+  /// inside), out to `reach` pixels: jump flooding on the GPU, in a few passes over the picture.
+  private func distanceField(
+    of picture: any MTLTexture,
+    reach: Double,
+    commands: any MTLCommandBuffer,
+  ) throws(EngineError) -> any MTLTexture {
+    let made = { (format: MTLPixelFormat) throws(EngineError) -> any MTLTexture in
+      let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: format,
+        width: picture.width,
+        height: picture.height,
+        mipmapped: false,
+      )
+      descriptor.usage = [.shaderRead, .shaderWrite]
+      descriptor.storageMode = .private
+      guard let texture = self.device.makeTexture(descriptor: descriptor) else {
+        logger.error("frame.renderFailed reason=distanceField")
+        throw .renderFailed
+      }
+      return texture
+    }
+    var seeds = try made(.rg16Uint)
+    var spread = try made(.rg16Uint)
+    let field = try made(.r16Float)
+    guard let encoder = commands.makeComputeCommandEncoder() else {
+      logger.error("frame.renderFailed reason=computeEncoder")
+      throw .renderFailed
+    }
+    let grid = MTLSize(width: picture.width, height: picture.height, depth: 1)
+    let group = MTLSize(width: 16, height: 16, depth: 1)
+    encoder.setComputePipelineState(seedPipeline)
+    encoder.setTexture(picture, index: 0)
+    encoder.setTexture(seeds, index: 1)
+    encoder.dispatchThreads(grid, threadsPerThreadgroup: group)
+    // why: seeds further than `reach` don't matter, so the jumps start just past it.
+    var step = Int32(1) << Int32(ceil(log2(max(reach, 1))))
+    encoder.setComputePipelineState(floodPipeline)
+    while step >= 1 {
+      encoder.setTexture(seeds, index: 0)
+      encoder.setTexture(spread, index: 1)
+      encoder.setBytes(&step, length: MemoryLayout<Int32>.stride, index: 0)
+      encoder.dispatchThreads(grid, threadsPerThreadgroup: group)
+      swap(&seeds, &spread)
+      step /= 2
+    }
+    var limit = Float(reach)
+    encoder.setComputePipelineState(fieldPipeline)
+    encoder.setTexture(picture, index: 0)
+    encoder.setTexture(seeds, index: 1)
+    encoder.setTexture(field, index: 2)
+    encoder.setBytes(&limit, length: MemoryLayout<Float>.stride, index: 0)
+    encoder.dispatchThreads(grid, threadsPerThreadgroup: group)
+    encoder.endEncoding()
+    return field
+  }
+
+  /// Stacks the slices of `layer`'s solid letters, drawn from `picture` with its distance
+  /// `field` and placed at `pose`, from the back forward.
   private func encodeSolid(
     _ layer: RenderLayer,
     _ solid: SolidText,
+    picture: any MTLTexture,
+    field: any MTLTexture,
     at pose: LayerPose,
     size: CGSize,
     encoder: any MTLRenderCommandEncoder,
   ) throws(EngineError) {
-    guard case .surface(let surface) = layer.source else {
-      logger.fault("frame.invariantBroken reason=solidWithoutText")
-      assertionFailure("only text is drawn solid")
-      return
-    }
-    let picture = try texture(for: surface)
     var uniforms = FrameUniforms(
       stored: CGSize(width: picture.width, height: picture.height),
       rotation: .identity,
@@ -713,7 +809,7 @@ final class MetalRenderer: Sendable {
     try encoder.setFragmentBuffer(buffer(of: masks.points), offset: 0, index: 2)
     encoder.setFragmentBytes(&shape, length: MemoryLayout<SolidUniforms>.stride, index: 3)
     encoder.setFragmentTexture(picture, index: 0)
-    encoder.setFragmentTexture(try texture(for: solid.distance, format: .r8Unorm), index: 5)
+    encoder.setFragmentTexture(field, index: 5)
     encoder.drawPrimitives(
       type: .triangleStrip,
       vertexStart: 0,

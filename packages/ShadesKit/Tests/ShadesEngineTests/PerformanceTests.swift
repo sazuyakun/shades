@@ -1,7 +1,9 @@
 import AVFoundation
 import Foundation
 import ShadesCore
-import ShadesEngine
+// why: an edit to a title redraws only its text and its frame; the public paths build a whole
+// composition and encode a file, which would bury the time this gate measures.
+@testable import ShadesEngine
 import ShadesMatting
 import ShadesTestSupport
 import Testing
@@ -121,6 +123,34 @@ struct PerformanceTests {
     #expect(median < .milliseconds(150), "scrubs took \(waits)")
     // why: PLAN §4's ceiling for editing a 4K project; this one plays three layers of it.
     #expect(Benchmark.memoryFootprint() < 1_500_000_000)
+  }
+
+  @Test
+  func `editing a big solid 3D title redraws it within a frame at full size`() async throws {
+    let context = try RenderContext()
+    var style = TextStyle(size: 0.2, anchor: .center)
+    style.extrusion = TextExtrusion(depth: 0.5, bevel: 0.05)
+    let output = try RenderContext.pictureBuffer(width: 2880, height: 2160)
+    var edit = 0
+    let time = try await Benchmark.median {
+      edit += 1
+      let content = TextContent(text: "SHADES IN 3D \(edit)", style: style)
+      let drawn = try #require(context.text(content, at: 0, duration: 1, width: 2880, height: 2160))
+      let title = RenderLayer(
+        source: .surface(drawn.surface),
+        rotation: .identity,
+        transform: ClipTransform(tiltX: -15, tiltY: 35),
+        camera: .identity,
+        opacity: 1,
+        depth: .inFront,
+        matte: nil,
+        isNaturalSize: true,
+        solid: drawn.solid,
+      )
+      try context.renderer.draw([title], into: output)
+    }
+    // why: PLAN §4: an edit reaches the preview within a frame at 24 fps, at Full quality.
+    #expect(time < .milliseconds(1000 / 24), "took \(time)")
   }
 
   // MARK: Private
