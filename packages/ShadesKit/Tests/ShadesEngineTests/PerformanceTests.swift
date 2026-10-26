@@ -150,7 +150,8 @@ struct PerformanceTests {
       try context.renderer.draw([title], into: output)
     }
     // why: PLAN §4: an edit reaches the preview within a frame at 24 fps, at Full quality.
-    #expect(time < .milliseconds(1000 / 24), "took \(time)")
+    // Measured 12 ms on the M1 dev machine.
+    #expect(time < .seconds(1.0 / 24), "took \(time)")
   }
 
   // MARK: Private

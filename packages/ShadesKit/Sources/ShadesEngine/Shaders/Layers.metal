@@ -635,6 +635,14 @@ fragment float4 solidFragment(
 ) {
   constexpr sampler s(filter::linear, address::clamp_to_edge);
   float edge = inside(distance, s, in.uv, solid) - max(solid.bevel - in.behind, 0.0);
+  bool isFront = in.behind < 0.5;
+  bool isBack = in.behind > solid.depth - 0.5;
+  // why: deep inside the letters a middle slice is always hidden by the slices around it (the
+  // next one sits at most 1.5 px away, so even turned 84° it covers 16 px in), and shading it
+  // anyway is most of the work.
+  if (edge > 16.0 && !isFront && !isBack) {
+    discard_fragment();
+  }
   float cover = saturate(edge + 0.5) * cropCoverage(in.upright, look)
     * maskCoverage(in.upright, in.aspect, look, masks, points);
   if (cover <= 0) {
@@ -650,9 +658,9 @@ fragment float4 solidFragment(
   float2 outward = length(slope) > 0.0001 ? -normalize(slope) : float2(0);
   bool isFace = edge > 1.5;
   float3 normal;
-  if (in.behind < 0.5 && (solid.bevel < 0.5 || isFace)) {
+  if (isFront && (solid.bevel < 0.5 || isFace)) {
     normal = float3(0, 0, 1);
-  } else if (in.behind > solid.depth - 0.5 && isFace) {
+  } else if (isBack && isFace) {
     normal = float3(0, 0, -1);
   } else if (in.behind < solid.bevel) {
     normal = normalize(float3(outward, 1));

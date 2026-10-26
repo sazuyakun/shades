@@ -166,6 +166,10 @@ final class MetalRenderer: Sendable {
           : trailPipeline)
         encoder.setFragmentTexture(isMasked ? mask : blank, index: 1)
         encoder.setFragmentTexture(backdrop ?? blank, index: 2)
+        let blur = layer.effects?.blur ?? 0
+        if let box = screenBox(of: layer, solid, size: outputSize, reach: blur * 24 / scale + 2) {
+          encoder.setScissorRect(box)
+        }
         try drawTrail(
           trail,
           of: layer,
@@ -173,10 +177,16 @@ final class MetalRenderer: Sendable {
           scale: scale,
           opacity: layer.shutter.count > 1 ? 1 : layer.opacity,
           // why: solid letters skip the layer shader, where other layers take their blur.
-          blur: layer.effects?.blur ?? 0,
+          blur: blur,
           isMasked: isMasked,
           encoder: encoder,
         )
+        encoder.setScissorRect(MTLScissorRect(
+          x: 0,
+          y: 0,
+          width: outputTexture.width,
+          height: outputTexture.height,
+        ))
         continue
       }
       if layer.shutter.count > 1 {
@@ -630,8 +640,10 @@ final class MetalRenderer: Sendable {
     like output: any MTLTexture,
   ) throws(EngineError) -> any MTLTexture {
     let device = device
-    let width = output.width
-    let height = output.height
+    // why: solid letters' sides are soft shading, drawn at half size (a quarter of the work).
+    let divisor = purpose == .solidSides ? 2 : 1
+    let width = max(output.width / divisor, 1)
+    let height = max(output.height / divisor, 1)
     let texture = kept.withLock { kept -> (any MTLTexture)? in
       if let current = kept[purpose], current.width == width, current.height == height {
         return current
@@ -671,17 +683,16 @@ final class MetalRenderer: Sendable {
     let picture = try texture(for: surface)
     let field = try distanceField(of: picture, reach: solid.bevel + 4, commands: commands)
     guard layer.shutter.count > 1 else {
-      let encoder = try startPass(on: target, clearing: true, toClear: true, commands: commands)
-      try encodeSolid(
+      try stackSolid(
         layer,
         solid,
         picture: picture,
         field: field,
         at: LayerPose(transform: layer.transform, camera: layer.camera),
-        size: size,
-        encoder: encoder,
+        within: screenBox(of: layer, solid, size: size, reach: 2),
+        into: target,
+        commands: commands,
       )
-      encoder.endEncoding()
       return
     }
     let moment = try keptTexture(.solidMoment, like: target)
@@ -699,17 +710,16 @@ final class MetalRenderer: Sendable {
         let moved = try texture(for: surface)
         posed = try (moved, distanceField(of: moved, reach: solid.bevel + 4, commands: commands))
       }
-      let slices = try startPass(on: moment, clearing: true, toClear: true, commands: commands)
-      try encodeSolid(
+      try stackSolid(
         layer,
         solid,
         picture: posed.picture,
         field: posed.field,
         at: pose,
-        size: size,
-        encoder: slices,
+        within: nil,
+        into: moment,
+        commands: commands,
       )
-      slices.endEncoding()
       let adding = try startPass(on: target, clearing: false, commands: commands)
       adding.setRenderPipelineState(addPipeline)
       adding.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
@@ -717,6 +727,100 @@ final class MetalRenderer: Sendable {
       adding.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: uniforms.vertexCount)
       adding.endEncoding()
     }
+  }
+
+  /// Stacks `layer`'s solid letters, placed at `pose`, into `target` (cleared first): every
+  /// slice but the last drawn at half size, then the face in view over them at full size. Only
+  /// `box` is drawn when given (where the letters can land).
+  private func stackSolid(
+    _ layer: RenderLayer,
+    _ solid: SolidText,
+    picture: any MTLTexture,
+    field: any MTLTexture,
+    at pose: LayerPose,
+    within box: MTLScissorRect?,
+    into target: any MTLTexture,
+    commands: any MTLCommandBuffer,
+  ) throws(EngineError) {
+    let size = CGSize(width: target.width, height: target.height)
+    let sides = try keptTexture(.solidSides, like: target)
+    let behind = try startPass(on: sides, clearing: true, toClear: true, commands: commands)
+    if let box {
+      let left = box.x / 2
+      let top = box.y / 2
+      behind.setScissorRect(MTLScissorRect(
+        x: left,
+        y: top,
+        width: min((box.x + box.width + 1) / 2, sides.width) - left,
+        height: min((box.y + box.height + 1) / 2, sides.height) - top,
+      ))
+    }
+    try encodeSolid(
+      layer,
+      solid,
+      picture: picture,
+      field: field,
+      at: pose,
+      size: size,
+      part: .sides,
+      encoder: behind,
+    )
+    behind.endEncoding()
+    let encoder = try startPass(on: target, clearing: true, toClear: true, commands: commands)
+    if let box {
+      encoder.setScissorRect(box)
+    }
+    var whole = FrameUniforms(stored: size, rotation: .identity, output: size)
+    encoder.setRenderPipelineState(addPipeline)
+    encoder.setVertexBytes(&whole, length: MemoryLayout<FrameUniforms>.stride, index: 0)
+    encoder.setFragmentTexture(sides, index: 0)
+    encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: whole.vertexCount)
+    try encodeSolid(
+      layer,
+      solid,
+      picture: picture,
+      field: field,
+      at: pose,
+      size: size,
+      part: .face,
+      encoder: encoder,
+    )
+    encoder.endEncoding()
+  }
+
+  /// The part of a `size` frame a still, flat-cut solid layer can cover, `reach` pixels round its
+  /// letters' corners front and back, so compositing it skips the rest of the frame; `nil` when
+  /// its corners don't bound it (a bend, motion blur) or it's off the frame.
+  private func screenBox(
+    of layer: RenderLayer,
+    _ solid: SolidText,
+    size: CGSize,
+    reach: Double,
+  ) -> MTLScissorRect? {
+    guard
+      layer.shutter.count < 2, layer.transform.bend == 0,
+      case .surface(let surface) = layer.source
+    else {
+      return nil
+    }
+    let corners = SolidUniforms.screenCorners(
+      solid,
+      picture: CGSize(width: surface.width, height: surface.height),
+      transform: layer.transform,
+      camera: layer.camera,
+      output: size,
+    )
+    let points = corners.front + corners.back
+    let xs = points.map { Double($0.x) + size.width / 2 }
+    let ys = points.map { size.height / 2 - Double($0.y) }
+    let left = max(Int(((xs.min() ?? 0) - reach).rounded(.down)), 0)
+    let top = max(Int(((ys.min() ?? 0) - reach).rounded(.down)), 0)
+    let right = min(Int(((xs.max() ?? 0) + reach).rounded(.up)), Int(size.width))
+    let bottom = min(Int(((ys.max() ?? 0) + reach).rounded(.up)), Int(size.height))
+    guard right > left, bottom > top else {
+      return nil
+    }
+    return MTLScissorRect(x: left, y: top, width: right - left, height: bottom - top)
   }
 
   /// The signed distance, in pixels, from each pixel of `picture` to the edge of its ink (positive
@@ -776,8 +880,8 @@ final class MetalRenderer: Sendable {
     return field
   }
 
-  /// Stacks the slices of `layer`'s solid letters, drawn from `picture` with its distance
-  /// `field` and placed at `pose`, from the back forward.
+  /// Draws `part` of the slices of `layer`'s solid letters, from `picture` with its distance
+  /// `field`, placed at `pose` in a `size` frame, from the back forward.
   private func encodeSolid(
     _ layer: RenderLayer,
     _ solid: SolidText,
@@ -785,6 +889,7 @@ final class MetalRenderer: Sendable {
     field: any MTLTexture,
     at pose: LayerPose,
     size: CGSize,
+    part: SolidPart,
     encoder: any MTLRenderCommandEncoder,
   ) throws(EngineError) {
     var uniforms = FrameUniforms(
@@ -795,7 +900,13 @@ final class MetalRenderer: Sendable {
       camera: pose.camera,
       isNaturalSize: true,
     )
-    var shape = SolidUniforms(solid, transform: pose.transform, camera: pose.camera, output: size)
+    var shape = SolidUniforms(
+      solid,
+      picture: CGSize(width: picture.width, height: picture.height),
+      transform: pose.transform,
+      camera: pose.camera,
+      output: size,
+    )
     let masks = LayerMaskShape.shapes(of: layer.masks)
     var look = LayerLook(
       size: size,
@@ -821,11 +932,17 @@ final class MetalRenderer: Sendable {
     encoder.setFragmentBytes(&shape, length: MemoryLayout<SolidUniforms>.stride, index: 3)
     encoder.setFragmentTexture(picture, index: 0)
     encoder.setFragmentTexture(field, index: 5)
+    let last = Int(shape.slices) - 1
+    let instances = part == .sides ? 0 ..< last : last ..< last + 1
+    guard !instances.isEmpty else {
+      return
+    }
     encoder.drawPrimitives(
       type: .triangleStrip,
       vertexStart: 0,
       vertexCount: uniforms.vertexCount,
-      instanceCount: Int(shape.slices),
+      instanceCount: instances.count,
+      baseInstance: instances.lowerBound,
     )
   }
 
@@ -1335,4 +1452,16 @@ private enum KeptTexture {
   case trail
   /// One moment of a moving solid layer, before it's added to its trail.
   case solidMoment
+  /// Solid letters' sides, at half size, before their face is drawn over them.
+  case solidSides
+}
+
+// MARK: - SolidPart
+
+/// Which slices of solid letters a pass draws.
+private enum SolidPart {
+  /// All but the last drawn: the sides, and faces hidden behind them.
+  case sides
+  /// The last drawn: the face in view.
+  case face
 }
