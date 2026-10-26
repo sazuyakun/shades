@@ -64,6 +64,7 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 
 | # | Issue | Fix in |
 |---|---|---|
+| 47 | Editing a big flat title with its drop shadow redraws it in about 105 ms at full size on the M1, over a frame: Core Graphics blurs the shadow (a quarter of the letter size) on the CPU. Solid 3D titles cast no flat shadow and redraw in about 12 ms. Drawing the shadow on the GPU (a blur of the text's alpha in the layer pass) would bring it inside a frame | After M9 |
 | 41 | On the CI runner, exports of HDR and wide-colour clips skip Shades' conversion: given the Rec.709 tags an export needs, the runner's `AVAssetExportSession` tone-maps HLG itself (reference white about 60% instead of Shades' 95%) and relabels P3 as Rec.709 unconverted. Playback, frames and exports on the M1 convert correctly. Not reproducible locally: find what the runner lacks, or tag exported files another way | After M9 |
 | 40 | Two performance targets have no CI gate: launch to the library window (<1 s) needs an app-level UI test, which SwiftPM can't run; and transcription can't pause inside WhisperKit's decoding (it pauses only after the model download and between jobs) | After M9 |
 | 39 | HDR clips are tone-mapped from 8-bit frames, so smooth 10-bit gradients (skies) can band slightly; media imported before 2026-10-21 has no colour tags, so it's converted but shows no HDR badge until imported again | After M9 |
