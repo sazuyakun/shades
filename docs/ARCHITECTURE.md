@@ -27,7 +27,8 @@ shades/
 │       │   ├── ShadesExport/     presets, encode queue
 │       │   ├── ShadesMCP/     MCP server: commands become Claude tools
 │       │   └── ShadesUI/         SwiftUI views (AppKit where SwiftUI is too slow)
-│       └── Tests/
+│       ├── Tests/
+│       └── Tools/            scripts that make the models Shades downloads (e.g. convert-htdemucs.py)
 └── docs/
 ```
 

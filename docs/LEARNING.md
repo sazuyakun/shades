@@ -574,3 +574,8 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **JS/TS analogy:** Like a WebGPU compute shader, or `array.map` run on thousands of GPU cores at once.
 **In Shades:** The solid-letter distance field: `edgeSeeds`, `jumpFlood` (a few times) and `signedDistance` run as kernels before the letters' slices are drawn.
 
+
+## Converting a model to CoreML (`coremltools`, `.mlpackage` → `.mlmodelc`)
+**What it is:** `coremltools` (Apple's Python package) traces a PyTorch network into Core ML's own program format, saved as an `.mlpackage` (the editable source form). Compiling it gives the `.mlmodelc` folder the app loads (`model.mil` is the program, `weights/` the numbers). Choosing half precision at conversion stores and runs the weights as `Float16`, halving the size.
+**JS/TS analogy:** Like transpiling TypeScript (`.mlpackage`) to the JavaScript the browser actually runs (`.mlmodelc`): you ship the compiled output, and keep the build script that makes it.
+**In Shades:** `packages/ShadesKit/Tools/convert-htdemucs.py` turns HTDemucs into `HTDemucs.mlmodelc` for `StemSeparator`, then checks it against PyTorch.

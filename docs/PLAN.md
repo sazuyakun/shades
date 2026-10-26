@@ -71,7 +71,7 @@ An audit on 2026-10-21 checked every claim in §1 and §2 against the code; rows
 | 39 | HDR clips are tone-mapped from 8-bit frames, so smooth 10-bit gradients (skies) can band slightly; media imported before 2026-10-21 has no colour tags, so it's converted but shows no HDR badge until imported again | After M9 |
 | 38 | Opening the project that's already open can lose the last ~1 s of edits (before autosave runs) and any History changes not yet saved | After M9 |
 | 36 | Choices from lists aren't in the ⌘K palette: `EditorAction` is a fixed list, so plugin templates, overlays, sounds, looks and styles, the motion presets and keyframe easing are picked only from their menus. Normalize Loudness (⌥L) shows no result in the app, only the new master level; its measurement reaches Claude alone | After M9 |
-| 11 | The stem model isn't hosted yet, so its first-use download fails until the `models-1` release asset is published (needs Soham's yes) | M7 |
+| 11 | The stem model isn't hosted yet, so its first-use download fails. The model is rebuilt (`packages/ShadesKit/Tools/convert-htdemucs.py`, Meta's MIT `htdemucs` weights) and checked: the stem tests pass and voice and music are within 0.07% of PyTorch. `HTDemucs.mlmodelc.zip` and its SHA-256 wait in `~/Shades/release/`; only uploading it as the `models-1` release asset is left (needs Soham's yes) | M7 |
 
 ## 3. Constraints & setup notes
 - Dev machine: **M1, 8 GB RAM, macOS 26**. If it plays smoothly here, it plays smoothly everywhere. That's our benchmark.
