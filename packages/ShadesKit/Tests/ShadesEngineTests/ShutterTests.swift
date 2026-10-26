@@ -44,6 +44,23 @@ struct ShutterTests {
     #expect(poses.count == 20)
   }
 
+  @Test
+  func `content moving inside a still layer blurs it`() {
+    // why: 1440 px a second inside the picture over a 1/48 s shutter is 30 px: 20 steps.
+    let poses = Shutter.poses(around: second, length: 1 / 48, size: size, limit: 32) { moment in
+      LayerPose(transform: .identity, camera: .identity, drift: moment.seconds * 1440)
+    }
+    #expect(poses.count == 20)
+  }
+
+  @Test
+  func `a changing bend blurs the layer`() {
+    let poses = Shutter.poses(around: second, length: 1 / 48, size: size, limit: 32) { moment in
+      LayerPose(transform: ClipTransform(bend: moment.seconds * 180), camera: .identity)
+    }
+    #expect(poses.count > 4)
+  }
+
   // MARK: Private
 
   private let size = CGSize(width: 1440, height: 1080)

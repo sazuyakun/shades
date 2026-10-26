@@ -207,6 +207,80 @@ struct TextRenderingTests {
     #expect(try GoldenFrame.matches(png, named: "title-extruded-bent-moving", in: golden))
   }
 
+  @Test
+  func `text travelling its path fast blurs along it`() async throws {
+    var style = TextStyle(size: 0.12, outline: 0, align: .left)
+    style.shadow = false
+    let line = TextPath(points: [DrawingPoint(x: 0, y: 0.5), DrawingPoint(x: 1, y: 0.5)])
+    let travel = { (clip: inout Clip) in
+      clip.keyframes = [
+        Keyframe(property: .pathOffset, time: .zero, value: -0.5),
+        Keyframe(property: .pathOffset, time: MediaTime(seconds: 2), value: 1.5),
+      ]
+    }
+    let content = TextContent(text: "ZOOM", style: style, path: line)
+    let sharp = try await frame(content, at: 1) { clip in
+      travel(&clip)
+      clip.motionBlur = 0
+    }
+    let blurred = try await frame(content, at: 1, change: travel)
+    let soft = { (png: Data) throws -> Int in
+      try stride(from: 0.0, through: 1, by: 0.005).count { x in
+        let green = try PixelProbe.color(of: png, x: x, y: 0.47).green
+        return green > 40 && green < 200
+      }
+    }
+    #expect(try soft(blurred) > soft(sharp) + 10, "half-lit smear along the path")
+    #expect(try GoldenFrame.matches(blurred, named: "text-travelling-path-blurred", in: golden))
+  }
+
+  @Test
+  func `solid letters whip into the next title blurred`() async throws {
+    var style = TextStyle(size: 0.16, anchor: .center)
+    style.extrusion = TextExtrusion(depth: 0.4, bevel: 0.04)
+    let first = Clip(
+      source: .text(TextContent(text: "ONE", style: style)),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 1),
+      timelineStart: .zero,
+    )
+    let second = Clip(
+      source: .text(TextContent(text: "TWO", style: style)),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 1),
+      timelineStart: MediaTime(seconds: 1),
+      transitionIn: Transition(kind: .whip, duration: MediaTime(seconds: 0.8)),
+    )
+    let png = try await frame(tracks: [[first, second]], at: 1)
+    #expect(try GoldenFrame.matches(png, named: "transition-whip-solid-text", in: golden))
+  }
+
+  @Test
+  func `titles on a text track dissolve into each other`() async throws {
+    let style = TextStyle(size: 0.2, color: HexColor("#FFD84A") ?? .white, anchor: .center)
+    let first = Clip(
+      source: .text(TextContent(text: "AAAA", style: style)),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 1),
+      timelineStart: .zero,
+    )
+    let second = Clip(
+      source: .text(TextContent(text: "BBBB", style: style)),
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 1),
+      timelineStart: MediaTime(seconds: 1),
+      transitionIn: Transition(kind: .dissolve, duration: MediaTime(seconds: 0.8)),
+    )
+    let before = try await frame(tracks: [[first, second]], at: 0.5)
+    let during = try await frame(tracks: [[first, second]], at: 1)
+    let ink = { (png: Data) throws -> Int in
+      try stride(from: 0.2, through: 0.8, by: 0.01).count { x in
+        try PixelProbe.color(of: png, x: x, y: 0.5).blue < 150
+      }
+    }
+    #expect(try ink(during) > ink(before), "both titles show at the cut, one over the other")
+  }
+
   // MARK: Private
 
   private let golden = URL(filePath: #filePath).deletingLastPathComponent()
@@ -242,6 +316,11 @@ struct TextRenderingTests {
 
   /// Text clips, each on its own track, over a blue background, rendered at `seconds`.
   private func frame(layers: [Clip], at seconds: Double) async throws -> Data {
+    try await frame(tracks: layers.map { [$0] }, at: seconds)
+  }
+
+  /// Text tracks of clips over a blue background, rendered at `seconds`.
+  private func frame(tracks: [[Clip]], at seconds: Double) async throws -> Data {
     let url = try await VideoFixture.make(red: 0, green: 0, blue: 255, seconds: 2)
     let media = Media(
       url: url,
@@ -260,8 +339,8 @@ struct TextRenderingTests {
       media: [media],
       timeline: Timeline(
         format: .half,
-        tracks: [Track(kind: .video, clips: [video])] + layers
-          .map { Track(kind: .text, clips: [$0]) },
+        tracks: [Track(kind: .video, clips: [video])] + tracks
+          .map { Track(kind: .text, clips: $0) },
       ),
     )
     return try await FrameRenderer.png(of: project, atSeconds: seconds, maxSide: 480)

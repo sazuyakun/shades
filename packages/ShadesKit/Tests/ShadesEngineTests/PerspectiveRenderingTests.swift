@@ -80,6 +80,19 @@ struct PerspectiveRenderingTests {
     #expect(try GoldenFrame.matches(png, named: "layer-bent", in: golden))
   }
 
+  @Test
+  func `a layer bending fast blurs as it curls`() async throws {
+    let project = try await blueOverRed { clip, _ in
+      clip.transform = ClipTransform(scale: 0.7)
+      clip.keyframes = [
+        Keyframe(property: .bend, time: .zero, value: -240),
+        Keyframe(property: .bend, time: MediaTime(seconds: 1), value: 240),
+      ]
+    }
+    let png = try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    #expect(try GoldenFrame.matches(png, named: "layer-bending-blurred", in: golden))
+  }
+
   // MARK: Private
 
   private let golden = URL(filePath: #filePath).deletingLastPathComponent()

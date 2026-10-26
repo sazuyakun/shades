@@ -239,7 +239,7 @@ extension Composition {
         CMTimeRange(start: .zero, duration: timeline.duration.cmTime)
       )
     }
-    let textLayers = timeline.tracks.filter { $0.kind == .text }.map(\.clips)
+    let textLayers = timeline.tracks.filter { $0.kind == .text }
     let videoComposition = AVMutableVideoComposition()
     videoComposition.customVideoCompositorClass = MetalCompositor.self
     // why: no colour properties, so AVFoundation hands frames over as they are, with their own
@@ -559,11 +559,42 @@ extension Composition {
     target.scaleTimeRange(CMTimeRange(start: position, duration: frame), toDuration: length)
   }
 
+  /// The text of `track` showing from `start`: one clip, or both clips of a transition happening
+  /// then, outgoing below incoming. Text needs no handles: it's drawn past its ends as it is.
+  private static func textLayers(of track: Track, at start: MediaTime) -> [CompositionLayer] {
+    let layer = { (clip: Clip, part: TransitionPart?) in
+      CompositionLayer(
+        clipID: clip.id,
+        source: .text,
+        matteTrackID: nil,
+        flowTrackID: nil,
+        transition: part,
+      )
+    }
+    for (outgoing, incoming, transition) in track.transitions {
+      let half = MediaTime(seconds: transition.duration.seconds / 2)
+      let cut = incoming.timelineStart
+      guard cut - half <= start, start < cut + half else {
+        continue
+      }
+      return [false, true].map { isIncoming in
+        layer(isIncoming ? incoming : outgoing, TransitionPart(
+          kind: transition.kind,
+          start: cut - half,
+          duration: transition.duration,
+          isIncoming: isIncoming,
+        ))
+      }
+    }
+    return track.clips.last(startingBy: start, at: \.timelineStart)
+      .flatMap { $0.contains(start) ? [layer($0, nil)] : nil } ?? []
+  }
+
   /// One instruction for every stretch between clip edges, listing the clips showing there
   /// bottom to top, covering the whole timeline without overlaps as AVFoundation requires.
   private static func instructions(
     for layers: [VideoLayer],
-    text: [[Clip]],
+    text: [Track],
     duration: MediaTime,
     until end: MediaTime,
     pictureSize: CGSize,
@@ -574,11 +605,11 @@ extension Composition {
     quality: RenderQuality,
   ) -> [CompositionInstruction] {
     var edges: Set = [MediaTime.zero, duration, end]
-    for clip in layers.flatMap({ $0.clips.map(\.clip) }) + text.flatMap(\.self) {
+    for clip in layers.flatMap({ $0.clips.map(\.clip) }) + text.flatMap(\.clips) {
       edges.insert(clip.timelineStart)
       edges.insert(clip.timelineEnd)
     }
-    for (_, incoming, transition) in layers.flatMap(\.transitions) {
+    for (_, incoming, transition) in layers.flatMap(\.transitions) + text.flatMap(\.transitions) {
       let half = MediaTime(seconds: transition.duration.seconds / 2)
       edges.insert(max(incoming.timelineStart - half, .zero))
       edges.insert(min(incoming.timelineStart + half, duration))
@@ -597,17 +628,8 @@ extension Composition {
         }
         return layer.layer(for: placed, fromHandles: false, transition: nil).map { [$0] } ?? []
       }
-      let words = text.compactMap { clips in
-        clips.last(startingBy: start, at: \.timelineStart).flatMap { $0.contains(start) ? $0 : nil }
-          .map {
-            CompositionLayer(
-              clipID: $0.id,
-              source: .text,
-              matteTrackID: nil,
-              flowTrackID: nil,
-              transition: nil,
-            )
-          }
+      let words = text.flatMap { track in
+        textLayers(of: track, at: start)
       }
       let showing = video + words
       return CompositionInstruction(
@@ -746,7 +768,7 @@ struct ClipTiming: Hashable {
     sourceStart = clip.sourceStart
     duration = clip.duration
     timelineStart = clip.timelineStart
-    transitionLength = clip.transitionIn?.duration
+    transition = clip.transitionIn
     cleanSound = clip.cleanSound
     speed = clip.speed
     speedKeyframes = clip.keyframes.filter { $0.property == .speed }
@@ -759,8 +781,8 @@ struct ClipTiming: Hashable {
   let sourceStart: MediaTime
   let duration: MediaTime
   let timelineStart: MediaTime
-  /// How long its incoming transition lasts: it decides the handles.
-  let transitionLength: MediaTime?
+  /// Its incoming transition: its length decides the handles, and its kind is drawn.
+  let transition: Transition?
   /// Whether it plays its media's noise-reduced sound: a different source file.
   let cleanSound: Bool
   /// How fast it plays: it decides which stretches of media go where.

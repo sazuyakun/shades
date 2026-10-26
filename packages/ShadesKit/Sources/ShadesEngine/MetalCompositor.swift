@@ -103,19 +103,49 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
       }
       let isAdjustment = clip.source == .adjustment
       let follows = style.followsCamera && !isAdjustment
+      let travelsPath = isText && clip.keyframes.contains { $0.property == .pathOffset }
+      let pathLength = travelsPath ? clip.text?.path.map { span(of: $0, in: drawSize) } ?? 0 : 0.0
+      let zooms = clip.effects?.portal != nil && clip.keyframes.contains { $0.property == .portal }
       let place = { (moment: MediaTime) -> LayerPose in
         // why: an adjustment works on the whole frame, wherever the clip or camera would move it.
         guard !isAdjustment else {
           return LayerPose(transform: .identity, camera: .identity)
         }
+        var moved: DrawnText?
+        var drift = 0.0
+        if travelsPath {
+          let along = clip.value(of: .pathOffset, at: moment)
+          drift = along * pathLength
+          // why: the text's own picture changes as it travels, so each moment draws its own.
+          if along != clip.value(of: .pathOffset, at: time) {
+            moved = instruction.renderContext.text(
+              of: clip,
+              at: moment,
+              width: width,
+              height: height,
+            )
+          }
+        }
+        var travel: Double?
+        if zooms, let nesting = clip.effects?.portal?.nesting {
+          let zoom = clip.value(of: .portal, at: moment)
+          travel = zoom
+          // why: a zoom of one copy moves the picture's edge by about its half-diagonal times
+          // the log of the nesting.
+          drift += zoom * log(nesting) * Double(hypot(drawSize.width, drawSize.height)) / 2
+        }
         var transform = clip.transform(at: moment)
         let transition = layer.transition?.style(at: moment)
-        transform.x += Double(offset.x) + (transition?.offsetX ?? 0)
+        let shift = moved?.offset ?? offset
+        transform.x += Double(shift.x) + (transition?.offsetX ?? 0)
         transform.scale *= transition?.scale ?? 1
-        transform.y += Double(offset.y)
+        transform.y += Double(shift.y)
         return LayerPose(
           transform: transform,
           camera: follows ? instruction.renderState.camera(at: moment) : .identity,
+          drift: drift,
+          picture: moved.map { LayerPicture.surface($0.surface) },
+          portalTravel: travel,
         )
       }
       let pose = place(time)
@@ -198,6 +228,16 @@ final class MetalCompositor: NSObject, AVVideoCompositing {
     }
     instruction.frameCounter.recordFrame(at: time.seconds, took: .now - started)
     request.finish(withComposedVideoFrame: output)
+  }
+
+  /// How long `path` is, in pixels of a `size` frame.
+  private func span(of path: TextPath, in size: CGSize) -> Double {
+    zip(path.points, path.points.dropFirst()).reduce(0.0) { total, step in
+      total + hypot(
+        (step.1.x - step.0.x) * Double(size.width),
+        (step.1.y - step.0.y) * Double(size.height),
+      )
+    }
   }
 
   /// The clip's effects at `time`: its endless zoom travelled as far as its keyframes say, and

@@ -34,6 +34,49 @@ struct PortalRenderingTests {
   }
 
   @Test
+  func `a fast endless zoom blurs as it flies in`() async throws {
+    let url = try ImageFixture.makeDisc()
+    let disc = Media(
+      url: url,
+      duration: Media.stillLength,
+      width: 400,
+      height: 300,
+      hasAudio: false,
+      isStill: true,
+    )
+    let still = { (travel: Double) in
+      Clip(
+        mediaID: disc.id,
+        sourceStart: .zero,
+        duration: MediaTime(seconds: 1),
+        timelineStart: .zero,
+        keyframes: [
+          Keyframe(property: .portal, time: .zero, value: 0),
+          Keyframe(property: .portal, time: MediaTime(seconds: 1), value: travel),
+        ],
+        effects: Effects(portal: Portal(nesting: 3)),
+      )
+    }
+    let render = { (travel: Double) async throws -> Data in
+      let project = Project(media: [disc], timeline: Timeline(format: .half, tracks: [
+        Track(kind: .video, clips: [still(travel)])
+      ]))
+      return try await FrameRenderer.png(of: project, atSeconds: 0.5, maxSide: 320)
+    }
+    let slow = try await render(0.02)
+    let fast = try await render(6)
+    /// Pixels part way between the disc's orange and the black around it, along the middle row.
+    let soft = { (png: Data) throws -> Int in
+      try stride(from: 0.0, through: 1, by: 0.005).count { x in
+        let red = try PixelProbe.color(of: png, x: x, y: 0.5).red
+        return red > 40 && red < 200
+      }
+    }
+    #expect(try soft(fast) > soft(slow) + 5, "the rings' edges smear as it flies in")
+    #expect(try GoldenFrame.matches(fast, named: "portal-zooming-blurred", in: golden))
+  }
+
+  @Test
   func `a portal transition grows the next shot's frame as fast as the last shot`() {
     let outgoing = TransitionStyle(kind: .portal, progress: 0.4, isIncoming: false)
     let incoming = TransitionStyle(kind: .portal, progress: 0.4, isIncoming: true)

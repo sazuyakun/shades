@@ -51,12 +51,13 @@ enum Shutter {
   }
 
   /// How far, in pixels, the farthest-moving corner of a frame-sized layer goes between two
-  /// poses. The frame stands in for the layer: exact for moves, generous for small layers that
-  /// turn or grow.
+  /// poses, plus how far its content moves inside it. The frame stands in for the layer: exact
+  /// for moves, generous for small layers that turn or grow.
   private static func distance(from start: LayerPose, to end: LayerPose, size: CGSize) -> Double {
     let from = corners(at: start, size: size)
     let to = corners(at: end, size: size)
-    return zip(from, to).lazy.map { Double(simd_distance($0, $1)) }.max() ?? 0
+    let corner = zip(from, to).lazy.map { Double(simd_distance($0, $1)) }.max() ?? 0
+    return corner + abs(end.drift - start.drift)
   }
 
   /// Where a frame-sized layer's corners land on screen, in pixels.
@@ -69,8 +70,14 @@ enum Shutter {
       camera: pose.camera,
     ).transform
     let half = SIMD2(Float(size.width), Float(size.height)) / 2
+    // why: a bent layer's sides curve round, so its corners sit in and back (see `bent` in
+    // Layers.metal).
+    let bend = Float(pose.transform.bend * .pi / 180)
+    let side = bend == 0
+      ? SIMD2<Float>(half.x, 0)
+      : SIMD2(half.x * 2 / bend * sin(bend / 2), half.x * 2 / bend * (cos(bend / 2) - 1))
     return [SIMD2<Float>(-1, -1), SIMD2(1, -1), SIMD2(-1, 1), SIMD2(1, 1)].map { corner in
-      let projected = matrix * SIMD4(corner.x * half.x, corner.y * half.y, 0, 1)
+      let projected = matrix * SIMD4(corner.x * side.x, corner.y * half.y, side.y, 1)
       return SIMD2(projected.x, projected.y) / projected.w * half
     }
   }

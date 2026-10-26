@@ -137,16 +137,28 @@ struct LayerRenderingTests {
   }
 
   @Test
-  func `a clip's look doesn't change the playback structure, its timing does`() async throws {
+  func `a clip's look doesn't change the playback structure, its timing and transitions do`(
+  ) async throws {
     let project = try await twoLayers { _ in }
     var restyled = project
     restyled.timeline.tracks[1].clips[0].opacity = 0.3
     restyled.timeline.tracks[1].isHidden = true
     var retimed = project
     retimed.timeline.tracks[1].clips[0].timelineStart = MediaTime(seconds: 0.5)
+    var whipped = project
+    whipped.timeline.tracks[1].clips[0].transitionIn = Transition(
+      kind: .whip,
+      duration: MediaTime(seconds: 0.5),
+    )
+    var dissolved = whipped
+    dissolved.timeline.tracks[1].clips[0].transitionIn?.kind = .dissolve
     let structure = Composition.Structure(project.timeline)
     #expect(Composition.Structure(restyled.timeline) == structure)
     #expect(Composition.Structure(retimed.timeline) != structure)
+    #expect(
+      Composition.Structure(dissolved.timeline) != Composition.Structure(whipped.timeline),
+      "a transition's kind is drawn from the playback structure",
+    )
   }
 
   @Test

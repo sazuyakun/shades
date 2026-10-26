@@ -170,7 +170,10 @@ final class MetalRenderer: Sendable {
           trail,
           of: layer,
           size: outputSize,
+          scale: scale,
           opacity: layer.shutter.count > 1 ? 1 : layer.opacity,
+          // why: solid letters skip the layer shader, where other layers take their blur.
+          blur: layer.effects?.blur ?? 0,
           isMasked: isMasked,
           encoder: encoder,
         )
@@ -198,7 +201,9 @@ final class MetalRenderer: Sendable {
           trail,
           of: layer,
           size: outputSize,
+          scale: scale,
           opacity: 1,
+          blur: 0,
           isMasked: isMasked,
           encoder: encoder,
         )
@@ -688,12 +693,18 @@ final class MetalRenderer: Sendable {
       opacity: layer.opacity / Double(layer.shutter.count),
     )
     for pose in layer.shutter {
+      // why: text travelling its path is a new picture each moment, with its own field.
+      var posed = (picture: picture, field: field)
+      if case .surface(let surface) = pose.picture {
+        let moved = try texture(for: surface)
+        posed = try (moved, distanceField(of: moved, reach: solid.bevel + 4, commands: commands))
+      }
       let slices = try startPass(on: moment, clearing: true, toClear: true, commands: commands)
       try encodeSolid(
         layer,
         solid,
-        picture: picture,
-        field: field,
+        picture: posed.picture,
+        field: posed.field,
         at: pose,
         size: size,
         encoder: slices,
@@ -834,8 +845,12 @@ final class MetalRenderer: Sendable {
     let size = CGSize(width: trail.width, height: trail.height)
     let weight = layer.opacity / Double(layer.shutter.count)
     for pose in layer.shutter {
+      var effects = layer.effects
+      if let travel = pose.portalTravel {
+        effects?.portal?.travel = travel
+      }
       let moment = RenderLayer(
-        source: layer.source,
+        source: pose.picture ?? layer.source,
         rotation: layer.rotation,
         transform: pose.transform,
         camera: pose.camera,
@@ -844,7 +859,7 @@ final class MetalRenderer: Sendable {
         matte: nil,
         isNaturalSize: layer.isNaturalSize,
         grade: layer.grade,
-        effects: layer.effects,
+        effects: effects,
         crop: layer.crop,
         masks: layer.masks,
         transition: layer.transition,
@@ -865,20 +880,22 @@ final class MetalRenderer: Sendable {
     encoder.endEncoding()
   }
 
-  /// Draws a moving layer's summed `trail` over the whole frame, then masks, wipes, dips and
-  /// mixes it like a still layer.
+  /// Draws a moving layer's summed `trail` (or a solid layer's stacked slices) over the whole
+  /// frame, softened by `blur`, then masks, wipes, dips and mixes it like a still layer.
   private func drawTrail(
     _ trail: any MTLTexture,
     of layer: RenderLayer,
     size: CGSize,
+    scale: Double,
     opacity: Double,
+    blur: Double,
     isMasked: Bool,
     encoder: any MTLRenderCommandEncoder,
   ) throws(EngineError) {
     var look = LayerLook(
-      size: size,
+      size: CGSize(width: size.width / scale, height: size.height / scale),
       grade: nil,
-      effects: nil,
+      effects: blur > 0 ? Effects(blur: blur) : nil,
       crop: .none,
       maskCount: 0,
       blend: layer.blend,
