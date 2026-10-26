@@ -155,7 +155,7 @@ struct PerformanceTests {
       parts.frame = try clock.measure { try context.renderer.draw([title], into: output) }
       last = title
     }
-    let empty = try clock.measure { try context.renderer.draw([], into: output) }
+    let empty = try await Benchmark.median { try context.renderer.draw([], into: output) }
     let title = try #require(last)
     let variant = { (solid: SolidText?) in
       RenderLayer(
@@ -170,14 +170,17 @@ struct PerformanceTests {
         solid: solid,
       )
     }
-    let flat = try clock.measure { try context.renderer.draw([variant(nil)], into: output) }
-    let shallow = try clock.measure {
+    let flat = try await Benchmark.median {
+      try context.renderer.draw([variant(nil)], into: output)
+    }
+    let shallow = try await Benchmark.median {
       try context.renderer.draw([variant(SolidText(depth: 1, bevel: 0))], into: output)
     }
+    let again = try await Benchmark.median { try context.renderer.draw([title], into: output) }
     // why: PLAN §4: an edit reaches the preview within a frame at 24 fps, at Full quality.
     // Measured 12 ms on the M1 dev machine.
     let report = "took \(time): text \(parts.text), frame \(parts.frame) (empty \(empty), "
-      + "flat \(flat), two slices \(shallow))"
+      + "flat \(flat), two slices \(shallow), the same title again \(again))"
     #expect(time < .seconds(1.0 / 24), Comment(rawValue: report))
   }
 
