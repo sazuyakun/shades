@@ -497,14 +497,14 @@ fragment float4 trailFragment(
   constant LayerLook &look [[buffer(0)]]
 ) {
   constexpr sampler linearSampler(filter::linear, address::clamp_to_edge);
-  float4 sum = float4(trail.sample(linearSampler, in.screen));
+  float4 sum = float4(trail.sample(linearSampler, in.uv));
   if (look.blur > 0) {
     float radius = look.blur * 24.0;
     for (int i = 0; i < 12; i++) {
       float angle = float(i) * 0.5235988;
       float ring = (i % 2 == 0) ? 1.0 : 0.5;
       float2 offset = float2(cos(angle), sin(angle)) * look.texel * radius * ring;
-      sum += float4(trail.sample(linearSampler, in.screen + offset));
+      sum += float4(trail.sample(linearSampler, in.uv + offset));
     }
     sum /= 13.0;
   }

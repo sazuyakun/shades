@@ -135,6 +135,21 @@ final class MetalRenderer: Sendable {
       ? makeBackdrop(like: outputTexture)
       : nil
     let blank = defaults.withLock { $0.blank }
+    // why: still solid titles are stacked before the frame's pass begins, each only over its
+    // box, so that pass runs unbroken instead of storing and reloading the whole frame.
+    var stacked = [Int: StackedSolid]()
+    for (index, layer) in layers.enumerated() {
+      guard let solid = layer.solid else {
+        continue
+      }
+      let reach = (layer.effects?.blur ?? 0) * 24 / scale + 2
+      if let box = screenBox(of: layer, solid, size: outputSize, reach: reach) {
+        stacked[index] = try StackedSolid(
+          texture: stackSolid(layer, solid, over: box, size: outputSize, commands: commands),
+          box: box,
+        )
+      }
+    }
     var encoder = try startPass(on: outputTexture, clearing: true, commands: commands)
     for step in order.steps {
       let index: Int
@@ -156,6 +171,26 @@ final class MetalRenderer: Sendable {
         encoder = try startPass(on: outputTexture, clearing: false, commands: commands)
       }
       let effect = layer.effects?.shader.flatMap { effectPipelines(at: URL(filePath: $0)) }
+      if let stack = stacked[index] {
+        encoder.setRenderPipelineState(layer.needsBackdrop
+          ? replacingTrailPipeline
+          : trailPipeline)
+        encoder.setFragmentTexture(isMasked ? mask : blank, index: 1)
+        encoder.setFragmentTexture(backdrop ?? blank, index: 2)
+        try drawTrail(
+          stack.texture,
+          of: layer,
+          size: outputSize,
+          box: stack.box,
+          scale: scale,
+          opacity: layer.opacity,
+          // why: solid letters skip the layer shader, where other layers take their blur.
+          blur: layer.effects?.blur ?? 0,
+          isMasked: isMasked,
+          encoder: encoder,
+        )
+        continue
+      }
       if let solid = layer.solid {
         encoder.endEncoding()
         let trail = try keptTexture(.trail, like: outputTexture)
@@ -166,27 +201,17 @@ final class MetalRenderer: Sendable {
           : trailPipeline)
         encoder.setFragmentTexture(isMasked ? mask : blank, index: 1)
         encoder.setFragmentTexture(backdrop ?? blank, index: 2)
-        let blur = layer.effects?.blur ?? 0
-        if let box = screenBox(of: layer, solid, size: outputSize, reach: blur * 24 / scale + 2) {
-          encoder.setScissorRect(box)
-        }
         try drawTrail(
           trail,
           of: layer,
           size: outputSize,
+          box: nil,
           scale: scale,
           opacity: layer.shutter.count > 1 ? 1 : layer.opacity,
-          // why: solid letters skip the layer shader, where other layers take their blur.
-          blur: blur,
+          blur: layer.effects?.blur ?? 0,
           isMasked: isMasked,
           encoder: encoder,
         )
-        encoder.setScissorRect(MTLScissorRect(
-          x: 0,
-          y: 0,
-          width: outputTexture.width,
-          height: outputTexture.height,
-        ))
         continue
       }
       if layer.shutter.count > 1 {
@@ -211,6 +236,7 @@ final class MetalRenderer: Sendable {
           trail,
           of: layer,
           size: outputSize,
+          box: nil,
           scale: scale,
           opacity: 1,
           blur: 0,
@@ -666,8 +692,9 @@ final class MetalRenderer: Sendable {
     return texture
   }
 
-  /// Draws `layer`'s solid letters into `target` (cleared first, premultiplied): where the layer
-  /// is, or averaged over its moments inside the shutter when it moves.
+  /// Draws `layer`'s solid letters into `target`, a frame-sized buffer (cleared first,
+  /// premultiplied): where the layer is, or averaged over its moments inside the shutter when it
+  /// moves.
   private func drawSolid(
     _ layer: RenderLayer,
     _ solid: SolidText,
@@ -682,14 +709,17 @@ final class MetalRenderer: Sendable {
     let size = CGSize(width: target.width, height: target.height)
     let picture = try texture(for: surface)
     let field = try distanceField(of: picture, reach: solid.bevel + 4, commands: commands)
+    let sides = try keptTexture(.solidSides, like: target)
     guard layer.shutter.count > 1 else {
-      try stackSolid(
+      try stack(
         layer,
         solid,
         picture: picture,
         field: field,
         at: LayerPose(transform: layer.transform, camera: layer.camera),
-        within: screenBox(of: layer, solid, size: size, reach: 2),
+        size: size,
+        box: nil,
+        sides: sides,
         into: target,
         commands: commands,
       )
@@ -710,13 +740,15 @@ final class MetalRenderer: Sendable {
         let moved = try texture(for: surface)
         posed = try (moved, distanceField(of: moved, reach: solid.bevel + 4, commands: commands))
       }
-      try stackSolid(
+      try stack(
         layer,
         solid,
         picture: posed.picture,
         field: posed.field,
         at: pose,
-        within: nil,
+        size: size,
+        box: nil,
+        sides: sides,
         into: moment,
         commands: commands,
       )
@@ -729,32 +761,70 @@ final class MetalRenderer: Sendable {
     }
   }
 
-  /// Stacks `layer`'s solid letters, placed at `pose`, into `target` (cleared first): every
-  /// slice but the last drawn at half size, then the face in view over them at full size. Only
-  /// `box` is drawn when given (where the letters can land).
+  /// `layer`'s solid letters stacked into a buffer covering just `box` of a `size` frame, where
+  /// they land.
   private func stackSolid(
+    _ layer: RenderLayer,
+    _ solid: SolidText,
+    over box: CGRect,
+    size: CGSize,
+    commands: any MTLCommandBuffer,
+  ) throws(EngineError) -> any MTLTexture {
+    guard case .surface(let surface) = layer.source else {
+      logger.fault("frame.invariantBroken reason=solidWithoutText")
+      assertionFailure("only text is drawn solid")
+      throw .renderFailed
+    }
+    let picture = try texture(for: surface)
+    let target = try scratchTexture(width: Int(box.width), height: Int(box.height))
+    try stack(
+      layer,
+      solid,
+      picture: picture,
+      field: distanceField(of: picture, reach: solid.bevel + 4, commands: commands),
+      at: LayerPose(transform: layer.transform, camera: layer.camera),
+      size: size,
+      box: box,
+      sides: scratchTexture(width: (target.width + 1) / 2, height: (target.height + 1) / 2),
+      into: target,
+      commands: commands,
+    )
+    return target
+  }
+
+  /// A half-float buffer for one frame's drawing.
+  private func scratchTexture(width: Int, height: Int) throws(EngineError) -> any MTLTexture {
+    let descriptor = MTLTextureDescriptor.texture2DDescriptor(
+      pixelFormat: Self.trailFormat,
+      width: max(width, 1),
+      height: max(height, 1),
+      mipmapped: false,
+    )
+    descriptor.usage = [.renderTarget, .shaderRead]
+    descriptor.storageMode = .private
+    guard let texture = device.makeTexture(descriptor: descriptor) else {
+      logger.error("frame.renderFailed reason=scratchTexture")
+      throw .renderFailed
+    }
+    return texture
+  }
+
+  /// Stacks `layer`'s solid letters, placed at `pose` in a `size` frame, into `target` (cleared
+  /// first; covering just `box` of the frame when given): every slice but the last drawn into
+  /// `sides`, at half size, then the face in view over them at full size.
+  private func stack(
     _ layer: RenderLayer,
     _ solid: SolidText,
     picture: any MTLTexture,
     field: any MTLTexture,
     at pose: LayerPose,
-    within box: MTLScissorRect?,
+    size: CGSize,
+    box: CGRect?,
+    sides: any MTLTexture,
     into target: any MTLTexture,
     commands: any MTLCommandBuffer,
   ) throws(EngineError) {
-    let size = CGSize(width: target.width, height: target.height)
-    let sides = try keptTexture(.solidSides, like: target)
     let behind = try startPass(on: sides, clearing: true, toClear: true, commands: commands)
-    if let box {
-      let left = box.x / 2
-      let top = box.y / 2
-      behind.setScissorRect(MTLScissorRect(
-        x: left,
-        y: top,
-        width: min((box.x + box.width + 1) / 2, sides.width) - left,
-        height: min((box.y + box.height + 1) / 2, sides.height) - top,
-      ))
-    }
     try encodeSolid(
       layer,
       solid,
@@ -762,15 +832,14 @@ final class MetalRenderer: Sendable {
       field: field,
       at: pose,
       size: size,
+      box: box,
       part: .sides,
       encoder: behind,
     )
     behind.endEncoding()
     let encoder = try startPass(on: target, clearing: true, toClear: true, commands: commands)
-    if let box {
-      encoder.setScissorRect(box)
-    }
-    var whole = FrameUniforms(stored: size, rotation: .identity, output: size)
+    let covered = CGSize(width: target.width, height: target.height)
+    var whole = FrameUniforms(stored: covered, rotation: .identity, output: covered)
     encoder.setRenderPipelineState(addPipeline)
     encoder.setVertexBytes(&whole, length: MemoryLayout<FrameUniforms>.stride, index: 0)
     encoder.setFragmentTexture(sides, index: 0)
@@ -782,6 +851,7 @@ final class MetalRenderer: Sendable {
       field: field,
       at: pose,
       size: size,
+      box: box,
       part: .face,
       encoder: encoder,
     )
@@ -789,14 +859,14 @@ final class MetalRenderer: Sendable {
   }
 
   /// The part of a `size` frame a still, flat-cut solid layer can cover, `reach` pixels round its
-  /// letters' corners front and back, so compositing it skips the rest of the frame; `nil` when
-  /// its corners don't bound it (a bend, motion blur) or it's off the frame.
+  /// letters' corners front and back (whole pixels), so it's drawn there alone; `nil` when its
+  /// corners don't bound it (a bend, motion blur) or it's off the frame.
   private func screenBox(
     of layer: RenderLayer,
     _ solid: SolidText,
     size: CGSize,
     reach: Double,
-  ) -> MTLScissorRect? {
+  ) -> CGRect? {
     guard
       layer.shutter.count < 2, layer.transform.bend == 0,
       case .surface(let surface) = layer.source
@@ -820,7 +890,7 @@ final class MetalRenderer: Sendable {
     guard right > left, bottom > top else {
       return nil
     }
-    return MTLScissorRect(x: left, y: top, width: right - left, height: bottom - top)
+    return CGRect(x: left, y: top, width: right - left, height: bottom - top)
   }
 
   /// The signed distance, in pixels, from each pixel of `picture` to the edge of its ink (positive
@@ -881,7 +951,8 @@ final class MetalRenderer: Sendable {
   }
 
   /// Draws `part` of the slices of `layer`'s solid letters, from `picture` with its distance
-  /// `field`, placed at `pose` in a `size` frame, from the back forward.
+  /// `field`, placed at `pose` in a `size` frame (just its `box` filling the target, when given),
+  /// from the back forward.
   private func encodeSolid(
     _ layer: RenderLayer,
     _ solid: SolidText,
@@ -889,6 +960,7 @@ final class MetalRenderer: Sendable {
     field: any MTLTexture,
     at pose: LayerPose,
     size: CGSize,
+    box: CGRect?,
     part: SolidPart,
     encoder: any MTLRenderCommandEncoder,
   ) throws(EngineError) {
@@ -899,6 +971,7 @@ final class MetalRenderer: Sendable {
       transform: pose.transform,
       camera: pose.camera,
       isNaturalSize: true,
+      box: box,
     )
     var shape = SolidUniforms(
       solid,
@@ -998,19 +1071,22 @@ final class MetalRenderer: Sendable {
   }
 
   /// Draws a moving layer's summed `trail` (or a solid layer's stacked slices) over the whole
-  /// frame, softened by `blur`, then masks, wipes, dips and mixes it like a still layer.
+  /// frame, or over `box` when it covers only that, softened by `blur`, then masks, wipes, dips
+  /// and mixes it like a still layer.
   private func drawTrail(
     _ trail: any MTLTexture,
     of layer: RenderLayer,
     size: CGSize,
+    box: CGRect?,
     scale: Double,
     opacity: Double,
     blur: Double,
     isMasked: Bool,
     encoder: any MTLRenderCommandEncoder,
   ) throws(EngineError) {
+    let covered = box?.size ?? size
     var look = LayerLook(
-      size: CGSize(width: size.width / scale, height: size.height / scale),
+      size: CGSize(width: covered.width / scale, height: covered.height / scale),
       grade: nil,
       effects: blur > 0 ? Effects(blur: blur) : nil,
       crop: .none,
@@ -1024,11 +1100,17 @@ final class MetalRenderer: Sendable {
       transition: layer.transition,
       clipTime: layer.clipTime,
     )
+    // why: a trail over only `box` is drawn as a picture of its own size placed on the box.
     var uniforms = FrameUniforms(
-      stored: size,
+      stored: covered,
       rotation: .identity,
       output: size,
+      transform: ClipTransform(
+        x: box.map { ($0.midX - size.width / 2) / size.width } ?? 0,
+        y: box.map { ($0.midY - size.height / 2) / size.height } ?? 0,
+      ),
       opacity: opacity,
+      isNaturalSize: true,
     )
     encoder.setVertexBytes(&uniforms, length: MemoryLayout<FrameUniforms>.stride, index: 0)
     encoder.setFragmentBytes(&look, length: MemoryLayout<LayerLook>.stride, index: 0)
@@ -1454,6 +1536,14 @@ private enum KeptTexture {
   case solidMoment
   /// Solid letters' sides, at half size, before their face is drawn over them.
   case solidSides
+}
+
+// MARK: - StackedSolid
+
+/// A still solid title's slices, stacked before the frame's pass over just the box they cover.
+private struct StackedSolid {
+  let texture: any MTLTexture
+  let box: CGRect
 }
 
 // MARK: - SolidPart

@@ -11,7 +11,8 @@ struct FrameUniforms {
   /// Works out how to draw a stored frame of `stored` size, tagged with `rotation`, into an
   /// output of `output` size: placed by `transform` (in 3D, with perspective), seen through
   /// `camera`, and blended by `opacity`. Pictures are fitted inside the output, unless
-  /// `isNaturalSize` (text), which keeps their own pixel size.
+  /// `isNaturalSize` (text), which keeps their own pixel size. With `box` (pixels of the
+  /// output, from its top left), only that part is drawn, filling a target of its size.
   init(
     stored: CGSize,
     rotation: CGAffineTransform,
@@ -20,6 +21,7 @@ struct FrameUniforms {
     camera: ClipTransform = .identity,
     opacity: Double = 1,
     isNaturalSize: Bool = false,
+    box: CGRect? = nil,
   ) {
     let upright = CGRect(origin: .zero, size: stored).applying(rotation)
     let uprightToStored = CGAffineTransform(scaleX: upright.width, y: upright.height)
@@ -29,8 +31,8 @@ struct FrameUniforms {
     let uprightAspect = upright.width / upright.height
     let outputAspect = output.width / output.height
     let size = SIMD2(Float(output.width), Float(output.height))
-    self.transform = Self.projection(size: size) * Self.view(camera, size: size)
-      * Self.model(transform, size: size)
+    self.transform = Self.cropping(to: box, of: output) * Self.projection(size: size)
+      * Self.view(camera, size: size) * Self.model(transform, size: size)
     matrix = SIMD4(
       Float(uprightToStored.a),
       Float(uprightToStored.b),
@@ -106,6 +108,25 @@ struct FrameUniforms {
 
   /// Strips a bent layer is cut into: enough that its curve looks smooth at any size.
   private static let bentColumns: Int32 = 64
+
+  /// Stretches the screen so `box` (pixels from its top left) fills it; nothing without a box.
+  private static func cropping(to box: CGRect?, of output: CGSize) -> simd_float4x4 {
+    guard let box else {
+      return matrix_identity_float4x4
+    }
+    let scale = SIMD2(Float(output.width / box.width), Float(output.height / box.height))
+    // why: the box's centre, on a screen running from -1 to 1 with y up.
+    let center = SIMD2(
+      Float((2 * box.midX) / output.width - 1),
+      Float(1 - (2 * box.midY) / output.height),
+    )
+    return simd_float4x4(columns: (
+      SIMD4(scale.x, 0, 0, 0),
+      SIMD4(0, scale.y, 0, 0),
+      SIMD4(0, 0, 1, 0),
+      SIMD4(-scale.x * center.x, -scale.y * center.y, 0, 1),
+    ))
+  }
 
   /// Perspective onto the screen: things nearer the viewer look bigger.
   private static func projection(size: SIMD2<Float>) -> simd_float4x4 {
