@@ -131,11 +131,15 @@ struct PerformanceTests {
     var style = TextStyle(size: 0.2, anchor: .center)
     style.extrusion = TextExtrusion(depth: 0.5, bevel: 0.05)
     let output = try RenderContext.pictureBuffer(width: 2880, height: 2160)
+    let clock = ContinuousClock()
     var edit = 0
+    var parts = (text: Duration.zero, frame: Duration.zero)
     let time = try await Benchmark.median {
       edit += 1
       let content = TextContent(text: "SHADES IN 3D \(edit)", style: style)
+      let started = clock.now
       let drawn = try #require(context.text(content, at: 0, duration: 1, width: 2880, height: 2160))
+      parts.text = clock.now - started
       let title = RenderLayer(
         source: .surface(drawn.surface),
         rotation: .identity,
@@ -147,11 +151,15 @@ struct PerformanceTests {
         isNaturalSize: true,
         solid: drawn.solid,
       )
-      try context.renderer.draw([title], into: output)
+      parts.frame = try clock.measure { try context.renderer.draw([title], into: output) }
     }
+    let empty = try clock.measure { try context.renderer.draw([], into: output) }
     // why: PLAN §4: an edit reaches the preview within a frame at 24 fps, at Full quality.
     // Measured 12 ms on the M1 dev machine.
-    #expect(time < .seconds(1.0 / 24), "took \(time)")
+    #expect(
+      time < .seconds(1.0 / 24),
+      "took \(time): text \(parts.text), frame \(parts.frame) (an empty frame \(empty))",
+    )
   }
 
   // MARK: Private
