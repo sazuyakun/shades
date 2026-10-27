@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import ShadesCore
 import ShadesEngine
@@ -65,6 +66,55 @@ struct PlayerTests {
     for load in loads {
       try await load.value
     }
+  }
+
+  @Test
+  func `a track whose sound changes format between clips keeps playing`() async throws {
+    let video = try await VideoFixture.make(red: 0, green: 200, blue: 0, seconds: 4)
+    let picture = Media(
+      url: video,
+      duration: MediaTime(seconds: 4),
+      width: 320,
+      height: 180,
+      hasAudio: false,
+    )
+    // why: a stereo sound then a mono one on one track froze playback once its meters tapped it.
+    let sounds = try [2, 1].map { channels in
+      try Media(
+        url: AudioFixture.makeTone(seconds: 2, channels: channels),
+        duration: MediaTime(seconds: 2),
+        width: 0,
+        height: 0,
+        hasVideo: false,
+        hasAudio: true,
+      )
+    }
+    let project = Project(media: [picture] + sounds, timeline: Timeline(tracks: [
+      Track(kind: .video, clips: [Clip(
+        mediaID: picture.id,
+        sourceStart: .zero,
+        duration: picture.duration,
+        timelineStart: .zero,
+      )]),
+      Track(kind: .audio, clips: sounds.enumerated().map { index, sound in
+        Clip(
+          mediaID: sound.id,
+          sourceStart: .zero,
+          duration: sound.duration,
+          timelineStart: MediaTime(seconds: 2 * Double(index)),
+        )
+      }),
+    ]))
+    let player = Player()
+    try await player.load(project)
+    player.avPlayer.currentItem?.add(AVPlayerItemVideoOutput(pixelBufferAttributes: nil))
+    player.play()
+    // why: a busy machine starts playback late; a frozen player never moves at all.
+    for _ in 0 ..< 30 where player.currentTime <= 0.5 {
+      try await Task.sleep(for: .milliseconds(100))
+    }
+    player.pause()
+    #expect(player.currentTime > 0.5)
   }
 
   // MARK: Private

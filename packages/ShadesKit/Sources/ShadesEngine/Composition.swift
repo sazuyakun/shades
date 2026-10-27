@@ -11,8 +11,9 @@ public struct Composition {
   /// How each frame is drawn: by `MetalCompositor`, layer by layer.
   public let videoComposition: AVVideoComposition
 
-  /// Which composition track carries each timeline track's sound, for the audio mix.
-  let audioTrackIDs: [Track.ID: CMPersistentTrackID]
+  /// Which composition tracks carry each timeline track's sound, for the audio mix: one per
+  /// audio format (see `AudioFormat`).
+  let audioTrackIDs: [Track.ID: [CMPersistentTrackID]]
 }
 
 extension Composition {
@@ -115,11 +116,11 @@ extension Composition {
     }
     let asset = AVMutableComposition()
     var videoLayers = [VideoLayer]()
-    var audioTrackIDs = [Track.ID: CMPersistentTrackID]()
+    var audioTrackIDs = [Track.ID: [CMPersistentTrackID]]()
     var lastSounds = [AVMutableCompositionTrack: AVAssetTrack]()
     for track in timeline.tracks where !track.clips.isEmpty && track.kind != .text {
       var videoTrack: AVMutableCompositionTrack?
-      var audioTrack: AVMutableCompositionTrack?
+      var audioLanes = [AudioFormat: AVMutableCompositionTrack]()
       var matteTrack: AVMutableCompositionTrack?
       var flowTrack: AVMutableCompositionTrack?
       var placed = [PlacedClip]()
@@ -194,9 +195,12 @@ extension Composition {
             sound = try await library.tracks(at: copy).audio
           }
           if let audio = sound, !clip.isFrozen {
-            let target = try audioTrack ?? addTrack(.audio, to: asset)
-            audioTrack = target
-            audioTrackIDs[track.id] = target.trackID
+            let format = try await AudioFormat(audio.load(.formatDescriptions))
+            let target = try audioLanes[format] ?? addTrack(.audio, to: asset)
+            if audioLanes[format] == nil {
+              audioLanes[format] = target
+              audioTrackIDs[track.id, default: []].append(target.trackID)
+            }
             for piece in pieces {
               try piece.insert(from: audio, into: target)
             }
@@ -281,40 +285,40 @@ extension Composition {
   /// shapes the sound itself (see `MixReader`).
   static func audioMix(
     for timeline: Timeline,
-    trackIDs: [Track.ID: CMPersistentTrackID],
+    trackIDs: [Track.ID: [CMPersistentTrackID]],
     meters: MixMeters? = nil,
     isShaped: Bool = true,
   ) -> AVAudioMix {
     let mix = AVMutableAudioMix()
-    mix.inputParameters = timeline.tracks.compactMap { track in
-      guard let trackID = trackIDs[track.id] else {
-        return nil
-      }
-      let parameters = AVMutableAudioMixInputParameters()
-      parameters.trackID = trackID
-      if isShaped, !timeline.limiter.isEmpty || track.pan != 0 || meters != nil {
-        parameters.audioTapProcessor = TrackTap(
-          track: track.id,
-          limiter: timeline.limiter,
-          pan: track.pan,
-          meters: meters,
-        ).makeTap()
-      }
-      for clip in track.clips {
-        let level = timeline.plays(clip, on: track) ? track.volume * timeline.gain : 0
-        let moments = volumeMoments(of: clip)
-        for (from, to) in zip(moments, moments.dropFirst()) {
-          parameters.setVolumeRamp(
-            fromStartVolume: Float(clip.gain(at: from) * level),
-            toEndVolume: Float(clip.gain(at: to) * level),
-            timeRange: CMTimeRange(start: from.cmTime, end: to.cmTime),
-          )
+    mix.inputParameters = timeline.tracks.flatMap { track in
+      (trackIDs[track.id] ?? []).map { trackID in
+        let parameters = AVMutableAudioMixInputParameters()
+        parameters.trackID = trackID
+        if isShaped, !timeline.limiter.isEmpty || track.pan != 0 || meters != nil {
+          parameters.audioTapProcessor = TrackTap(
+            track: track.id,
+            lane: trackID,
+            limiter: timeline.limiter,
+            pan: track.pan,
+            meters: meters,
+          ).makeTap()
         }
+        for clip in track.clips {
+          let level = timeline.plays(clip, on: track) ? track.volume * timeline.gain : 0
+          let moments = volumeMoments(of: clip)
+          for (from, to) in zip(moments, moments.dropFirst()) {
+            parameters.setVolumeRamp(
+              fromStartVolume: Float(clip.gain(at: from) * level),
+              toEndVolume: Float(clip.gain(at: to) * level),
+              timeRange: CMTimeRange(start: from.cmTime, end: to.cmTime),
+            )
+          }
+        }
+        if track.clips.last.map({ runsOn($0, in: timeline) }) == true {
+          parameters.setVolume(0, at: timeline.duration.cmTime)
+        }
+        return parameters
       }
-      if track.clips.last.map({ runsOn($0, in: timeline) }) == true {
-        parameters.setVolume(0, at: timeline.duration.cmTime)
-      }
-      return parameters
     }
     return mix
   }
@@ -800,6 +804,29 @@ extension Project {
     }
     return media
   }
+}
+
+// MARK: - AudioFormat
+
+/// What a sound's samples are: codec, rate, channels and sample layout. AVPlayer stops dead when
+/// a composition track with an audio tap changes format from one clip to the next, so each
+/// format gets its own composition track (a lane).
+private struct AudioFormat: Hashable {
+  init(_ descriptions: [CMFormatDescription]) {
+    let basic = descriptions.first
+      .flatMap { CMAudioFormatDescriptionGetStreamBasicDescription($0)?.pointee }
+    formatID = basic?.mFormatID ?? 0
+    sampleRate = basic?.mSampleRate ?? 0
+    channels = basic?.mChannelsPerFrame ?? 0
+    flags = basic?.mFormatFlags ?? 0
+    bits = basic?.mBitsPerChannel ?? 0
+  }
+
+  let formatID: AudioFormatID
+  let sampleRate: Double
+  let channels: UInt32
+  let flags: AudioFormatFlags
+  let bits: UInt32
 }
 
 // MARK: - Array + Timing

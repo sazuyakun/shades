@@ -15,9 +15,17 @@ final class TrackTap: Sendable {
 
   // MARK: Lifecycle
 
-  /// A tap for `track` that limits by `limiter`, pans by `pan` and reports to `meters`.
-  init(track: Track.ID, limiter: [GainPoint], pan: Double, meters: MixMeters?) {
+  /// A tap for `track`'s sound in composition track `lane` that limits by `limiter`, pans by
+  /// `pan` and reports to `meters`.
+  init(
+    track: Track.ID,
+    lane: CMPersistentTrackID,
+    limiter: [GainPoint],
+    pan: Double,
+    meters: MixMeters?,
+  ) {
     self.track = track
+    self.lane = lane
     shaping = SoundShaping(limiter: limiter, pan: pan)
     self.meters = meters
   }
@@ -78,6 +86,7 @@ final class TrackTap: Sendable {
   // MARK: Private
 
   private let track: Track.ID
+  private let lane: CMPersistentTrackID
   private let shaping: SoundShaping
   private let meters: MixMeters?
   private let sampleRate = Mutex(48000.0)
@@ -120,6 +129,7 @@ final class TrackTap: Sendable {
     meters?.record(
       MeterLevel(left: Double(loudest.first ?? 0), right: Double(loudest.last ?? 0)),
       for: track,
+      lane: lane,
       from: start,
       to: start + Double(frames) / rate,
     )

@@ -1,3 +1,4 @@
+import CoreMedia
 import ShadesCore
 import Synchronization
 
@@ -17,23 +18,39 @@ public final class MixMeters: Sendable {
   /// The loudest point of `track`'s sound around `time` (seconds on the timeline), after the
   /// limiter and pan but before its volume, or `nil` when none was heard there.
   public func level(of track: Track.ID, at time: Double) -> MeterLevel? {
-    readings.withLock { readings in
-      readings[track]?.last { $0.start <= time && time < $0.end }?.level
+    let heard = readings.withLock { readings in
+      (readings[track] ?? [:]).values.compactMap { lane in
+        lane.last { $0.start <= time && time < $0.end }?.level
+      }
     }
+    guard !heard.isEmpty else {
+      return nil
+    }
+    return MeterLevel(
+      left: heard.map(\.left).max() ?? 0,
+      right: heard.map(\.right).max() ?? 0,
+    )
   }
 
   // MARK: Internal
 
-  /// Notes the loudest point of a buffer of `track`'s sound running from `start` to `end`.
-  func record(_ level: MeterLevel, for track: Track.ID, from start: Double, to end: Double) {
+  /// Notes the loudest point of a buffer of `track`'s sound in composition track `lane` (one per
+  /// audio format) running from `start` to `end`.
+  func record(
+    _ level: MeterLevel,
+    for track: Track.ID,
+    lane: CMPersistentTrackID,
+    from start: Double,
+    to end: Double,
+  ) {
     readings.withLock { readings in
-      var kept = readings[track] ?? []
+      var kept = readings[track]?[lane] ?? []
       // why: a seek starts the readings again from the new time.
       if let last = kept.last, start < last.start {
         kept.removeAll()
       }
       kept.append(Reading(start: start, end: end, level: level))
-      readings[track] = Array(kept.drop { $0.end < start - Self.kept })
+      readings[track, default: [:]][lane] = Array(kept.drop { $0.end < start - Self.kept })
     }
   }
 
@@ -42,7 +59,7 @@ public final class MixMeters: Sendable {
   /// How many seconds of readings each track keeps, as playback runs ahead of the playhead.
   private static let kept = 4.0
 
-  private let readings = Mutex<[Track.ID: [Reading]]>([:])
+  private let readings = Mutex<[Track.ID: [CMPersistentTrackID: [Reading]]]>([:])
 
 }
 

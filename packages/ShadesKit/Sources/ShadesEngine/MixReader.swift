@@ -211,7 +211,11 @@ public actor MixReader {
     withExtendedLifetime(assets) { }
     framesLeft = Int((timeline.duration.seconds * Self.sampleRate).rounded())
     limiter = SoundShaping(limiter: timeline.limiter, pan: 0)
-    let mix = Composition.audioMix(for: timeline, trackIDs: trackIDs, isShaped: false)
+    let mix = Composition.audioMix(
+      for: timeline,
+      trackIDs: trackIDs.mapValues { [$0] },
+      isShaped: false,
+    )
     do {
       let reader = try AVAssetReader(asset: composition)
       for track in timeline.tracks {
