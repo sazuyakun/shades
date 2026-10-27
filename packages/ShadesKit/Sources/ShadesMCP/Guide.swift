@@ -47,6 +47,8 @@ enum Guide {
     - split_words turns a text or caption clip into one clip per word, each still where it sat: \
     then move, keyframe, tilt or set the depth slot of each word on its own (per-word layers).
     - transcribe, then get_transcript for word timings; add_captions turns them into text clips. \
+    Captions sit on their own track and stay put when V1 ripples (trims, deletes, speed, freezes), \
+    so add them once the cut is final; remove_ranges with all_tracks and Polish keep them in step. \
     polish_propose finds silences, fillers (Hindi in Devanagari too), retakes and jump cuts, \
     noisy sound to clean, music to duck under speech and the loudness for a platform; \
     polish_apply applies them as one step, ducking where the speech lands after the cuts and \
