@@ -58,6 +58,7 @@ public enum CommandRegistry {
       throw rejected(.unknownTool(name))
     }
     do {
+      try JSONSchema.check(arguments, against: type.parameters, tool: name)
       return try arguments.decode(type)
     } catch {
       throw rejected(error)

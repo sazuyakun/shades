@@ -24,6 +24,28 @@ struct ToolHandlerTests {
   }
 
   @Test
+  func `an argument an edit doesn't take is named in the error and changes nothing`(
+  ) async throws {
+    let mediaID = try await importFixture()
+    _ = await handler.call("append_clip", arguments: ["media_id": .string(mediaID)])
+    let clip = try #require(editor.project.timeline.allClips.first)
+    let result = await handler.call(
+      "trim_clip",
+      arguments: ["clip_id": .string(clip.id.uuidString), "edge": "end", "to": 0.5],
+    )
+    #expect(result.isError)
+    #expect(result.text.contains("edge, to"))
+    #expect(result.text.contains("start"))
+  }
+
+  @Test
+  func `a built-in tool rejects an argument it doesn't take`() async {
+    let result = await handler.call("get_project", arguments: ["verbose": true])
+    #expect(result.isError)
+    #expect(result.text.contains("verbose"))
+  }
+
+  @Test
   func `edits report the clips they created`() async throws {
     let mediaID = try await importFixture()
     let result = await handler.call("append_clip", arguments: ["media_id": .string(mediaID)])

@@ -654,6 +654,13 @@ public final class ToolHandler {
   private let jobs: JobQueue
 
   private func run(_ name: String, arguments: JSONValue) async throws(ToolError) -> ToolResult {
+    if let tool = Self.builtIns.first(where: { $0.name == name }) {
+      do {
+        try JSONSchema.check(arguments, against: tool.parameters, tool: name)
+      } catch {
+        throw rejected(.commandFailed(error), tool: name)
+      }
+    }
     switch name {
     case "get_project":
       return try json(ProjectSummary.json(

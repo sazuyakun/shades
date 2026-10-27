@@ -42,6 +42,27 @@ public enum JSONSchema {
     .object(base("boolean", description))
   }
 
+  /// Throws when `arguments` has top-level fields `schema` doesn't list, so a misspelt field
+  /// fails instead of being skipped while the tool reports success.
+  public static func check(
+    _ arguments: JSONValue,
+    against schema: JSONValue,
+    tool: String,
+  ) throws(CommandError) {
+    guard case .object(let fields) = arguments, case .object(let known) = schema["properties"]
+    else {
+      return
+    }
+    let unknown = fields.keys.filter { known[$0] == nil }.sorted()
+    guard !unknown.isEmpty else {
+      return
+    }
+    let takes = known.isEmpty ? "nothing" : known.keys.sorted().joined(separator: ", ")
+    throw .invalidArguments(
+      "\(tool) doesn't take \(unknown.joined(separator: ", ")) (it takes \(takes))"
+    )
+  }
+
   /// A list of items matching `items`.
   public static func array(_ description: String, items: JSONValue) -> JSONValue {
     var schema = base("array", description)
