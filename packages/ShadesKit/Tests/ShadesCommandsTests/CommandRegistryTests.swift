@@ -43,6 +43,16 @@ struct CommandRegistryTests {
   }
 
   @Test
+  func `a choice that isn't on the list is named in plain words`() {
+    let keyframe: JSONValue = ["property": "zoom", "at": 1, "value": 1.2]
+    #expect(throws: CommandError.invalidArguments(
+      "property can't be zoom: use one of the values the tool lists"
+    )) {
+      try CommandRegistry.command(named: "set_camera", arguments: ["keyframes": [keyframe]])
+    }
+  }
+
+  @Test
   func `an unknown tool is rejected`() {
     #expect(throws: CommandError.unknownTool("fly")) {
       try CommandRegistry.command(named: "fly", arguments: [:])

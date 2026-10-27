@@ -897,7 +897,8 @@ public final class ToolHandler {
           clear: true,
         ))
       }
-      return .text("Gave \(request.clipIDs.count) clips the \(request.look) look.")
+      let count = request.clipIDs.count
+      return .text("Gave \(count) clip\(count == 1 ? "" : "s") the \(request.look) look.")
 
     case "use_style":
       let request = try decode(StyleArguments.self, from: arguments, tool: name)
@@ -912,7 +913,8 @@ public final class ToolHandler {
           title: "Style \(request.style)",
         )
       }
-      return .text("Styled \(request.clipIDs.count) text clips with \(request.style).")
+      let count = request.clipIDs.count
+      return .text("Styled \(count) text clip\(count == 1 ? "" : "s") with \(request.style).")
 
     case "normalize_loudness":
       let request = try decode(LoudnessArguments.self, from: arguments, tool: name)

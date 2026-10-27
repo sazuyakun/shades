@@ -96,11 +96,22 @@ public enum JSONValue: Hashable, Sendable {
     switch error {
     case .keyNotFound(let key, _):
       "missing \(snakeCase(key.stringValue))"
+
     case .typeMismatch(_, let context),
          .valueNotFound(_, let context):
       "\(field(context)) has the wrong type"
+
     case .dataCorrupted(let context):
-      "\(field(context)) is invalid: \(context.debugDescription)"
+      // why: Swift words a value missing from an enum for programmers; Claude needs the fix.
+      if
+        let value = context.debugDescription.split(separator: "invalid String value ").last,
+        context.debugDescription.hasPrefix("Cannot initialize")
+      {
+        "\(field(context)) can't be \(value): use one of the values the tool lists"
+      } else {
+        "\(field(context)) is invalid: \(context.debugDescription)"
+      }
+
     @unknown default:
       "the arguments are invalid"
     }
