@@ -68,4 +68,28 @@ struct WorkspaceFlowTests {
     #expect(FlowMaker.fileName(for: media.id) != "\(media.id.uuidString).mov")
     await workspace.close()
   }
+
+  @Test
+  func `opening the project that's already open keeps edits not yet saved`() async throws {
+    let workspace = Workspace(
+      defaults: UserDefaults(suiteName: UUID().uuidString) ?? .standard,
+      port: 0,
+      pauseCheck: { _ in nil },
+    )
+    let media = try await Media(
+      url: VideoFixture.make(red: 10, green: 20, blue: 30, seconds: 1),
+      duration: MediaTime(seconds: 1),
+      width: 320,
+      height: 180,
+      hasAudio: false,
+    )
+    let package = FileManager.default.temporaryDirectory
+      .appending(path: "\(UUID().uuidString).shades")
+    try await ProjectFile.write(Project(media: [media]), session: Session(), to: package)
+    try await workspace.openProject(at: package)
+    try workspace.editor.perform(AppendClip(mediaID: media.id))
+    try await workspace.openProject(at: URL(filePath: package.path(), directoryHint: .isDirectory))
+    #expect(workspace.editor.project.timeline.allClips.count == 1)
+    await workspace.close()
+  }
 }

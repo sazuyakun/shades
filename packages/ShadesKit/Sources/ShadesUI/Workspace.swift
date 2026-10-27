@@ -505,6 +505,10 @@ extension Workspace: ProjectHost {
   // MARK: Public
 
   public func openProject(at url: URL) async throws(DocumentError) {
+    // why: it's already open, and reading it again would drop edits autosave hasn't written yet.
+    if url.standardizedFileURL.pathComponents == documentURL?.standardizedFileURL.pathComponents {
+      return
+    }
     let (project, session) = try await ProjectFile.read(at: url)
     let history = await ProjectFile.readHistory([ClaudeRequest].self, at: url) ?? []
     await close()
