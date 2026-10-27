@@ -1,7 +1,7 @@
 import ShadesCore
 import SwiftUI
 
-/// How a clip looks: rounded, labeled, with a thumbnail like Final Cut's filmstrip (video), a
+/// How a clip looks: rounded, labeled, with a filmstrip like Final Cut's (video), a
 /// sound color (audio) or its words (text), diamonds where it has keyframes, and a chain when
 /// it's linked to clips on other tracks (a video and its sound). Outlined in the
 /// accent color when selected, glowing purple for a moment after Claude changes it.
@@ -9,6 +9,7 @@ struct TimelineClipView: View {
 
   // MARK: Internal
 
+  let clip: Clip
   let media: Media?
   let text: String?
   let kind: TrackKind
@@ -24,10 +25,9 @@ struct TimelineClipView: View {
   var body: some View {
     RoundedRectangle(cornerRadius: 7)
       .fill(color)
-      .overlay(alignment: .leading) {
+      .overlay {
         if let media, kind == .video, media.hasVideo {
-          ThumbnailImage(url: media.url)
-            .frame(width: 90)
+          ClipFilmstrip(url: media.url, clip: clip)
             .padding(.top, 17)
             .padding(.bottom, 4)
         }

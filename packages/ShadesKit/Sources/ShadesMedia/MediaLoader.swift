@@ -89,30 +89,46 @@ public enum MediaLoader {
     count: Int,
     maxSize: CGSize,
   ) async throws(MediaError) -> [CGImage] {
+    // why: a still image has no duration, and `frames` shows it at every moment anyway.
+    let duration = (try? await AVURLAsset(url: url).load(.duration).seconds) ?? 0
+    return try await frames(
+      of: url,
+      at: (0 ..< count).map { duration * (Double($0) + 0.5) / Double(count) },
+      maxSize: maxSize,
+    )
+  }
+
+  /// Stills from `seconds` into the file (each the nearest frame that's quick to decode), no
+  /// larger than `maxSize`: a timeline clip's filmstrip.
+  public static func frames(
+    of url: URL,
+    at seconds: [Double],
+    maxSize: CGSize,
+  ) async throws(MediaError) -> [CGImage] {
     if let image = image(at: url, maxSide: max(maxSize.width, maxSize.height)) {
-      return Array(repeating: image, count: count)
+      return Array(repeating: image, count: seconds.count)
     }
-    let asset = AVURLAsset(url: url)
-    let generator = AVAssetImageGenerator(asset: asset)
+    let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
     generator.appliesPreferredTrackTransform = true
     generator.maximumSize = maxSize
     generator.requestedTimeToleranceBefore = .positiveInfinity
     generator.requestedTimeToleranceAfter = .positiveInfinity
+    var frames = [CGImage]()
     do {
-      let duration = try await asset.load(.duration).seconds
-      var frames = [CGImage]()
-      for index in 0 ..< count {
-        let seconds = duration * (Double(index) + 0.5) / Double(count)
+      for time in seconds {
         frames.append(try await generator.image(at: CMTime(
-          seconds: seconds,
+          seconds: time,
           preferredTimescale: 600,
         )).image)
       }
-      return frames
     } catch {
-      logger.error("filmstrip.failed path=\(url.path, privacy: .private)")
+      // why: a filmstrip whose clip changed or scrolled away is cancelled; that isn't a failure.
+      if !Task.isCancelled {
+        logger.error("filmstrip.failed path=\(url.path, privacy: .private)")
+      }
       throw .thumbnailFailed(url)
     }
+    return frames
   }
 
   // MARK: Private

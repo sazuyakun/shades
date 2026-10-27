@@ -24,6 +24,7 @@ struct TimelineClip: View {
     let width = scale.x(at: clip.duration) + endDelta - startDelta
     let media = clip.mediaID.flatMap(editor.project.media(withID:))
     TimelineClipView(
+      clip: clip,
       media: media,
       text: clip.text?.shownText ?? clip.label
         ?? clip.speedLabel.map { "\(media?.name ?? "Missing media") · \($0)" },

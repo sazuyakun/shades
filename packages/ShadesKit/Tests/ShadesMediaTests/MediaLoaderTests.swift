@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import ShadesMedia
 import ShadesTestSupport
 import Testing
@@ -59,6 +59,25 @@ struct MediaLoaderTests {
     )
     #expect(frames.count == 4)
     #expect(frames.allSatisfy { $0.width <= 64 && $0.height <= 64 })
+  }
+
+  @Test
+  func `frames come from the moments asked for, in order`() async throws {
+    let url = try await VideoFixture.makeCounting()
+    let frames = try await MediaLoader.frames(
+      of: url,
+      at: [0.1, 1.9],
+      maxSize: CGSize(width: 64, height: 64),
+    )
+    let counted = try frames.map { frame in
+      let png = try #require(NSBitmapImageRep(cgImage: frame).representation(
+        using: .png,
+        properties: [:],
+      ))
+      return try VideoFixture.countedFrame(in: png)
+    }
+    #expect(counted.count == 2)
+    #expect(counted[0] < counted[1])
   }
 
   @Test
