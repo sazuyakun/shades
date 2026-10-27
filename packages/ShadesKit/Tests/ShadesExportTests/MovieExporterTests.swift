@@ -145,12 +145,65 @@ struct MovieExporterTests {
     #expect(abs(open.peak - limited.peak - 12.04) < 0.5)
   }
 
+  @Test
+  func `the export limits each click at its own moment`() async throws {
+    let clicks = try AudioFixture.makeClicks(beatsPerMinute: 120, seconds: 2)
+    let open = try await loudness(of: export(canvas: .picture, sound: clicks))
+    // why: the gain dips to a quarter from just before each click (every 0.5 s) to just after.
+    var dips = [GainPoint(time: .zero, gain: 0.25)]
+    for beat in [0.5, 1, 1.5] {
+      dips.append(GainPoint(time: MediaTime(seconds: beat - 0.48), gain: 0.25))
+      dips.append(GainPoint(time: MediaTime(seconds: beat - 0.47), gain: 1))
+      dips.append(GainPoint(time: MediaTime(seconds: beat - 0.02), gain: 1))
+      dips.append(GainPoint(time: MediaTime(seconds: beat - 0.01), gain: 0.25))
+    }
+    dips.append(GainPoint(time: MediaTime(seconds: 2), gain: 0.25))
+    let limiter = dips
+    let limited = try await loudness(of: export(canvas: .picture, sound: clicks) { timeline in
+      timeline.limiter = limiter
+    })
+    #expect(open.peak - limited.peak > 10)
+  }
+
+  @Test
+  func `a mono sound exports at the level the mix was measured at`() async throws {
+    let tone = try AudioFixture.makeTone(seconds: 2)
+    let measured = try await loudness(of: tone)
+    let exported = try await loudness(of: export(canvas: .picture, sound: tone))
+    // why: peaks are left out: the AAC encoder lifts a true peak by up to about 1 dB.
+    #expect(abs(measured.integrated - exported.integrated) < 0.1)
+  }
+
+  @Test
+  func `the export limits a slowed-down click at its moment on the timeline`() async throws {
+    let clicks = try AudioFixture.makeClicks(beatsPerMinute: 120, seconds: 2)
+    // why: at half speed the clicks at 0 s and 0.5 s of the file play at 0 s and 1 s.
+    let halfSpeed: (inout Timeline) -> Void = { $0.tracks[1].clips[0].speed = 0.5 }
+    let open = try await loudness(of: export(canvas: .picture, sound: clicks, mix: halfSpeed))
+    let limited = try await loudness(of: export(canvas: .picture, sound: clicks) { timeline in
+      halfSpeed(&timeline)
+      timeline.limiter = [
+        GainPoint(time: .zero, gain: 0.25),
+        GainPoint(time: MediaTime(seconds: 0.02), gain: 0.25),
+        GainPoint(time: MediaTime(seconds: 0.03), gain: 1),
+        GainPoint(time: MediaTime(seconds: 0.98), gain: 1),
+        GainPoint(time: MediaTime(seconds: 0.99), gain: 0.25),
+        GainPoint(time: MediaTime(seconds: 1.05), gain: 0.25),
+        GainPoint(time: MediaTime(seconds: 1.06), gain: 1),
+        GainPoint(time: MediaTime(seconds: 2), gain: 1),
+      ]
+    })
+    #expect(open.peak - limited.peak > 10)
+  }
+
   // MARK: Private
 
-  /// Exports 2 seconds of red with a tone, at 640×480, with `mix` changing the timeline.
+  /// Exports 2 seconds of red with `sound` (a tone by default), at 640×480, with `mix` changing
+  /// the timeline.
   private func export(
     canvas: Canvas,
     range: TimeRange? = nil,
+    sound: URL? = nil,
     mix: (inout Timeline) -> Void = { _ in },
   ) async throws -> URL {
     let red = FixtureColor(red: 255, green: 0, blue: 0)
@@ -162,7 +215,7 @@ struct MovieExporterTests {
       hasAudio: false,
     )
     let tone = Media(
-      url: try AudioFixture.makeTone(seconds: 2),
+      url: try sound ?? AudioFixture.makeTone(seconds: 2),
       duration: MediaTime(seconds: 2),
       width: 0,
       height: 0,
