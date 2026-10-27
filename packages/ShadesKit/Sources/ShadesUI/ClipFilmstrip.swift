@@ -14,7 +14,8 @@ struct ClipFilmstrip: View {
   var body: some View {
     GeometryReader { geometry in
       let tileWidth = geometry.size.height * 16 / 9
-      let count = min(max(Int((geometry.size.width / tileWidth).rounded(.up)), 1), Self.maxTiles)
+      let needed = Int((geometry.size.width / tileWidth).rounded(.up))
+      let count = Self.tileCounts.first { $0 >= needed } ?? Self.tileCounts.last ?? 1
       HStack(spacing: 0) {
         ForEach(frames.indices, id: \.self) { index in
           Image(decorative: frames[index], scale: 1)
@@ -27,6 +28,11 @@ struct ClipFilmstrip: View {
       .frame(width: geometry.size.width, alignment: .leading)
       .clipped()
       .task(id: seconds(count: count)) {
+        // why: zooming and trimming change the tiles many times a second; load once they settle.
+        try? await Task.sleep(for: Self.settleDelay)
+        guard !Task.isCancelled else {
+          return
+        }
         // why: a filmstrip that didn't load leaves the clip's own colour; failures are logged.
         if
           let loaded = try? await MediaLoader.frames(
@@ -43,8 +49,11 @@ struct ClipFilmstrip: View {
 
   // MARK: Private
 
-  /// Enough for a clip as wide as the window; past that the tiles stretch, keeping memory low.
-  private static let maxTiles = 24
+  /// How many tiles a clip can have: steps, so zooming reloads rarely, up to enough for a clip
+  /// as wide as the window; past that the tiles stretch, keeping memory low.
+  private static let tileCounts = [1, 2, 4, 8, 16, 24]
+  /// How long the tiles must stay the same before their frames load.
+  private static let settleDelay = Duration.milliseconds(300)
 
   @State private var frames = [CGImage]()
 

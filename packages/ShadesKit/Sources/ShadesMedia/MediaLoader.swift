@@ -99,7 +99,9 @@ public enum MediaLoader {
   }
 
   /// Stills from `seconds` into the file (each the nearest frame that's quick to decode), no
-  /// larger than `maxSize`: a timeline clip's filmstrip.
+  /// larger than `maxSize`: a timeline clip's filmstrip. Runs off the main actor: decoding many
+  /// frames there stalled the timeline.
+  @concurrent
   public static func frames(
     of url: URL,
     at seconds: [Double],
