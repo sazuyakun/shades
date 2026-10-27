@@ -23,6 +23,7 @@ Anything else (model, engine, UI views, MCP server) goes in a ShadesKit module, 
 - `xcodegen generate --spec apps/mac/project.yml --project apps/mac`
 - `xcodebuild -project apps/mac/Shades.xcodeproj -scheme Shades -derivedDataPath apps/mac/.build build`
 - Run: `open apps/mac/.build/Build/Products/Debug/Shades.app`. It serves MCP at `http://127.0.0.1:4747/mcp`.
+- **Soham's everyday copy** lives in `/Applications`: build with `-configuration Release` (Debug is slower), quit Shades (it saves on quit), then `ditto apps/mac/.build/Build/Products/Release/Shades.app /Applications/Shades.app`. Claude Code reaches it through the user-scope MCP server `shades` (`claude mcp add --scope user --transport http shades http://127.0.0.1:4747/mcp`).
 - `AppDelegate` owns the one `Workspace` (open project, player, Claude's server) and saves it before quitting. `ShadesApp` declares the editor and welcome windows (each reopens the last project if it was open) and Settings.
 
 ## Verifying

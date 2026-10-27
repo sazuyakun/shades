@@ -579,3 +579,18 @@ A running glossary of Swift and Apple concepts, added the first time each shows 
 **What it is:** `coremltools` (Apple's Python package) traces a PyTorch network into Core ML's own program format, saved as an `.mlpackage` (the editable source form). Compiling it gives the `.mlmodelc` folder the app loads (`model.mil` is the program, `weights/` the numbers). Choosing half precision at conversion stores and runs the weights as `Float16`, halving the size.
 **JS/TS analogy:** Like transpiling TypeScript (`.mlpackage`) to the JavaScript the browser actually runs (`.mlmodelc`): you ship the compiled output, and keep the build script that makes it.
 **In Shades:** `packages/ShadesKit/Tools/convert-htdemucs.py` turns HTDemucs into `HTDemucs.mlmodelc` for `StemSeparator`, then checks it against PyTorch.
+
+## `GeometryReader`
+**What it is:** A SwiftUI view that hands its content the size it was given (`geometry.size`), so the content can lay itself out from that space, e.g. how many tiles fit across.
+**JS/TS analogy:** Like a React component using a `ResizeObserver` (or `useMeasure`) to read its own width before deciding what to render.
+**In Shades:** `ClipFilmstrip` reads a timeline clip's width and height to work out how many 16:9 frames fit across it.
+
+## `AVAssetImageGenerator`
+**What it is:** AVFoundation's way to grab still frames from a video at chosen times, scaled down to a `maximumSize`. Its time tolerances say how far it may stray from the asked time: infinite tolerance lets it take the nearest keyframe, which is much faster to decode.
+**JS/TS analogy:** Like seeking a hidden `<video>` element and drawing it to a `<canvas>` to make a thumbnail, but off-screen and in the background.
+**In Shades:** `MediaLoader.frames(of:at:maxSize:)` makes the timeline filmstrips and `MediaLoader.filmstrip` the hover-scrub frames in the media browser.
+
+## `DecodingError`
+**What it is:** The error `JSONDecoder` throws when JSON doesn't fit a `Decodable` type: a key is missing (`keyNotFound`), a value has the wrong type (`typeMismatch`), or a value isn't allowed, like a string that isn't one of an enum's cases (`dataCorrupted`). Each carries a `codingPath` naming the field.
+**JS/TS analogy:** Like the issues list a zod `safeParse` returns when an object doesn't match its schema, each with a path to the bad field.
+**In Shades:** `JSONValue.decode` turns it into plain words for Claude, e.g. "property can't be zoom: use one of the values the tool lists".
