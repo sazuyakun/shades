@@ -78,6 +78,8 @@ public final class Player {
     guard duration > 0 else {
       avPlayer.replaceCurrentItem(with: nil)
       composition = nil
+      cuedTime = nil
+      currentTime = 0
       return
     }
     let structure = Composition.Structure(timeline)

@@ -30,6 +30,15 @@ struct PlayerTests {
   }
 
   @Test
+  func `loading an empty project puts the playhead back at the start`() async throws {
+    let player = Player()
+    try await player.load(oneClipProject())
+    await player.seek(toSeconds: 0.75)
+    try await player.load(Project())
+    #expect(player.currentTime == 0)
+  }
+
+  @Test
   func `a new cut-out rebuilds playback so depth slots can use it`() async throws {
     let project = try await oneClipProject()
     let player = Player()
