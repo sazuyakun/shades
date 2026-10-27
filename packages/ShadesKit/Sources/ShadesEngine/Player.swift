@@ -16,7 +16,8 @@ public final class Player {
     ) { [weak self] time in
       MainActor.assumeIsolated {
         // why: while an item loads the player reports an invalid time; keep the last good one.
-        if time.seconds.isFinite {
+        // With no item (an empty timeline) it can still report the old item's last time.
+        if time.seconds.isFinite, self?.avPlayer.currentItem != nil {
           self?.currentTime = time.seconds
         }
         self?.watchPlayback()

@@ -34,7 +34,12 @@ struct PlayerTests {
     let player = Player()
     try await player.load(oneClipProject())
     await player.seek(toSeconds: 0.75)
+    player.play()
+    player.pause()
+    player.cue(toSeconds: 0)
     try await player.load(Project())
+    // why: AVFoundation reports the old time a moment later; it mustn't move the playhead back.
+    try await Task.sleep(for: .milliseconds(200))
     #expect(player.currentTime == 0)
   }
 
