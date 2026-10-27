@@ -212,6 +212,34 @@ struct PolishPlannerTests {
     #expect(plan.items.count == 3)
   }
 
+  @Test
+  func `a clip with no speech on the track is never cut as a pause`() {
+    var (project, analyses) = talking([("Hello", 0.2), ("world.", 0.6)], length: 4)
+    let music = Media(
+      url: URL(filePath: "/tmp/music.mov"),
+      duration: MediaTime(seconds: 5),
+      width: 1920,
+      height: 1080,
+      hasAudio: true,
+    )
+    project.media.append(music)
+    project.timeline.tracks[0].clips.append(Clip(
+      mediaID: music.id,
+      sourceStart: .zero,
+      duration: MediaTime(seconds: 5),
+      timelineStart: MediaTime(seconds: 4),
+    ))
+    analyses[music.id] = MediaAnalysis(speech: [])
+    let plan = PolishPlanner.plan(
+      project.timeline,
+      analyses: analyses,
+      range: whole(9),
+      options: only(silences: true),
+    )
+    #expect(!plan.items.isEmpty)
+    #expect(plan.items.allSatisfy { $0.range.end <= MediaTime(seconds: 4) })
+  }
+
   // MARK: Private
 
   /// A 1-track talking clip whose transcript has `words` (text, start; each 0.3 s long).

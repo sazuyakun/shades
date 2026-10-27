@@ -31,7 +31,7 @@ struct WorkspacePolishTests {
     workspace.projectDidChange()
     #expect(workspace.polishPlan == nil)
     workspace.proposePolish(in: range, track: "V1", options: PolishOptions())
-    _ = try await workspace.applyPolish(ids: nil, kinds: nil)
+    _ = try await workspace.applyPolish(ids: nil, kinds: [.silence])
     #expect(workspace.polishPlan == nil)
   }
 }

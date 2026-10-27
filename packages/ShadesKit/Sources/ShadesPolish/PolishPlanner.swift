@@ -46,13 +46,10 @@ public enum PolishPlanner {
       cuts += fillers(in: words)
     }
     if options.silences {
-      cuts += words.isEmpty
-        ? silences(
-          fromSpeech: speechOnTimeline(track, analyses: analyses),
-          in: range,
-          options: options,
-        )
-        : silences(between: words, in: range, options: options)
+      let talk = words.isEmpty
+        ? speechOnTimeline(track, analyses: analyses)
+        : words.map { TimeRange(start: $0.start, end: $0.end) }
+      cuts += silences(around: talk, on: track, in: range, options: options)
     }
     cuts = withoutOverlaps(cuts)
     var items = cuts
@@ -194,59 +191,39 @@ public enum PolishPlanner {
     MediaTime(seconds: value, timescale: 1000)
   }
 
-  /// Pauses between words longer than the minimum, keeping padding around the words, plus the
-  /// pause before the first word and after the last.
+  /// Pauses longer than the minimum between stretches of talk (words, or speech activity when
+  /// there's no transcript), keeping padding around the talk. A pause is looked for only inside
+  /// clips with talk in them: a clip of music or B-roll on the track is never a pause.
   private static func silences(
-    between words: [SpokenWord],
-    in range: TimeRange,
-    options: PolishOptions,
-  ) -> [PolishItem] {
-    guard let first = words.first, let last = words.last else {
-      return []
-    }
-    let pad = seconds(options.padding)
-    var gaps = [(start: range.start, end: first.start - pad)]
-    gaps += zip(words, words.dropFirst()).map { ($0.end + pad, $1.start - pad) }
-    gaps.append((last.end + pad, range.end))
-    return gaps.compactMap { gap in
-      let length = (gap.end - gap.start).seconds
-      guard length + 2 * options.padding >= options.minimumSilence, length > 0.04 else {
-        return nil
-      }
-      return PolishItem(
-        id: UUID(),
-        kind: .silence,
-        range: TimeRange(start: gap.start, end: gap.end),
-        detail: String(format: "%.1f s pause", length),
-      )
-    }
-  }
-
-  /// Pauses between stretches of speech, when there's no transcript.
-  private static func silences(
-    fromSpeech speech: [TimeRange],
+    around talk: [TimeRange],
+    on track: Track,
     in range: TimeRange,
     options: PolishOptions,
   ) -> [PolishItem] {
     let pad = seconds(options.padding)
+    let talkingClips = track.clips
+      .map { TimeRange(start: $0.timelineStart, end: $0.timelineEnd) }
+      .filter { clip in talk.contains { $0.overlaps(clip) } }
     var edges = [range.start]
-    for stretch in speech where stretch.overlaps(range) {
+    for stretch in talk where stretch.overlaps(range) {
       edges += [stretch.start - pad, stretch.end + pad]
     }
     edges.append(range.end)
-    return stride(from: 0, to: edges.count - 1, by: 2).compactMap { index in
-      let start = max(edges[index], range.start)
-      let end = min(edges[index + 1], range.end)
-      let length = (end - start).seconds
-      guard length + 2 * options.padding >= options.minimumSilence, length > 0.04 else {
-        return nil
+    return stride(from: 0, to: edges.count - 1, by: 2).flatMap { index in
+      talkingClips.compactMap { clip -> PolishItem? in
+        let start = max(edges[index], range.start, clip.start)
+        let end = min(edges[index + 1], range.end, clip.end)
+        let length = (end - start).seconds
+        guard length + 2 * options.padding >= options.minimumSilence, length > 0.04 else {
+          return nil
+        }
+        return PolishItem(
+          id: UUID(),
+          kind: .silence,
+          range: TimeRange(start: start, end: end),
+          detail: String(format: "%.1f s pause", length),
+        )
       }
-      return PolishItem(
-        id: UUID(),
-        kind: .silence,
-        range: TimeRange(start: start, end: end),
-        detail: String(format: "%.1f s pause", length),
-      )
     }
   }
 
