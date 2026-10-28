@@ -47,6 +47,38 @@ struct MixReaderTests {
   }
 
   @Test
+  @MainActor
+  func `a clip running a little past its sound's end plays and measures`() async throws {
+    let url = try AudioFixture.makeTone(seconds: 1.99, amplitude: 0.5)
+    let media = Media(
+      url: url,
+      duration: MediaTime(seconds: 1.99),
+      width: 0,
+      height: 0,
+      hasVideo: false,
+      hasAudio: true,
+    )
+    // why: lengths round to the nearest frame, so the 1.99 s file makes a 2 s clip at 24 fps.
+    let project = Project(media: [media], timeline: Timeline(tracks: [
+      Track(kind: .video),
+      Track(kind: .audio, clips: [Clip(
+        mediaID: media.id,
+        sourceStart: .zero,
+        duration: media.length(at: 24),
+        timelineStart: .zero,
+      )]),
+    ]))
+    try await Player().load(project)
+    let reader = MixReader(project: project)
+    var count = 0
+    while let chunk = try await reader.nextChunk() {
+      count += chunk.count
+    }
+    // why: the sound plays to its file's end; the last few milliseconds of the clip are silent.
+    #expect(abs(count - 2 * 2 * 48000) <= 2 * 48000 / 24)
+  }
+
+  @Test
   func `a timeline without sound reads nothing`() async throws {
     let reader = MixReader(project: Project())
     #expect(try await reader.nextChunk() == nil)

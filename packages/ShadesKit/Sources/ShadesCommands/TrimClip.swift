@@ -125,7 +125,7 @@ public struct TrimClip: ToolCommand {
     guard !media.isStill else {
       return
     }
-    let available = media.duration.flooredToFrame(at: project.timeline.format.framesPerSecond)
+    let available = media.length(at: project.timeline.format.framesPerSecond)
     guard
       clip.sourceStart >= .zero, clip.sourceEnd <= available,
       clip.timelineStart >= .zero

@@ -199,8 +199,7 @@ struct TimelineClip: View {
     guard let mediaID = clip.mediaID, hasEdges else {
       return max(time, clip.timelineStart + frame)
     }
-    let mediaDuration = editor.project.media(withID: mediaID)?.duration
-      .flooredToFrame(at: fps) ?? clip.sourceEnd
+    let mediaDuration = editor.project.media(withID: mediaID)?.length(at: fps) ?? clip.sourceEnd
     let latest = clip.timelineTime(atSource: mediaDuration).flooredToFrame(at: fps)
     return max(min(time, latest), clip.timelineStart + frame)
   }

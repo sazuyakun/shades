@@ -46,6 +46,16 @@ struct ToolHandlerTests {
   }
 
   @Test
+  func `media lengths are reported in frames as well as seconds`() async throws {
+    let url = try await VideoFixture.make(red: 0, green: 0, blue: 255, seconds: 2)
+    let fps = editor.project.timeline.format.framesPerSecond
+    let result = await handler.call("import_media", arguments: ["path": .string(url.path)])
+    #expect(result.text.contains("(\(2 * fps) frames at \(fps) fps)"))
+    let project = await handler.call("get_project", arguments: [:])
+    #expect(project.text.contains("\"frames\" : \(2 * fps)"))
+  }
+
+  @Test
   func `edits report the clips they created`() async throws {
     let mediaID = try await importFixture()
     let result = await handler.call("append_clip", arguments: ["media_id": .string(mediaID)])

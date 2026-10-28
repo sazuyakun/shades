@@ -1058,9 +1058,11 @@ public final class ToolHandler {
     let picture = media.isStill
       ? "a picture, \(media.width)×\(media.height), "
       : media.hasVideo ? "\(media.width)×\(media.height), " : "sound only, "
+    let fps = editor.project.timeline.format.framesPerSecond
+    let frames = Int((media.length(at: fps).seconds * Double(fps)).rounded())
     return .text(
-      "Imported \(media.name) as media \(media.id): \(media.duration.seconds) s, \(picture)"
-        + "\(media.hasAudio ? "with" : "no") audio."
+      "Imported \(media.name) as media \(media.id): \(media.duration.seconds) s "
+        + "(\(frames) frames at \(fps) fps), \(picture)\(media.hasAudio ? "with" : "no") audio."
     )
   }
 

@@ -120,7 +120,7 @@ extension Project {
     to end: MediaTime?,
   ) throws(CommandError) -> (start: MediaTime, duration: MediaTime) {
     let fps = timeline.format.framesPerSecond
-    let whole = media.duration.flooredToFrame(at: fps)
+    let whole = media.length(at: fps)
     let first = start.map(onFrame) ?? .zero
     let last = end.map(onFrame) ?? whole
     guard first >= .zero, media.isStill || last <= whole else {

@@ -31,7 +31,7 @@ enum ProjectSummary {
       ],
       "playhead": rounded(playhead),
       "selection": .array(selection.map { .string($0.uuidString) }),
-      "media": .array(project.media.map(json)),
+      "media": .array(project.media.map { json($0, fps: timeline.format.framesPerSecond) }),
       "tracks": .array(timeline.tracks.map { track in
         [
           "label": .string(timeline.label(of: track)),
@@ -77,12 +77,14 @@ enum ProjectSummary {
 
   // MARK: Private
 
-  private static func json(_ media: Media) -> JSONValue {
+  /// A media file, with its length in frames at the timeline's `fps` as well as in seconds.
+  private static func json(_ media: Media, fps: Int) -> JSONValue {
     var fields: [String: JSONValue] = [
       "id": .string(media.id.uuidString),
       "name": .string(media.name),
       "path": .string(media.url.path),
       "duration": seconds(media.duration),
+      "frames": .number((media.length(at: fps).seconds * Double(fps)).rounded()),
       "width": .number(Double(media.width)),
       "height": .number(Double(media.height)),
       "has_video": .bool(media.hasVideo),

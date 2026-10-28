@@ -34,6 +34,30 @@ struct PlacementTests {
   }
 
   @Test
+  func `the length reported for media is accepted as the source end`() throws {
+    let odd = makeMedia(seconds: 5.0333)
+    var project = Project(media: [odd])
+    try AppendClip(mediaID: odd.id, sourceEnd: seconds(5.0333)).apply(to: &project)
+    let clip = try #require(project.timeline.allClips.first)
+    #expect(clip.duration == seconds(5.0333).roundedToFrame(at: 24))
+  }
+
+  @Test
+  func `a whole sound file ends on the same frame as its nearly equal video`() throws {
+    let picture = makeMedia(seconds: 11.733, hasAudio: false)
+    let sound = makeMedia(seconds: 11.726, hasVideo: false)
+    var project = Project(
+      media: [picture, sound],
+      timeline: Timeline(format: VideoFormat(width: 1440, height: 1080, framesPerSecond: 30)),
+    )
+    try AppendClip(mediaID: picture.id).apply(to: &project)
+    try AppendClip(mediaID: sound.id).apply(to: &project)
+    let ends = project.timeline.allClips.map(\.timelineEnd)
+    #expect(ends.count == 2)
+    #expect(Set(ends).count == 1)
+  }
+
+  @Test
   func `sound-only media goes on the first audio track`() throws {
     var project = Project(media: [music])
     try AppendClip(mediaID: music.id).apply(to: &project)

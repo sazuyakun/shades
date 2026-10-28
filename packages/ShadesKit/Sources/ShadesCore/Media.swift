@@ -52,6 +52,13 @@ public struct Media: Hashable, Sendable, Identifiable {
     url.deletingPathExtension().lastPathComponent
   }
 
+  /// How long the media is on a timeline at `framesPerSecond`: its duration to the nearest
+  /// frame. The one rounding rule for a file's end, so a whole sound ends on the same frame as
+  /// its video; a clip can run under half a frame past its file, which plays as silence.
+  public func length(at framesPerSecond: Int) -> MediaTime {
+    duration.roundedToFrame(at: framesPerSecond)
+  }
+
 }
 
 // MARK: Codable
