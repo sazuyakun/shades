@@ -65,6 +65,9 @@ struct TransitionControls: View {
     case .tiles: "Tiles"
     case .iris: "Iris"
     case .portal: "Portal (Zoom Through)"
+    case .flashWhite: "Flash Frames (White)"
+    case .flashBlack: "Flash Frames (Black)"
+    case .flashInvert: "Flash Frames (Invert)"
     }
   }
 

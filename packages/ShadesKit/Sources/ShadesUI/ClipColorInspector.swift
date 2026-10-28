@@ -254,6 +254,7 @@ private enum EffectControl: CaseIterable {
   case vignette
   case halation
   case blur
+  case invert
 
   // MARK: Internal
 
@@ -263,6 +264,7 @@ private enum EffectControl: CaseIterable {
     case .vignette: "Vignette"
     case .halation: "Halation"
     case .blur: "Blur"
+    case .invert: "Invert"
     }
   }
 
@@ -272,6 +274,7 @@ private enum EffectControl: CaseIterable {
     case .vignette: \.vignette
     case .halation: \.halation
     case .blur: \.blur
+    case .invert: \.invert
     }
   }
 }

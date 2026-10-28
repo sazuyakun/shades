@@ -114,7 +114,15 @@ extension Grade {
 extension Effects {
   /// Refuses values outside 0 to 1.
   func validate() throws(CommandError) {
-    let amounts = [grain, vignette, halation, blur, key?.tolerance ?? 0, key?.softness ?? 0]
+    let amounts = [
+      grain,
+      vignette,
+      halation,
+      blur,
+      invert,
+      key?.tolerance ?? 0,
+      key?.softness ?? 0,
+    ]
     guard amounts.allSatisfy({ (0 ... 1).contains($0) }) else {
       throw rejected(.invalidValue("effect amounts go from 0 to 1"))
     }

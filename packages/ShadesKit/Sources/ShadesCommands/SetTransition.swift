@@ -19,8 +19,11 @@ public struct SetTransition: ToolCommand {
   public static let summary = "Set the transition into a clip from the clip right before it on "
     + "its track (they must touch): dissolve, dipToBlack, flash, whip, push, slices, tiles, "
     + "iris (a circle opening from the middle) or portal (zooming in through a small frame of "
-    + "the next shot until it fills the picture), centred on the cut. Leave out kind for a plain "
-    + "cut. Footage past the clips' ends is used when it exists; otherwise the edge frame holds."
+    + "the next shot until it fills the picture), centred on the cut. Flash frames cut hard "
+    + "through a few frames of solid colour or negative: flashWhite, flashBlack, flashInvert (each "
+    + "shot's negative on its side; e.g. duration 0.125 for 3 frames at 24 fps). Leave out kind "
+    + "for a plain cut. Footage past the clips' ends is used when it exists; otherwise the edge "
+    + "frame holds."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": JSONSchema.string("The clip coming in"),

@@ -41,6 +41,16 @@ struct TransitionStyle: Equatable {
       scale = pow(Self.portalZoom, isIncoming ? travel - 1 : travel)
       opacity = isIncoming ? min(progress / 0.15, 1) : 1
 
+    case .flashWhite,
+         .flashBlack:
+      opacity = isIncoming == !firstHalf ? 1 : 0
+      dip = 1
+      dipsToWhite = kind == .flashWhite
+
+    case .flashInvert:
+      opacity = isIncoming == !firstHalf ? 1 : 0
+      invert = 1
+
     case .slices,
          .tiles,
          .iris:
@@ -62,6 +72,8 @@ struct TransitionStyle: Equatable {
   /// How far the clip is faded to black (or white), 0 to 1.
   var dip = 0.0
   var dipsToWhite = false
+  /// How far the clip is turned into its negative, 0 to 1.
+  var invert = 0.0
   /// The pattern the incoming clip is revealed through, if any.
   var wipe: TransitionKind?
   var wipeProgress = 0.0

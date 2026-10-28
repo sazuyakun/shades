@@ -126,6 +126,7 @@ struct LayerLook {
   int primaries;             // 0 Rec.709, 1 P3, 2 Rec.2020: wide gamuts are brought inside Rec.709
   float portalNesting;       // an endless zoom: each nested copy this many times smaller; 0 none
   float portalTravel;        // how far it has zoomed in, in copies
+  float invert;              // how far the picture is its negative, 0 to 1
 };
 
 // Must match `LayerMaskShape` in LayerMaskShape.swift: one layer mask, placed for this frame.
@@ -424,6 +425,9 @@ static float4 shade(VertexOut in, texture2d<half> picture, texture2d<float> trav
   if (look.grain > 0) {
     float noise = hash(in.position.xy + look.seed * 61.7) - 0.5;
     rgb += noise * look.grain * 0.18 * (1.0 - abs(luma(rgb) - 0.5));
+  }
+  if (look.invert > 0) {
+    rgb = mix(rgb, 1.0 - saturate(rgb), look.invert);
   }
   return float4(rgb, alpha);
 }

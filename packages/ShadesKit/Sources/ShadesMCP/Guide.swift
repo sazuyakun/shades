@@ -102,8 +102,9 @@ enum Guide {
 
     Colour and effects
     - set_look grades clips (exposure, contrast, saturation, temperature, tint, lift, gamma, \
-    gain, curves, a LUT), adds grain, vignette, halation, blur or a green-screen key, and sets \
-    blend modes (screen for flares on black, multiply for paper, overlay for grain plates).
+    gain, curves, a LUT), adds grain, vignette, halation, blur, invert (the negative) or a \
+    green-screen key, and sets blend modes (screen for flares on black, multiply for paper, \
+    overlay for grain plates).
     - set_window limits a clip's grade to a soft ellipse or rectangle in the frame (light a \
     face, darken a sky) and keyframes it with at.
     - set_mask hides or reveals part of a layer: rectangles, ellipses or free paths (points or \
@@ -117,7 +118,9 @@ enum Guide {
     come back to you to fix.
     - set_transition joins touching clips (titles on a text track too) with a dissolve, dip, \
     flash, whip, push, slices, tiles, iris or portal (zooming through a small frame of the \
-    next shot until it fills the picture).
+    next shot until it fills the picture). Flash frames (flashWhite, flashBlack, flashInvert) \
+    cut hard through a few frames of white, black or each shot's negative, on the beat: give \
+    the duration in frames' worth of seconds (3 frames at 24 fps is 0.125).
     - set_look effects portal {nesting, travel} makes an endless zoom: the picture nested inside \
     itself forever (Droste); keyframe portal (travel 0 to 4 over a clip zooms through four \
     frames) to fly in through them.

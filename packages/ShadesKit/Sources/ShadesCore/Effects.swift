@@ -14,6 +14,7 @@ public struct Effects: Hashable, Sendable {
     shader: String? = nil,
     shaderAmount: Double = 1,
     portal: Portal? = nil,
+    invert: Double = 0,
   ) {
     self.grain = grain
     self.vignette = vignette
@@ -23,6 +24,7 @@ public struct Effects: Hashable, Sendable {
     self.shader = shader
     self.shaderAmount = shaderAmount
     self.portal = portal
+    self.invert = invert
   }
 
   // MARK: Public
@@ -42,6 +44,8 @@ public struct Effects: Hashable, Sendable {
   /// How strongly the shader effect applies, 0 to 1 (it reads this as `amount`).
   public var shaderAmount: Double
   /// An endless zoom through the picture nested inside itself.
+  /// How far the picture turns into its negative, 0 to 1.
+  public var invert: Double
   public var portal: Portal?
 
 }
@@ -64,6 +68,7 @@ extension Effects: Codable {
       shader: container.decodeIfPresent(String.self, forKey: .shader),
       shaderAmount: container.decodeIfPresent(Double.self, forKey: .shaderAmount) ?? 1,
       portal: container.decodeIfPresent(Portal.self, forKey: .portal),
+      invert: container.decodeIfPresent(Double.self, forKey: .invert) ?? 0,
     )
   }
 
@@ -78,6 +83,7 @@ extension Effects: Codable {
     case shader
     case shaderAmount
     case portal
+    case invert
   }
 
 }

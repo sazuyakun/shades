@@ -91,6 +91,7 @@ struct LayerLook {
     flowScale = Float(2 * FlowVideo.range)
     portalNesting = Float(effects.portal?.nesting ?? 0)
     portalTravel = Float(effects.portal?.travel ?? 0)
+    invert = Float(max(effects.invert, transition?.invert ?? 0))
   }
 
   // MARK: Internal
@@ -156,5 +157,7 @@ struct LayerLook {
   let portalNesting: Float
   /// How far the endless zoom has travelled in, in copies.
   let portalTravel: Float
+  /// How far the picture is turned into its negative (its effect or a flashInvert), 0 to 1.
+  let invert: Float
 
 }

@@ -19,4 +19,10 @@ public enum TransitionKind: String, Codable, CaseIterable, Sendable {
   /// The view zooms in through a small frame of the next shot in the middle until it fills the
   /// picture.
   case portal
+  /// Solid white frames for the whole length, then a hard cut: a flash frame.
+  case flashWhite
+  /// Solid black frames for the whole length, then a hard cut.
+  case flashBlack
+  /// Each shot's negative on its side of the cut, for the whole length.
+  case flashInvert
 }

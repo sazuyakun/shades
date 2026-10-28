@@ -24,6 +24,39 @@ struct TransitionRenderingTests {
   }
 
   @Test
+  func `flash frames hold a solid colour or the negative, then cut`() {
+    let white = TransitionStyle(kind: .flashWhite, progress: 0.25, isIncoming: false)
+    #expect(white.dip == 1 && white.dipsToWhite && white.opacity == 1)
+    let black = TransitionStyle(kind: .flashBlack, progress: 0.75, isIncoming: true)
+    #expect(black.dip == 1 && !black.dipsToWhite && black.opacity == 1)
+    let inverted = TransitionStyle(kind: .flashInvert, progress: 0.25, isIncoming: false)
+    #expect(inverted.invert == 1 && inverted.dip == 0)
+    #expect(TransitionStyle(kind: .flashInvert, progress: 0.25, isIncoming: true).opacity == 0)
+  }
+
+  @Test
+  func `an inverted flash shows each shot's negative on its side of the cut`() async throws {
+    let before = try await frame(.flashInvert, at: 0.7)
+    let outgoing = try PixelProbe.color(of: before, x: 0.5, y: 0.5)
+    #expect(outgoing.red < 60 && outgoing.green > 200 && outgoing.blue > 200, "red's negative")
+    let after = try await frame(.flashInvert, at: 1.2)
+    let incoming = try PixelProbe.color(of: after, x: 0.5, y: 0.5)
+    #expect(incoming.red > 200 && incoming.green > 200 && incoming.blue < 60, "blue's negative")
+    let past = try await frame(.flashInvert, at: 1.5)
+    #expect(try PixelProbe.color(of: past, x: 0.5, y: 0.5).blue > 200, "cut back to normal")
+  }
+
+  @Test
+  func `white and black flash frames cover the picture`() async throws {
+    let whiteFrame = try await frame(.flashWhite, at: 0.7)
+    let white = try PixelProbe.color(of: whiteFrame, x: 0.5, y: 0.5)
+    #expect(white.red > 240 && white.green > 240 && white.blue > 240)
+    let blackFrame = try await frame(.flashBlack, at: 1.2)
+    let black = try PixelProbe.color(of: blackFrame, x: 0.5, y: 0.5)
+    #expect(black.red < 15 && black.green < 15 && black.blue < 15)
+  }
+
+  @Test
   func `a dissolve mixes the two clips at the cut, using held frames past their ends`(
   ) async throws {
     let png = try await frame(.dissolve, at: 1.0)

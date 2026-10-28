@@ -20,6 +20,16 @@ struct LookRenderingTests {
   }
 
   @Test
+  func `invert turns the picture into its negative, partly when asked`() async throws {
+    let negative = try await frame(top: nil) { $0.effects = Effects(invert: 1) }
+    let full = try PixelProbe.color(of: negative, x: 0.5, y: 0.5)
+    #expect(full.red < 180 && full.green > 200 && full.blue > 200)
+    let half = try await frame(top: nil) { $0.effects = Effects(invert: 0.5) }
+    let middle = try PixelProbe.color(of: half, x: 0.5, y: 0.5)
+    #expect((100 ... 160).contains(Int(middle.green)))
+  }
+
+  @Test
   func `curves and a LUT reshape colour`() async throws {
     let lut = try LUTFixture.make { red, green, blue in (1 - red, 1 - green, 1 - blue) }
     let inverted = try await frame(top: nil) { $0.grade = Grade(lut: lut.path) }

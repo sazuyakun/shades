@@ -48,6 +48,11 @@ enum LookFields {
     "vignette": JSONSchema.number("Darkened corners, 0 to 1", minimum: 0, maximum: 1),
     "halation": JSONSchema.number("Red glow around highlights, 0 to 1", minimum: 0, maximum: 1),
     "blur": JSONSchema.number("Softness, 0 to 1", minimum: 0, maximum: 1),
+    "invert": JSONSchema.number(
+      "The picture's negative, 0 to 1 (1 fully inverted; flashInvert transitions flash it)",
+      minimum: 0,
+      maximum: 1,
+    ),
     "shader": JSONSchema.string(
       "A Metal shader effect: a .metal file's path or a plugin's shader. The file defines "
         + "float4 effect(float4 color, float2 uv, float time, float amount, texture2d<half> "
