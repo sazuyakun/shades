@@ -5,9 +5,10 @@ import Synchronization
 
 // MARK: - TrackTap
 
-/// What happens to one track's sound as it plays or exports, sample by sample: its
-/// `SoundShaping` (the master limiter's gain and the track's pan), then a reading for the
-/// mixer's meters. It runs inside AVFoundation's mix as an audio tap, before the track's volume.
+/// What happens to one track's sound as it exports (or plays, when panned), sample by sample:
+/// its `SoundShaping`, the master limiter's gain and the track's pan. It runs inside
+/// AVFoundation's mix as an audio tap, before the track's volume. Playback taps only panned
+/// tracks: a tapped player can stall on a seek after a pause (see `AudioShaping`).
 /// The tap's thread is AVFoundation's, so everything it reads is fixed when it's made. Reading a
 /// mix back with `AVAssetReaderAudioMixOutput` skips ahead when a tap call runs long (as on a busy
 /// Mac), so `MixReader` shapes its samples itself instead.
@@ -15,19 +16,9 @@ final class TrackTap: Sendable {
 
   // MARK: Lifecycle
 
-  /// A tap for `track`'s sound in composition track `lane` that limits by `limiter`, pans by
-  /// `pan` and reports to `meters`.
-  init(
-    track: Track.ID,
-    lane: CMPersistentTrackID,
-    limiter: [GainPoint],
-    pan: Double,
-    meters: MixMeters?,
-  ) {
-    self.track = track
-    self.lane = lane
+  /// A tap that limits by `limiter` and pans by `pan`.
+  init(limiter: [GainPoint], pan: Double) {
     shaping = SoundShaping(limiter: limiter, pan: pan)
-    self.meters = meters
   }
 
   // MARK: Internal
@@ -85,10 +76,7 @@ final class TrackTap: Sendable {
 
   // MARK: Private
 
-  private let track: Track.ID
-  private let lane: CMPersistentTrackID
   private let shaping: SoundShaping
-  private let meters: MixMeters?
   private let sampleRate = Mutex(48000.0)
 
   private static func from(_ tap: MTAudioProcessingTap) -> TrackTap {
@@ -96,7 +84,7 @@ final class TrackTap: Sendable {
   }
 
   /// Limits and pans `frames` samples of every channel in `buffers`, which start `start`
-  /// seconds into the timeline, and reports their loudest points. Pan needs two channels, so mono
+  /// seconds into the timeline. Pan needs two channels, so mono
   /// sound pans only from its stereo copy (`Composition`'s `stereoSound`).
   private func process(
     _ buffers: UnsafeMutableAudioBufferListPointer,
@@ -108,7 +96,6 @@ final class TrackTap: Sendable {
       ? (0 ..< frames).map { shaping.limiterGain(at: start + Double($0) / rate) }
       : nil
     let channelCount = buffers.reduce(0) { $0 + Int(max($1.mNumberChannels, 1)) }
-    var loudest = [Float](repeating: 0, count: channelCount)
     var first = 0
     for buffer in buffers {
       let channels = Int(max(buffer.mNumberChannels, 1))
@@ -122,17 +109,9 @@ final class TrackTap: Sendable {
         for frame in 0 ..< min(frames, Int(buffer.mDataByteSize) / 4 / channels) {
           let sample = frame * channels + channel
           data[sample] *= pan * (limiting?[frame] ?? 1)
-          loudest[index] = max(loudest[index], abs(data[sample]))
         }
       }
     }
-    meters?.record(
-      MeterLevel(left: Double(loudest.first ?? 0), right: Double(loudest.last ?? 0)),
-      for: track,
-      lane: lane,
-      from: start,
-      to: start + Double(frames) / rate,
-    )
   }
 
 }

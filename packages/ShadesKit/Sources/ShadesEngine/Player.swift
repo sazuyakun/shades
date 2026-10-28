@@ -36,7 +36,6 @@ public final class Player {
   @ObservationIgnored public let avPlayer = AVPlayer()
   public let frameCounter = FrameCounter()
   /// Each track's level as it plays, for the mixer's meters.
-  @ObservationIgnored public let meters = MixMeters()
 
   /// The playhead position in seconds.
   public private(set) var currentTime: Double = 0
@@ -92,7 +91,7 @@ public final class Player {
       let composition,
       let item = avPlayer.currentItem
     {
-      item.audioMix = composition.audioMix(for: timeline, meters: meters)
+      item.audioMix = composition.audioMix(for: timeline, shaping: .preview)
       // why: a fresh copy of the video composition makes the player redraw the paused frame.
       item.videoComposition = sized(composition)
       frameCounter.expectFrame(for: .edit, since: requested)
@@ -126,7 +125,7 @@ public final class Player {
     fellBehind = false
     let item = AVPlayerItem(asset: built.asset)
     item.videoComposition = sized(built)
-    item.audioMix = built.audioMix(for: timeline, meters: meters)
+    item.audioMix = built.audioMix(for: timeline, shaping: .preview)
     item.audioTimePitchAlgorithm = Composition.timePitchAlgorithm
     // why: sound can run on silently past the end (see `Composition.runOn`); playback stops there.
     if built.asset.duration > timeline.duration.cmTime {

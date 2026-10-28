@@ -63,9 +63,9 @@ extension Composition {
 
   /// Each track's volume over time (a clip's own volume, or silence where the track is muted,
   /// another is soloed, or a video clip's sound was detached), its pan, and the master limiter,
-  /// reporting each track's level to `meters` when given.
-  public func audioMix(for timeline: Timeline, meters: MixMeters? = nil) -> AVAudioMix {
-    Self.audioMix(for: timeline, trackIDs: audioTrackIDs, meters: meters)
+  /// shaped for an export (exactly) or for playback (`shaping`).
+  public func audioMix(for timeline: Timeline, shaping: AudioShaping = .exact) -> AVAudioMix {
+    Self.audioMix(for: timeline, trackIDs: audioTrackIDs, shaping: shaping)
   }
 
   // MARK: Internal
@@ -279,37 +279,40 @@ extension Composition {
   }
 
   /// The mix of `timeline` for the composition tracks carrying each timeline track's sound: clip
-  /// volumes, fades and keyframes, track levels and the master level, as volume ramps; the
-  /// master limiter and the track's pan in its tap (volume ramps are smoothed, too slow for a
-  /// limiter), which also reports to `meters`. Without `isShaped` there are no taps: the caller
-  /// shapes the sound itself (see `MixReader`).
+  /// volumes, fades and keyframes, track levels and the master level, as volume ramps. The
+  /// master limiter and the track's pan go where `shaping` says (see `AudioShaping`).
   static func audioMix(
     for timeline: Timeline,
     trackIDs: [Track.ID: [CMPersistentTrackID]],
-    meters: MixMeters? = nil,
-    isShaped: Bool = true,
+    shaping: AudioShaping,
   ) -> AVAudioMix {
+    let limiter = shaping == .preview ? SoundShaping(limiter: timeline.limiter, pan: 0) : nil
     let mix = AVMutableAudioMix()
     mix.inputParameters = timeline.tracks.flatMap { track in
       (trackIDs[track.id] ?? []).map { trackID in
         let parameters = AVMutableAudioMixInputParameters()
         parameters.trackID = trackID
-        if isShaped, !timeline.limiter.isEmpty || track.pan != 0 || meters != nil {
-          parameters.audioTapProcessor = TrackTap(
-            track: track.id,
-            lane: trackID,
-            limiter: timeline.limiter,
-            pan: track.pan,
-            meters: meters,
-          ).makeTap()
+        switch shaping {
+        case .exact where !timeline.limiter.isEmpty || track.pan != 0:
+          parameters.audioTapProcessor = TrackTap(limiter: timeline.limiter, pan: track.pan)
+            .makeTap()
+
+        case .preview where track.pan != 0:
+          parameters.audioTapProcessor = TrackTap(limiter: [], pan: track.pan).makeTap()
+
+        default:
+          break
         }
         for clip in track.clips {
           let level = timeline.plays(clip, on: track) ? track.volume * timeline.gain : 0
-          let moments = volumeMoments(of: clip)
+          let moments = volumeMoments(of: clip, limiter: limiter == nil ? [] : timeline.limiter)
+          let volume = { (time: MediaTime) in
+            Float(clip.gain(at: time) * level) * (limiter?.limiterGain(at: time.seconds) ?? 1)
+          }
           for (from, to) in zip(moments, moments.dropFirst()) {
             parameters.setVolumeRamp(
-              fromStartVolume: Float(clip.gain(at: from) * level),
-              toEndVolume: Float(clip.gain(at: to) * level),
+              fromStartVolume: volume(from),
+              toEndVolume: volume(to),
               timeRange: CMTimeRange(start: from.cmTime, end: to.cmTime),
             )
           }
@@ -387,11 +390,12 @@ extension Composition {
 
   // MARK: Private
 
-  /// The moments a clip's volume ramps between: its ends, its fades' ends, and its volume and
+  /// The moments a clip's volume ramps between: its ends, its fades' ends, its volume and
   /// speed keyframes (speed mutes sound when extreme), with curves split into short straight
-  /// steps.
-  private static func volumeMoments(of clip: Clip) -> [MediaTime] {
+  /// steps, and `limiter`'s points when the limiter is part of the volume (playback).
+  private static func volumeMoments(of clip: Clip, limiter: [GainPoint]) -> [MediaTime] {
     var moments: Set = [clip.timelineStart, clip.timelineEnd]
+    moments.formUnion(limiter.map(\.time))
     moments.insert(min(clip.timelineStart + clip.fadeIn, clip.timelineEnd))
     moments.insert(max(clip.timelineEnd - clip.fadeOut, clip.timelineStart))
     let pairs = [AnimatedProperty.volume, .speed].flatMap { property in

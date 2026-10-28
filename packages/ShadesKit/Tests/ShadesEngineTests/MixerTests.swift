@@ -5,7 +5,7 @@ import ShadesCore
 import ShadesTestSupport
 import Testing
 
-/// Pan, solo and meters, heard through the same mix playback and export use.
+/// Pan, solo and the limiter, heard through the same mix playback and export use.
 @MainActor
 struct MixerTests {
 
@@ -48,32 +48,46 @@ struct MixerTests {
   }
 
   @Test
-  func `meters read each track's level at a moment, before its volume`() async throws {
-    let url = try AudioFixture.makeTone(seconds: 2, amplitude: 0.5, channels: 2)
-    var project = project(url, pan: -1)
-    project.timeline.tracks[1].volume = 0.5
-    let composition = try await Composition.build(
-      project,
-      library: MediaLibrary(),
-      renderState: RenderState(),
-      renderContext: RenderContext(),
-      frameCounter: FrameCounter(),
-      quality: .full,
+  func `playback taps only a panned track, so its seeks don't stall`() async throws {
+    let url = try AudioFixture.makeTone(seconds: 2, amplitude: 0.5)
+    var project = project(url, pan: 0)
+    project.timeline.limiter = [GainPoint(time: .zero, gain: 0.5)]
+    let plain = try await composition(of: project)
+    #expect(plain.audioMix(for: project.timeline, shaping: .preview).inputParameters
+      .allSatisfy { $0.audioTapProcessor == nil })
+    #expect(
+      plain.audioMix(for: project.timeline).inputParameters
+        .contains { $0.audioTapProcessor != nil },
+      "exports still limit sample by sample",
     )
-    let meters = MixMeters()
-    // why: an export session runs the taps on every buffer; reading the mix back with
-    // AVAssetReaderAudioMixOutput skips ahead when a tap call runs long on a busy machine.
-    let session = try #require(AVAssetExportSession(
-      asset: composition.asset,
-      presetName: AVAssetExportPresetAppleM4A,
+    project.timeline.tracks[1].pan = -1
+    let panned = try await composition(of: project)
+    #expect(panned.audioMix(for: project.timeline, shaping: .preview).inputParameters
+      .contains { $0.audioTapProcessor != nil })
+  }
+
+  @Test
+  func `playback hears the limiter as part of each track's volume`() async throws {
+    let url = try AudioFixture.makeTone(seconds: 2, amplitude: 0.5)
+    var project = project(url, pan: 0)
+    project.timeline.limiter = [
+      GainPoint(time: .zero, gain: 1),
+      GainPoint(time: MediaTime(seconds: 1), gain: 0.5),
+      GainPoint(time: MediaTime(seconds: 2), gain: 0.5),
+    ]
+    let mix = try await composition(of: project).audioMix(for: project.timeline, shaping: .preview)
+    let parameters = try #require(mix.inputParameters.first)
+    var start: Float = 0
+    var end: Float = 0
+    var range = CMTimeRange()
+    let at = CMTime(seconds: 1.5, preferredTimescale: 600)
+    #expect(parameters.getVolumeRamp(
+      for: at,
+      startVolume: &start,
+      endVolume: &end,
+      timeRange: &range,
     ))
-    session.audioMix = composition.audioMix(for: project.timeline, meters: meters)
-    let file = FileManager.default.temporaryDirectory.appending(path: "\(UUID().uuidString).m4a")
-    try await session.export(to: file, as: .m4a)
-    let level = try #require(meters.level(of: project.timeline.tracks[1].id, at: 1))
-    #expect(abs(level.left - 0.5) < 0.02)
-    #expect(level.right < 0.01)
-    #expect(meters.level(of: project.timeline.tracks[0].id, at: 1) == nil)
+    #expect(abs(start - 0.5) < 0.001 && abs(end - 0.5) < 0.001)
   }
 
   // MARK: Private
@@ -98,6 +112,18 @@ struct MixerTests {
       Track(kind: .video),
       Track(kind: .audio, clips: [clip], pan: pan),
     ]))
+  }
+
+  /// The project's timeline laid out for playing and mixing.
+  private func composition(of project: Project) async throws -> Composition {
+    try await Composition.build(
+      project,
+      library: MediaLibrary(),
+      renderState: RenderState(),
+      renderContext: RenderContext(),
+      frameCounter: FrameCounter(),
+      quality: .full,
+    )
   }
 
   /// The loudest sample of each channel of the project's mix.

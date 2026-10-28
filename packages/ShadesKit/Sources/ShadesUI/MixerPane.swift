@@ -1,3 +1,4 @@
+import ShadesAudio
 import ShadesCommands
 import ShadesCore
 import ShadesEngine
@@ -33,20 +34,26 @@ struct MixerPane: View {
 
   @Environment(Editor.self) private var editor
   @Environment(Player.self) private var player
+  @Environment(Workspace.self) private var workspace
 
   private var soundTracks: [Track] {
     editor.project.timeline.tracks.filter(editor.project.hasSound)
   }
 
-  /// How loud `track` plays at the playhead: its tap's reading through its clip's volume, its
-  /// own level and the master's.
+  /// How loud `track` plays at the playhead: its waveform's reading through its clip's volume,
+  /// its own level and the master's.
   private func level(of track: Track) -> MeterLevel? {
     let timeline = editor.project.timeline
     let time = MediaTime(seconds: player.currentTime)
     guard
       player.isPlaying,
-      let reading = player.meters.level(of: track.id, at: player.currentTime),
-      let clip = track.clip(at: time), timeline.plays(clip, on: track)
+      let reading = TrackMeter.level(
+        of: track,
+        in: timeline,
+        at: time,
+        waveforms: workspace.analysis.analyses.compactMapValues(\.waveform),
+      ),
+      let clip = track.clip(at: time)
     else {
       return nil
     }

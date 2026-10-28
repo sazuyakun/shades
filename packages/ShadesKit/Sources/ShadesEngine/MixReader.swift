@@ -220,7 +220,7 @@ public actor MixReader {
     let mix = Composition.audioMix(
       for: timeline,
       trackIDs: trackIDs.mapValues { [$0] },
-      isShaped: false,
+      shaping: .unshaped,
     )
     do {
       let reader = try AVAssetReader(asset: composition)

@@ -1,3 +1,4 @@
+import ShadesAudio
 import ShadesCommands
 import ShadesCore
 import ShadesEngine

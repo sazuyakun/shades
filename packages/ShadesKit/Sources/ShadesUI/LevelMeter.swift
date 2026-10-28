@@ -1,3 +1,4 @@
+import ShadesAudio
 import ShadesEngine
 import SwiftUI
 
