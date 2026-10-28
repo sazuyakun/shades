@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import ShadesCommands
 import ShadesEngine
 import ShadesMCP
@@ -53,6 +53,44 @@ struct ToolHandlerTests {
     #expect(result.text.contains("(\(2 * fps) frames at \(fps) fps)"))
     let project = await handler.call("get_project", arguments: [:])
     #expect(project.text.contains("\"frames\" : \(2 * fps)"))
+  }
+
+  @Test
+  func `a preview shows a stretch's frames in a grid over its sound`() async throws {
+    let mediaID = try await importFixture()
+    _ = await handler.call("append_clip", arguments: ["media_id": .string(mediaID)])
+    let result = await handler.call(
+      "render_preview",
+      arguments: ["start": 0, "end": 1, "fps": 4, "max_side": 160],
+    )
+    #expect(!result.isError, "\(result.text)")
+    #expect(result.text.contains("4 frames of the timeline"))
+    guard case .png(let png) = result.content.last else {
+      Issue.record("expected an image")
+      return
+    }
+    let image = try #require(NSBitmapImageRep(data: png))
+    // why: four 160×120 frames of the 4:3 timeline in a row, over the 96-pixel waveform strip.
+    #expect(image.pixelsWide == 4 * 160)
+    #expect(image.pixelsHigh == 120 + 96)
+  }
+
+  @Test
+  func `a preview of media sheets the file's own frames`() async throws {
+    let mediaID = try await importFixture()
+    let result = await handler.call(
+      "render_preview",
+      arguments: ["media_id": .string(mediaID), "fps": 10, "max_side": 160],
+    )
+    #expect(!result.isError, "\(result.text)")
+    #expect(result.text.contains("10 frames of"))
+    #expect(!result.text.contains("sound"))
+  }
+
+  @Test
+  func `a preview whose end comes before its start is refused`() async {
+    let result = await handler.call("render_preview", arguments: ["start": 2, "end": 1])
+    #expect(result.isError)
   }
 
   @Test

@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import ShadesCaptions
 import ShadesCommands
@@ -92,6 +93,9 @@ public final class ToolHandler {
 
   // MARK: Private
 
+  /// The most frames one preview sheet shows.
+  private static let maxPreviewFrames = 48
+
   private static let builtIns: [Tool] = [
     Tool(
       name: "get_project",
@@ -128,6 +132,32 @@ public final class ToolHandler {
           ),
         ],
         required: ["seconds"],
+      ),
+      kind: .read,
+    ),
+    Tool(
+      name: "render_preview",
+      summary: "See a stretch of the edit move: one image with its frames in a grid, each "
+        + "labelled with its time, over the sound's waveform (a tick under each frame). Use it "
+        + "to check cuts, transitions, motion, rhythm and sync, which single frames can't show. "
+        + "With media_id it sheets that file's own frames instead (start and end in seconds "
+        + "into the file), to pick in-points.",
+      parameters: JSONSchema.object(
+        [
+          "start": JSONSchema.number("From, in seconds (default 0)", minimum: 0),
+          "end": JSONSchema.number("Up to, in seconds (default: the end)", minimum: 0),
+          "fps": JSONSchema.number(
+            "Frames a second to show (default 8); at most 48 frames, spread out if more",
+            minimum: 1,
+            maximum: 24,
+          ),
+          "max_side": JSONSchema.number(
+            "Each frame's longest side in pixels (default 320)",
+            minimum: 64,
+            maximum: 768,
+          ),
+          "media_id": JSONSchema.string("Sheet this imported file's frames, not the timeline"),
+        ]
       ),
       kind: .read,
     ),
@@ -679,6 +709,9 @@ public final class ToolHandler {
       let frame = try decode(FrameArguments.self, from: arguments, tool: name)
       return try await renderFrame(atSeconds: frame.seconds, maxSide: frame.maxSide ?? 768)
 
+    case "render_preview":
+      return try await preview(decode(PreviewArguments.self, from: arguments, tool: name))
+
     case "get_scopes":
       let frame = try decode(FrameArguments.self, from: arguments, tool: name)
       return try await scopes(atSeconds: frame.seconds)
@@ -1141,6 +1174,86 @@ public final class ToolHandler {
     }
   }
 
+  /// A sheet of frames from `request`'s stretch (of the timeline, with its sound, or of one
+  /// media file), as a picture with a line saying what it shows.
+  private func preview(_ request: PreviewArguments) async throws(ToolError) -> ToolResult {
+    let media = try request.mediaID.map { id throws(ToolError) in
+      guard let media = editor.project.media(withID: id) else {
+        throw rejected(.commandFailed(.mediaNotFound(id)), tool: "render_preview")
+      }
+      return media
+    }
+    let start = request.start ?? 0
+    let end = request.end ?? media?.duration.seconds ?? editor.project.timeline.duration.seconds
+    guard end > start else {
+      throw rejected(
+        .commandFailed(.invalidArguments("end must come after start, within what's there")),
+        tool: "render_preview",
+      )
+    }
+    let wanted = Int(((end - start) * Double(request.fps ?? 8)).rounded(.up))
+    let count = min(max(wanted, 1), Self.maxPreviewFrames)
+    let times = (0 ..< count).map { start + (end - start) * Double($0) / Double(count) }
+    let side = request.maxSide ?? 320
+    do {
+      let frames: [CGImage]
+      var sound: [Float]?
+      if let media {
+        frames = try await MediaLoader.frames(
+          of: media.url,
+          at: times,
+          maxSize: CGSize(width: side, height: side),
+        )
+      } else {
+        frames = try await FrameRenderer.images(
+          of: editor.project,
+          atSeconds: times,
+          maxSide: side,
+          context: player.renderContext(),
+          mattes: player.mattes,
+          flows: player.flows,
+        )
+        sound = try await mixSamples(from: start, to: end)
+      }
+      let sheet = try PreviewSheet.image(frames: frames, times: times, sound: sound, end: end)
+      let shown = String(format: "%.1f", Double(count) / (end - start))
+      var summary = "\(count) frames of \(media?.name ?? "the timeline") from "
+        + String(format: "%.2f to %.2f s", start, end) + " (\(shown) a second)"
+      if let sound {
+        let peak = sound.lazy.map(abs).max() ?? 0
+        summary += peak > 0
+          ? String(format: "; sound peaks at %.1f dBFS.", 20 * log10(Double(peak)))
+          : "; no sound."
+      } else {
+        summary += "."
+      }
+      return try ToolResult(content: [.text(summary), .png(FrameRenderer.pngData(from: sheet))])
+    } catch let error as EngineError {
+      throw .engineFailed(error)
+    } catch let error as MediaError {
+      throw .mediaFailed(error)
+    } catch {
+      throw .engineFailed(.renderFailed)
+    }
+  }
+
+  /// The timeline's mix from `start` to `end` seconds, as interleaved stereo samples.
+  private func mixSamples(from start: Double, to end: Double) async throws(EngineError)
+    -> [Float]
+  {
+    let reader = MixReader(
+      project: editor.project,
+      cleanSound: player.cleanSound,
+      stereoSound: player.stereoSound,
+      range: TimeRange(start: MediaTime(seconds: start), end: MediaTime(seconds: end)),
+    )
+    var samples = [Float]()
+    while let chunk = try await reader.nextChunk() {
+      samples += chunk
+    }
+    return samples
+  }
+
   /// The scopes of the frame at `seconds`, as a picture and in numbers.
   private func scopes(atSeconds seconds: Double) async throws(ToolError) -> ToolResult {
     do {
@@ -1494,6 +1607,16 @@ private struct PathArguments: Decodable {
 private struct FrameArguments: Decodable {
   let seconds: Double
   let maxSide: Int?
+}
+
+// MARK: - PreviewArguments
+
+private struct PreviewArguments: Decodable {
+  let start: Double?
+  let end: Double?
+  let fps: Double?
+  let maxSide: Int?
+  let mediaID: Media.ID?
 }
 
 // MARK: - NewProjectArguments

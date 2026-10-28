@@ -11,15 +11,18 @@ public actor MixReader {
   // MARK: Lifecycle
 
   /// A reader for `project`'s mix, read from the original media (or `cleanSound`, the
-  /// noise-reduced sound, for clips set to use it).
+  /// noise-reduced sound, for clips set to use it), over `range` of the timeline (all of it by
+  /// default).
   public init(
     project: Project,
     cleanSound: [Media.ID: URL] = [:],
     stereoSound: [Media.ID: URL] = [:],
+    range: TimeRange? = nil,
   ) {
     self.project = project
     self.cleanSound = cleanSound
     self.stereoSound = stereoSound
+    self.range = range
   }
 
   // MARK: Public
@@ -78,6 +81,7 @@ public actor MixReader {
   private let project: Project
   private let cleanSound: [Media.ID: URL]
   private let stereoSound: [Media.ID: URL]
+  private let range: TimeRange?
   private var reader: AVAssetReader?
   private var lanes = [Lane]()
   /// The master limiter, applied to the summed mix.
@@ -209,7 +213,9 @@ public actor MixReader {
     }
     try await Composition.runOn(lastSounds, past: timeline.duration)
     withExtendedLifetime(assets) { }
-    framesLeft = Int((timeline.duration.seconds * Self.sampleRate).rounded())
+    let read = range ?? TimeRange(start: .zero, end: timeline.duration)
+    framesRead = Int((read.start.seconds * Self.sampleRate).rounded())
+    framesLeft = Int((read.duration.seconds * Self.sampleRate).rounded())
     limiter = SoundShaping(limiter: timeline.limiter, pan: 0)
     let mix = Composition.audioMix(
       for: timeline,
@@ -218,6 +224,8 @@ public actor MixReader {
     )
     do {
       let reader = try AVAssetReader(asset: composition)
+      // why: no end, so the run-on past the timeline still feeds the stretcher; framesLeft stops.
+      reader.timeRange = CMTimeRange(start: read.start.cmTime, duration: .positiveInfinity)
       for track in timeline.tracks {
         guard
           let trackID = trackIDs[track.id],

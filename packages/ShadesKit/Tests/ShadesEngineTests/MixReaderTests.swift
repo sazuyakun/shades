@@ -79,6 +79,43 @@ struct MixReaderTests {
   }
 
   @Test
+  func `a range reads just that stretch of the mix`() async throws {
+    let url = try AudioFixture.makeTone(seconds: 3, amplitude: 0.5)
+    let media = Media(
+      url: url,
+      duration: MediaTime(seconds: 3),
+      width: 0,
+      height: 0,
+      hasVideo: false,
+      hasAudio: true,
+    )
+    var project = Project(media: [media], timeline: Timeline(tracks: [
+      Track(kind: .video),
+      Track(kind: .audio, clips: [Clip(
+        mediaID: media.id,
+        sourceStart: .zero,
+        duration: media.duration,
+        timelineStart: .zero,
+      )]),
+    ]))
+    // why: the limiter is read at timeline times, so the range's sound must line up with it.
+    project.timeline.limiter = [
+      GainPoint(time: MediaTime(seconds: 1), gain: 0.5),
+      GainPoint(time: MediaTime(seconds: 3), gain: 0.5),
+    ]
+    let reader = MixReader(
+      project: project,
+      range: TimeRange(start: MediaTime(seconds: 1.5), end: MediaTime(seconds: 2)),
+    )
+    var samples = [Float]()
+    while let chunk = try await reader.nextChunk() {
+      samples += chunk
+    }
+    #expect(samples.count == 2 * 24000)
+    #expect(abs((samples.map(abs).max() ?? 0) - 0.25) < 0.02)
+  }
+
+  @Test
   func `a timeline without sound reads nothing`() async throws {
     let reader = MixReader(project: Project())
     #expect(try await reader.nextChunk() == nil)

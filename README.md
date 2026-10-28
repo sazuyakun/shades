@@ -76,7 +76,7 @@ Then ask, for example:
 >
 > *"Duck the music under my voice, and export a YouTube cut plus the marked shorts."*
 
-Claude can call `get_guide` to learn the editor, and `render_frame` and `get_scopes` to see the result.
+Claude can call `get_guide` to learn the editor, and `render_frame`, `render_preview` (frames over time with the sound) and `get_scopes` to see the result.
 
 ## Build from source
 

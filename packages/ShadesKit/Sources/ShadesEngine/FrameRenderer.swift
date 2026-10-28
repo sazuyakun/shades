@@ -38,6 +38,30 @@ public enum FrameRenderer {
     mattes: [Media.ID: URL] = [:],
     flows: [Media.ID: URL] = [:],
   ) async throws(EngineError) -> CGImage {
+    let images = try await images(
+      of: project,
+      atSeconds: [seconds],
+      maxSide: maxSide,
+      context: context,
+      mattes: mattes,
+      flows: flows,
+    )
+    guard let image = images.first else {
+      throw .frameUnavailable(seconds: seconds)
+    }
+    return image
+  }
+
+  /// Renders the frames at each of `seconds`, like `image`, building the timeline once for all.
+  @MainActor
+  public static func images(
+    of project: Project,
+    atSeconds seconds: [Double],
+    maxSide: Int,
+    context: RenderContext? = nil,
+    mattes: [Media.ID: URL] = [:],
+    flows: [Media.ID: URL] = [:],
+  ) async throws(EngineError) -> [CGImage] {
     let composition = try await Composition.forRendering(
       project,
       context: context,
@@ -49,21 +73,25 @@ public enum FrameRenderer {
     generator.requestedTimeToleranceBefore = .zero
     generator.requestedTimeToleranceAfter = .zero
     generator.maximumSize = CGSize(width: maxSide, height: maxSide)
-    let time = CMTime(seconds: seconds, preferredTimescale: 600)
-    // why: the callback API keeps the generator on the main actor; the async API would have to
-    // send it to another thread, which Swift can't prove is safe.
-    let image: CGImage? = await withCheckedContinuation { continuation in
-      generator.generateCGImageAsynchronously(for: time) { image, _, _ in
-        continuation.resume(returning: image)
+    var images = [CGImage]()
+    for second in seconds {
+      let time = CMTime(seconds: second, preferredTimescale: 600)
+      // why: the callback API keeps the generator on the main actor; the async API would have
+      // to send it to another thread, which Swift can't prove is safe.
+      let image: CGImage? = await withCheckedContinuation { continuation in
+        generator.generateCGImageAsynchronously(for: time) { image, _, _ in
+          continuation.resume(returning: image)
+        }
       }
+      guard let image else {
+        logger.error("frame.renderFailed reason=noFrame seconds=\(second, privacy: .public)")
+        throw .frameUnavailable(seconds: second)
+      }
+      images.append(image)
     }
-    // why: the generator must stay alive until its callback has run.
+    // why: the generator must stay alive until its last callback has run.
     withExtendedLifetime(generator) { }
-    guard let image else {
-      logger.error("frame.renderFailed reason=noFrame seconds=\(seconds, privacy: .public)")
-      throw .frameUnavailable(seconds: seconds)
-    }
-    return image
+    return images
   }
 
   /// `image` encoded as PNG.

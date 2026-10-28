@@ -28,7 +28,8 @@ enum Guide {
     one does the same to the other. unlink_clips frees them (to slip sound for a J-cut); \
     link_clips pairs clips again.
     4. For many changes at once use batch: one undo step, all or nothing.
-    5. Check your work with render_frame at the moments you changed. Look before you say done.
+    5. Check your work with render_frame at the moments you changed, and render_preview across \
+    cuts, transitions and moves to see motion, rhythm and sound. Look before you say done.
     6. If something went wrong, undo. Every tool call is one undo step.
     7. Start each thing the user asks for with start_request, named in their words ("Make \
     this part punchier"). Its edits show together in the History pane, where the user can undo \
