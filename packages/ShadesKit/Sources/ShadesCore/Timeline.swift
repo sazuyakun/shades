@@ -19,6 +19,7 @@ public struct Timeline: Hashable, Sendable {
     gain: Double = 1,
     limiter: [GainPoint] = [],
     shutterAngle: Double = 180,
+    defaultFit: ClipFit = .fit,
   ) {
     self.name = name
     self.format = format
@@ -29,6 +30,7 @@ public struct Timeline: Hashable, Sendable {
     self.gain = gain
     self.limiter = limiter
     self.shutterAngle = shutterAngle
+    self.defaultFit = defaultFit
   }
 
   // MARK: Public
@@ -51,6 +53,9 @@ public struct Timeline: Hashable, Sendable {
   /// How long moving things blur for, in degrees of a frame: 180 is half a frame (film's look),
   /// 360 the whole frame, 0 no motion blur.
   public var shutterAngle: Double
+  /// How footage of another shape is sized as it's placed: fitted inside the frame or filling
+  /// it. New projects fill; projects from before this setting fit.
+  public var defaultFit: ClipFit
 
   /// The length of the whole edit.
   public var duration: MediaTime {
@@ -121,8 +126,8 @@ extension Timeline: Codable {
 
   // MARK: Lifecycle
 
-  /// Reads a timeline, including ones saved before the camera, shorts, limiter or
-  /// shutter existed.
+  /// Reads a timeline, including ones saved before the camera, shorts, limiter, shutter or
+  /// default fit existed.
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     try self.init(
@@ -135,6 +140,7 @@ extension Timeline: Codable {
       gain: container.decodeIfPresent(Double.self, forKey: .gain) ?? 1,
       limiter: container.decodeIfPresent([GainPoint].self, forKey: .limiter) ?? [],
       shutterAngle: container.decodeIfPresent(Double.self, forKey: .shutterAngle) ?? 180,
+      defaultFit: container.decodeIfPresent(ClipFit.self, forKey: .defaultFit) ?? .fit,
     )
   }
 
@@ -150,6 +156,7 @@ extension Timeline: Codable {
     case gain
     case limiter
     case shutterAngle
+    case defaultFit
   }
 
 }

@@ -28,6 +28,7 @@ public struct SetClip: ToolCommand {
     speed: Double? = nil,
     crop: Crop? = nil,
     cutoutEdge: CutoutEdge? = nil,
+    fit: ClipFit? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -51,6 +52,7 @@ public struct SetClip: ToolCommand {
     self.speed = speed
     self.crop = crop
     self.cutoutEdge = cutoutEdge
+    self.fit = fit
   }
 
   // MARK: Public
@@ -66,6 +68,11 @@ public struct SetClip: ToolCommand {
       "x": JSONSchema.number("Horizontal offset as a fraction of the frame width; 0 is centered"),
       "y": JSONSchema.number("Vertical offset as a fraction of the frame height; positive is down"),
       "scale": JSONSchema.number("Size; 1 fits the frame", minimum: 0.01, maximum: 20),
+      "fit": JSONSchema.string(
+        "Size footage to sit inside the frame with black around (fit) or cover it, edges "
+          + "cropped (fill); sets scale",
+        values: ["fit", "fill"],
+      ),
       "rotation": JSONSchema.number("Clockwise rotation in degrees"),
       "tilt_x": JSONSchema.number(
         "Tilt back in degrees with perspective (the top leans away); negative leans forward",
@@ -184,6 +191,7 @@ public struct SetClip: ToolCommand {
   public let crop: Crop?
   /// Replaces how the cut-out's edge is refined; fields left out are untouched (0).
   public let cutoutEdge: CutoutEdge?
+  public let fit: ClipFit?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -192,6 +200,9 @@ public struct SetClip: ToolCommand {
     }
     if let scale, !(0.01 ... 20).contains(scale) {
       throw rejected(.invalidValue("scale goes from 0.01 to 20"))
+    }
+    if scale != nil, fit != nil {
+      throw rejected(.invalidValue("give fit or scale, not both: fit sets the scale"))
     }
     if [tiltX, tiltY].contains(where: { $0.map { !(-89 ... 89).contains($0) } ?? false }) {
       throw rejected(.invalidValue("tilt goes from -89 to 89 degrees"))
@@ -263,6 +274,9 @@ public struct SetClip: ToolCommand {
     clip.transform.x = x ?? clip.transform.x
     clip.transform.y = y ?? clip.transform.y
     clip.transform.scale = scale ?? clip.transform.scale
+    if let fit, let media = clip.mediaID.flatMap(project.media(withID:)) {
+      clip.transform.scale = media.scale(fit, in: project.timeline.format)
+    }
     clip.transform.rotation = rotation ?? clip.transform.rotation
     clip.transform.tiltX = tiltX ?? clip.transform.tiltX
     clip.transform.tiltY = tiltY ?? clip.transform.tiltY

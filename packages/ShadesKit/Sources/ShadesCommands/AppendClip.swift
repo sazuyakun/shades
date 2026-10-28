@@ -43,13 +43,7 @@ public struct AppendClip: ToolCommand {
     let range = try project.sourceRange(of: media, from: sourceStart, to: sourceEnd)
     let index = try project.track(for: media, labeled: track)
     let start = project.timeline.tracks[index].end
-    project.timeline.tracks[index].add(Clip(
-      mediaID: media.id,
-      sourceStart: range.start,
-      duration: range.duration,
-      timelineStart: start,
-      isAudioEnabled: media.hasAudio,
-    ))
+    project.timeline.tracks[index].add(project.newClip(of: media, range: range, at: start))
   }
 
 }

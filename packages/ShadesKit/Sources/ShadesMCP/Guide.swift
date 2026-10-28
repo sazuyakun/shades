@@ -6,8 +6,10 @@ enum Guide {
     the editor, glows purple, appears in the History pane and can be undone.
 
     The timeline
-    - The picture is always 4:3 (2880×2160 or 1440×1080). Clips of any shape are fitted inside \
-    it, upright and centered. 9:16 and 16:9 versions are only canvases added at export.
+    - The picture is always 4:3 (2880×2160 or 1440×1080). Footage of another shape is placed \
+    filling it, edges cropped (default_fit in get_project; set_default_fit changes it, set_clip \
+    fit changes one clip); pictures sit inside it. Scale 1 fits a clip inside the frame, \
+    upright and centered. 9:16 and 16:9 versions are only canvases added at export.
     - Tracks are labeled V1, V2… (video, V1 at the bottom, higher tracks drawn on top) and A1, \
     A2… (sound only). A video clip plays its own sound unless it was detached.
     - All times are seconds on the timeline and snap to whole frames. Clips on one track never \

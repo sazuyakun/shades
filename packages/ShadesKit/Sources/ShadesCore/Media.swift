@@ -59,6 +59,16 @@ public struct Media: Hashable, Sendable, Identifiable {
     duration.roundedToFrame(at: framesPerSecond)
   }
 
+  /// The clip scale that fits the picture inside a frame of `format` (1) or fills it.
+  public func scale(_ fit: ClipFit, in format: VideoFormat) -> Double {
+    guard fit == .fill, width > 0, height > 0, format.height > 0 else {
+      return 1
+    }
+    let picture = Double(width) / Double(height)
+    let frame = Double(format.width) / Double(format.height)
+    return max(picture / frame, frame / picture)
+  }
+
 }
 
 // MARK: Codable

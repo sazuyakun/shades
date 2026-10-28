@@ -51,7 +51,7 @@ public enum ProjectLibrary {
       throw .nameTaken(trimmed)
     }
     try await ProjectFile.write(
-      Project(timeline: Timeline(format: format)),
+      Project(timeline: Timeline(format: format, defaultFit: .fill)),
       session: Session(),
       to: url,
     )

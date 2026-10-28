@@ -76,15 +76,27 @@ extension Project {
       from: start,
       to: start + range.duration,
     )
-    let clip = Clip(
+    let clip = newClip(of: media, range: range, at: start)
+    timeline.tracks[index].add(clip)
+    return clip.id
+  }
+
+  /// A new clip of `media`'s `range` starting at `start`: with its sound on when it has some,
+  /// and footage sized by the timeline's default fit (pictures always fit).
+  func newClip(
+    of media: Media,
+    range: (start: MediaTime, duration: MediaTime),
+    at start: MediaTime,
+  ) -> Clip {
+    let fit = media.hasVideo && !media.isStill ? timeline.defaultFit : .fit
+    return Clip(
       mediaID: media.id,
       sourceStart: range.start,
       duration: range.duration,
       timelineStart: start,
+      transform: ClipTransform(scale: media.scale(fit, in: timeline.format)),
       isAudioEnabled: media.hasAudio,
     )
-    timeline.tracks[index].add(clip)
-    return clip.id
   }
 
   /// The text track labeled `label`, or the first text track (added if there is none).

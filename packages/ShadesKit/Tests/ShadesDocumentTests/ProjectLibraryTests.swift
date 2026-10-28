@@ -8,11 +8,13 @@ struct ProjectLibraryTests {
   // MARK: Internal
 
   @Test
-  func `a new project is created in the library with its format`() async throws {
+  func `a new project is created in the library with its format, filling the frame`(
+  ) async throws {
     let url = try await ProjectLibrary.create(named: "Chul", format: .half, in: folder)
     #expect(url.lastPathComponent == "Chul.shades")
     let (project, _) = try await ProjectFile.read(at: url)
     #expect(project.timeline.format == .half)
+    #expect(project.timeline.defaultFit == .fill)
     #expect(await ProjectLibrary.projects(in: folder).map(\.name) == ["Chul"])
   }
 

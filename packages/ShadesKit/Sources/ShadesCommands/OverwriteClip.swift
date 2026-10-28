@@ -48,13 +48,7 @@ public struct OverwriteClip: ToolCommand {
     let index = try project.track(for: media, labeled: track)
     let time = project.onFrame(at)
     project.timeline.tracks[index].clear(from: time, to: time + range.duration)
-    project.timeline.tracks[index].add(Clip(
-      mediaID: media.id,
-      sourceStart: range.start,
-      duration: range.duration,
-      timelineStart: time,
-      isAudioEnabled: media.hasAudio,
-    ))
+    project.timeline.tracks[index].add(project.newClip(of: media, range: range, at: time))
   }
 
 }

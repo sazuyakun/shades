@@ -51,13 +51,7 @@ public struct InsertClip: ToolCommand {
     for shifted in project.linkedTracks([index]) {
       project.timeline.tracks[shifted].shift(from: time, by: range.duration)
     }
-    project.timeline.tracks[index].add(Clip(
-      mediaID: media.id,
-      sourceStart: range.start,
-      duration: range.duration,
-      timelineStart: time,
-      isAudioEnabled: media.hasAudio,
-    ))
+    project.timeline.tracks[index].add(project.newClip(of: media, range: range, at: time))
   }
 
 }

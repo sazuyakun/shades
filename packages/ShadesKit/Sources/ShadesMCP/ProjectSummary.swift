@@ -17,6 +17,7 @@ enum ProjectSummary {
         "width": .number(Double(timeline.format.width)),
         "height": .number(Double(timeline.format.height)),
         "fps": .number(Double(timeline.format.framesPerSecond)),
+        "default_fit": .string(timeline.defaultFit.rawValue),
         "duration": seconds(timeline.duration),
         "master_gain": rounded(timeline.gain),
         "limited": .bool(!timeline.limiter.isEmpty),

@@ -32,6 +32,7 @@ public enum CommandRegistry {
     SetTransition.self,
     SetMasterGain.self,
     SetShutter.self,
+    SetDefaultFit.self,
     AddText.self,
     SetText.self,
     SplitWords.self,
