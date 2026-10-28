@@ -68,7 +68,8 @@ struct MixReaderTests {
         timelineStart: .zero,
       )]),
     ]))
-    try await Player().load(project)
+    let player = Player()
+    try await player.load(project)
     let reader = MixReader(project: project)
     var count = 0
     while let chunk = try await reader.nextChunk() {
@@ -76,6 +77,8 @@ struct MixReaderTests {
     }
     // why: the sound plays to its file's end; the last few milliseconds of the clip are silent.
     #expect(abs(count - 2 * 2 * 48000) <= 2 * 48000 / 24)
+    // why: a player dropped while AVFoundation still prepares its item may be what crashed CI
+    // once (known issue 51); keep it alive until the test is done.
   }
 
   @Test
