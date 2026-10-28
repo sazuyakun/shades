@@ -29,11 +29,16 @@ struct PolishScenarioTests {
     #expect(plan.resultText.contains("Set the loudness"))
     let applied = try await client.tool("polish_apply")
     #expect(applied.resultText.contains("Polished"))
+    #expect(applied.resultText.contains("once the sound is clean"))
     #expect(workspace.editor.project.timeline.allClips.allSatisfy { $0.cleanSound })
+    // why: the level is measured on the cleaned mix, once the cleaning job is done.
+    await workspace.jobs.waitUntilIdle()
     // why: the loud test tone needs turning down to land at -14 LUFS.
     #expect(workspace.editor.project.timeline.gain < 1)
     // Three pauses (before, between, after) come out; about 2 s of speech (plus padding) stays.
     #expect(workspace.editor.project.timeline.duration.seconds < 3.2)
+    // why: the level is its own step after the cleaning; undo takes it, then the Polish.
+    _ = try await client.tool("undo")
     _ = try await client.tool("undo")
     #expect(workspace.editor.project.timeline.duration == MediaTime(seconds: 6))
   }

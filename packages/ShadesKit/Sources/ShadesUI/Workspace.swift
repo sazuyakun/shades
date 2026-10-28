@@ -713,9 +713,15 @@ extension Workspace: ProjectHost {
       let count = plan.enabledCount(of: kind)
       return count > 0 ? "\(kind.title.lowercased()): \(count)" : nil
     }
+    let noisy = Set(plan.items.filter { $0.isEnabled && $0.kind == .noise }.compactMap(\.media))
+      .compactMap(editor.project.media(withID:))
+    let toClean = noisy.filter { analysis.analyses[$0.id]?.cleanSound != cleanFile(for: $0) }
+    let target = plan.enabledCount(of: .loudness) > 0 ? plan.loudness : nil
     let base = editor.project
     var loudness: NormalizeLoudness?
-    if let target = plan.loudness, plan.enabledCount(of: .loudness) > 0 {
+    // why: with sound still to clean, the mix measured now isn't the one that will play; the
+    // loudness is set by a job queued after the cleaning instead.
+    if let target, toClean.isEmpty {
       var polished = base
       do {
         try ApplyPolish(plan: plan).apply(to: &polished)
@@ -742,11 +748,23 @@ extension Workspace: ProjectHost {
     } catch {
       throw .commandFailed(error)
     }
-    let noisy = Set(plan.items.filter { $0.isEnabled && $0.kind == .noise }.compactMap(\.media))
-    clean(noisy.compactMap(editor.project.media(withID:)), strength: PolishOptions.noiseStrength)
+    clean(noisy, strength: PolishOptions.noiseStrength)
+    if let target, !toClean.isEmpty {
+      jobs
+        .enqueue("Setting the loudness once the sound is clean") { [weak self] _ throws(JobError) in
+          do throws(ToolError) {
+            _ = try await self?.normalizeLoudness(target: target.lufs)
+          } catch {
+            throw .failed(error.errorDescription ?? "The loudness couldn't be set.")
+          }
+        }
+    }
+    let later = target != nil && !toClean.isEmpty
+      ? " The loudness is set once the sound is clean (a background job; see get_jobs)."
+      : ""
     return summary.isEmpty
       ? "Nothing was switched on, so nothing changed."
-      : "Polished — " + summary.joined(separator: ", ") + "."
+      : "Polished — " + summary.joined(separator: ", ") + "." + later
   }
 
   /// Throws the plan away without changing anything.
@@ -1260,11 +1278,10 @@ extension Workspace: ProjectHost {
     guard let package = documentURL else {
       return 0
     }
-    let percent = Int((strength * 100).rounded())
     let queued = media
-      .filter { analysis.analyses[$0.id]?.cleanSound != "\($0.id.uuidString)-\(percent).m4a" }
+      .filter { analysis.analyses[$0.id]?.cleanSound != cleanFile(for: $0, strength: strength) }
     for item in queued {
-      let file = "\(item.id.uuidString)-\(percent).m4a"
+      let file = cleanFile(for: item, strength: strength)
       let destination = package.appending(path: "cache/sound/\(file)")
       jobs.enqueue("Cleaning the sound of \(item.name)") { [weak self] progress throws(JobError) in
         do {
@@ -1292,6 +1309,14 @@ extension Workspace: ProjectHost {
       }
     }
     return queued.count
+  }
+
+  /// The name of `media`'s noise-cleaned sound file at `strength`.
+  private func cleanFile(
+    for media: Media,
+    strength: Double = PolishOptions.noiseStrength,
+  ) -> String {
+    "\(media.id.uuidString)-\(Int((strength * 100).rounded())).m4a"
   }
 
   /// The project's media for the file at `url`, or the file loaded with the command that

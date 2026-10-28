@@ -55,7 +55,9 @@ enum Guide {
     polish_propose finds silences, fillers (Hindi in Devanagari too), retakes and jump cuts, \
     noisy sound to clean, music to duck under speech and the loudness for a platform; \
     polish_apply applies them as one step, ducking where the speech lands after the cuts and \
-    measuring loudness on the polished mix. analyze_audio first gives it speech and noise.
+    measuring loudness on the polished mix; when it cleans noise, the loudness is set by a \
+    background job after the cleaning, so wait for get_jobs before exporting. analyze_audio \
+    first gives it speech and noise.
     - make_cutout finds the subject of a clip's media (a background job; watch get_jobs). Then \
     a layer above set to behindSubject shows between the background and the person. set_clip \
     cutout_edge refines the outline for that clip: feather softens it, choke pulls it in \
