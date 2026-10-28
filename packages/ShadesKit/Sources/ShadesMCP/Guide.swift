@@ -91,6 +91,8 @@ enum Guide {
     - set_clip speed plays a video or sound clip faster or slower (0.1 to 10; 0.4 turns 60 fps \
     footage into smooth slow motion on a 24 fps timeline). The clip keeps its first and last \
     frames, so it gets shorter or longer and later clips on its track follow its end.
+    - set_clip fit_to makes a clip last an exact length (to land a cut on a beat or a \
+    reference's timing): it works out the steady speed for you.
     - Speed ramps: set_keyframes with property speed, e.g. 1 at the take-off, 0.3 at the \
     peak, 1 on landing, eased. Each key sticks to the frame showing at its moment, so check \
     get_project afterwards: the clip's length and everything after it moved. \

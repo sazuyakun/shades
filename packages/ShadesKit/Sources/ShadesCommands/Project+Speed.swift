@@ -32,7 +32,7 @@ extension Project {
       let fps = timeline.format.framesPerSecond
       let length = clip.timelineTime(atSource: old.sourceEnd) - clip.timelineStart
       clip.duration = length.roundedToFrame(at: fps)
-      if let media = clip.mediaID.flatMap(media(withID:)), clip.sourceEnd > media.duration {
+      if let media = clip.mediaID.flatMap(media(withID:)), clip.sourceEnd > media.length(at: fps) {
         clip.duration = length.flooredToFrame(at: fps)
       }
       guard clip.duration > .zero else {
@@ -44,6 +44,29 @@ extension Project {
       )
     }
     timeline.tracks[location.track].clips[location.clip] = clip
+  }
+
+  /// The steady speed at which `clip` lasts `length` (to the nearest frame) with the same
+  /// footage, for `set_clip fit_to`.
+  func speed(fitting clip: Clip, to length: MediaTime) throws(CommandError) -> Double {
+    try requireSpeedChangeable(clip)
+    guard speedKeyframes(of: clip).isEmpty else {
+      throw rejected(.invalidValue(
+        "fit_to sets one steady speed; remove the clip's speed keyframes first"
+      ))
+    }
+    let target = onFrame(length)
+    let speed = (clip.sourceEnd - clip.sourceStart).seconds / target.seconds
+    guard target > .zero, Clip.speeds.contains(speed) else {
+      throw rejected(.invalidValue(String(
+        format: "to last %.3f s the clip would play at %.2f×; speeds go from %.1f to %.0f",
+        target.seconds,
+        speed,
+        Clip.speeds.lowerBound,
+        Clip.speeds.upperBound,
+      )))
+    }
+    return speed
   }
 
   // MARK: Private

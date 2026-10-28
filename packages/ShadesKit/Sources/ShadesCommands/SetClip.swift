@@ -29,6 +29,7 @@ public struct SetClip: ToolCommand {
     crop: Crop? = nil,
     cutoutEdge: CutoutEdge? = nil,
     fit: ClipFit? = nil,
+    fitTo: MediaTime? = nil,
   ) {
     self.clipID = clipID
     self.x = x
@@ -53,6 +54,7 @@ public struct SetClip: ToolCommand {
     self.crop = crop
     self.cutoutEdge = cutoutEdge
     self.fit = fit
+    self.fitTo = fitTo
   }
 
   // MARK: Public
@@ -60,14 +62,20 @@ public struct SetClip: ToolCommand {
   public static let title = "Change Clip"
   public static let name = "set_clip"
   public static let summary = "Change a clip's position, size, rotation, 3D tilt, depth and "
-    + "bend, crop, opacity, depth slot, cut-out edge, motion blur, volume, sound fades or "
-    + "speed. Leave out what shouldn't change."
+    + "bend, crop, opacity, depth slot, cut-out edge, motion blur, volume, sound fades, fit or "
+    + "speed (fit_to: the speed that makes it last an exact length). Leave out what shouldn't "
+    + "change."
   public static let parameters = JSONSchema.object(
     [
       "clip_id": Fields.clipID,
       "x": JSONSchema.number("Horizontal offset as a fraction of the frame width; 0 is centered"),
       "y": JSONSchema.number("Vertical offset as a fraction of the frame height; positive is down"),
       "scale": JSONSchema.number("Size; 1 fits the frame", minimum: 0.01, maximum: 20),
+      "fit_to": JSONSchema.number(
+        "Play the clip at the one steady speed that makes it last exactly this many seconds "
+          + "(snapped to a frame); later clips on its track move with its end",
+        minimum: 0.04,
+      ),
       "fit": JSONSchema.string(
         "Size footage to sit inside the frame with black around (fit) or cover it, edges "
           + "cropped (fill); sets scale",
@@ -192,6 +200,7 @@ public struct SetClip: ToolCommand {
   /// Replaces how the cut-out's edge is refined; fields left out are untouched (0).
   public let cutoutEdge: CutoutEdge?
   public let fit: ClipFit?
+  public let fitTo: MediaTime?
 
   public func apply(to project: inout Project) throws(CommandError) {
     let location = try project.requireClip(clipID)
@@ -200,6 +209,9 @@ public struct SetClip: ToolCommand {
     }
     if let scale, !(0.01 ... 20).contains(scale) {
       throw rejected(.invalidValue("scale goes from 0.01 to 20"))
+    }
+    if speed != nil, fitTo != nil {
+      throw rejected(.invalidValue("give speed or fit_to, not both: fit_to sets the speed"))
     }
     if scale != nil, fit != nil {
       throw rejected(.invalidValue("give fit or scale, not both: fit sets the scale"))
@@ -253,6 +265,9 @@ public struct SetClip: ToolCommand {
         ))
       }
       clip.speed = speed
+    }
+    if let fitTo {
+      clip.speed = try project.speed(fitting: clip, to: fitTo)
     }
     if
       let fade = [fadeIn, fadeOut].compactMap(\.self)

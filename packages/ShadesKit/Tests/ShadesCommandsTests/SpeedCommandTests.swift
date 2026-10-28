@@ -28,6 +28,52 @@ struct SpeedCommandTests {
   }
 
   @Test
+  func `fit_to sets the speed so a clip lasts exactly that long`() throws {
+    let media = makeMedia(seconds: 10)
+    let first = Clip(
+      mediaID: media.id,
+      sourceStart: .zero,
+      duration: seconds(5),
+      timelineStart: .zero,
+    )
+    let second = Clip(
+      mediaID: media.id,
+      sourceStart: seconds(6),
+      duration: seconds(2),
+      timelineStart: seconds(5),
+    )
+    var project = Project(media: [media], timeline: Timeline(
+      format: VideoFormat(width: 1440, height: 1080, framesPerSecond: 30),
+      tracks: [Track(kind: .video, clips: [first, second]), Track(kind: .audio)],
+    ))
+    try SetClip(clipID: first.id, fitTo: seconds(5.733)).apply(to: &project)
+    let clips = project.timeline.tracks[0].clips
+    let target = seconds(5.733).roundedToFrame(at: 30)
+    #expect(clips[0].duration == target)
+    #expect(abs(clips[0].speed - 5 / target.seconds) < 0.0001)
+    #expect(clips[0].sourceEnd == seconds(5))
+    #expect(clips[1].timelineStart == target)
+  }
+
+  @Test
+  func `fit_to refuses a ramp, a speed alongside it, and lengths past the speed range`() throws {
+    var (project, first, _) = twoClips()
+    #expect(throws: CommandError.self) {
+      try SetClip(clipID: first, speed: 2, fitTo: seconds(2)).apply(to: &project)
+    }
+    #expect(throws: CommandError.self) {
+      try SetClip(clipID: first, fitTo: seconds(0.2)).apply(to: &project)
+    }
+    try SetKeyframes(clipID: first, keyframes: [
+      SetKeyframes.Key(property: .speed, at: seconds(0), value: 1, easing: nil),
+      SetKeyframes.Key(property: .speed, at: seconds(2), value: 0.5, easing: nil),
+    ]).apply(to: &project)
+    #expect(throws: CommandError.self) {
+      try SetClip(clipID: first, fitTo: seconds(5)).apply(to: &project)
+    }
+  }
+
+  @Test
   func `only moving video and sound has a speed, from 0.1 to 10`() throws {
     var (project, first, _) = twoClips()
     let text = Clip(
